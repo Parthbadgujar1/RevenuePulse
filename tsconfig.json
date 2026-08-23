@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@rp/database": ["./packages/database/index.ts"],
+      "@rp/observability": ["./packages/observability/index.ts"],
+      "@rp/providers": ["./packages/providers/index.ts"],
+      "@rp/razorpay": ["./packages/razorpay/src/index.ts"],
+      "@rp/domain": ["./packages/domain/src/index.ts"],
+      "@rp/policies": ["./packages/policies/src/index.ts"],
+      "@rp/auth": ["./packages/auth/index.ts"]
+    },
+    "types": ["node"]
+  },
+  "include": ["packages/**/*.ts", "scripts/**/*.ts"],
+  "exclude": ["node_modules"]
+}

@@ -1,0 +1,171 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "./generated/prisma"
+}
+
+// Models use String enums validated in application code
+// This avoids Prisma schema validation issues with Enum types
+
+model User {
+  id            String   @id @default(cuid())
+  name          String?
+  email         String   @unique
+  passwordHash  String?
+  role          String
+  status        String   @default("active")
+  createdAt     DateTime
+  updatedAt     DateTime @updatedAt
+}
+
+model Merchant {
+  id              String   @id @default(cuid())
+  name            String
+  currency        String   @default("INR")
+  timezone        String   @default("Asia/Kolkata")
+  retentionPolicy Json     @default("{\"transactionsMonths\":36,\"auditLogsMonths\":12,\"appLogsDays\":30,\"notificationsDays\":90,\"tempJobsDays\":7}")
+  settings        Json     @default("{}")
+  createdAt       DateTime
+  updatedAt       DateTime @updatedAt
+  // Foreign key references - handled at application level
+  userIds         String[]
+  transactionIds  String[]
+  providerConnectionIds String[]
+  revenueCaseIds  String[]
+  auditLogIds     String[]
+  notificationIds String[]
+}
+
+model ProviderConnection {
+  id                String   @id @default(cuid())
+  merchantId        String
+  provider          String   // "razorpay"
+  credentialsRef    String?  // Reference to encrypted secret store
+  status            String   @default("active")
+  webhookSecret     String?
+  createdAt         DateTime
+  updatedAt         DateTime @updatedAt
+}
+
+model Transaction {
+  id                    String           @id @default(cuid())
+  providerTransactionId String           @unique
+  merchantId            String
+  amount                Int              // In paise/cents
+  currency              String           @default("INR")
+  status                String
+  paymentMethod         String
+  paymentMethodDetails  Json?            // Safe metadata only
+  failureCode           String?
+  failureCategory       String?
+  failureMessage        String?
+  occurredAt            DateTime
+  rawEventRef           String?          // Reference to raw webhook payload (minimal)
+  createdAt             DateTime
+  // Relations handled at application level
+}
+
+model RevenueCase {
+  id              String       @id @default(cuid())
+  transactionId   String       @unique
+  caseType        String       // "payment_degradation" | "subscription_recovery"
+  amountAtRisk    Int          // In paise
+  diagnosis       Json?        // Structured diagnosis
+  priority        Int          // Computed priority score
+  status          String     // Case status string
+  merchantId      String
+  currentActionId String?
+  attemptCount    Int          @default(0)
+  lastAttemptAt   DateTime?
+  stoppedReason   String?
+  createdAt       DateTime
+  updatedAt       DateTime @updatedAt
+  // Relations handled at application level
+}
+
+model Prediction {
+  id                String   @id @default(cuid())
+  caseId            String   @unique
+  modelVersion      String
+  probability       Float    // 0-1
+  expectedValue     Int      // In paise
+  confidence        Float?   // Calibration info
+  featureSnapshot   Json     // Features used for prediction
+  createdAt         DateTime
+}
+
+model RecoveryAction {
+  id                String      @id @default(cuid())
+  caseId            String
+  actionType        String     // Action type string
+  policySnapshot    Json        // Policy at time of decision
+  expectedCost      Int         // In paise
+  expectedNetRecovery Int       // In paise
+  approvalStatus    String     // "not_required" | "pending" | "approved" | "rejected"
+  approverId        String?
+  approvedAt        DateTime?
+  executionStatus   String     // Action status string
+  idempotencyKey    String      @unique
+  providerActionId  String?     // Razorpay retry ID, etc.
+  executedAt        DateTime?
+  completedAt       DateTime?
+  error             String?
+  outcomeId         String?
+  @@index([caseId])
+  @@index([executionStatus])
+  @@index([idempotencyKey])
+}
+
+model Outcome {
+  id                String   @id @default(cuid())
+  actionId          String   @unique
+  recoveredAmount   Int      // In paise
+  result            String   // Outcome result string
+  recoveryTimestamp DateTime
+  measuredCost      Int      // In paise
+  notes             String?
+  verifiedAt        DateTime?
+  verificationRef   String?  // Webhook/event reference
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  merchantId    String
+  actorType     String   // "user" | "agent" | "system"
+  actorId       String
+  action        String
+  entityType    String
+  entityId      String
+  reason        String
+  evidence      Json?    // References to predictions, policies, etc.
+  policyResult  Json?    // Policy evaluation result
+  beforeState   Json?
+  afterState    Json?
+  createdAt     DateTime
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  merchantId  String
+  type        String   // Notification type string
+  severity    String   // Notification severity string
+  title       String
+  message     String
+  entityType  String?
+  entityId    String?
+  readAt      DateTime?
+  createdAt   DateTime
+}
+
+model EvaluationRun {
+  id            String   @id @default(cuid())
+  datasetVersion String
+  modelVersion   String
+  metrics        Json     // Precision, recall, F1, ROC-AUC, calibration, business metrics
+  baselineMetrics Json?  // Comparison baselines
+  notes          String?
+  createdAt     DateTime
+}

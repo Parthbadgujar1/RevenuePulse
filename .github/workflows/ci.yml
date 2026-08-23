@@ -1,0 +1,139 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Lint and Type Check
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - node-version: "20"
+            cache-dir: ".esbuild_cache"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+  # Test
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        service: [
+          "packages/domain",
+          "packages/database",
+          "packages/providers",
+          "packages/auth",
+          "packages/observability",
+          "packages/policies",
+          "packages/agent",
+          "packages/evaluation",
+          "packages/razorpay",
+          "apps/web",
+          "apps/worker"
+        ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --workspace=${{ matrix.service }}
+
+      - name: Run tests
+        run: npm run test --workspace=${{ matrix.service }}
+
+  # Build
+  build:
+    name: Build All Packages
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - package: "packages/domain"
+            working-directory: "packages/domain"
+          - package: "packages/database"
+            working-directory: "packages/database"
+          - package: "packages/providers"
+            working-directory: "packages/providers"
+          - package: "packages/auth"
+            working-directory: "packages/auth"
+          - package: "packages/observability"
+            working-directory: "packages/observability"
+          - package: "packages/policies"
+            working-directory: "packages/policies"
+          - package: "packages/agent"
+            working-directory: "packages/agent"
+          - package: "packages/evaluation"
+            working-directory: "packages/evaluation"
+          - package: "packages/razorpay"
+            working-directory: "packages/razorpay"
+          - package: "apps/web"
+            working-directory: "apps/web"
+          - package: "apps/worker"
+            working-directory: "apps/worker"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build --if-present
+        working-directory: ${{ matrix.working-directory || '.' }}
+
+  # Security Scan
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+
+      - name: Run Semgrep
+        uses: returntocodes/semgrep-action@v1
+        with:
+          config: "p/python.best, p/javascript.best"

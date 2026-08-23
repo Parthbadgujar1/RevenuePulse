@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Next.js build output
+.next/
+out/
+
+# Prisma generated client
+packages/database/prisma/generated/
+prisma/generated/
+
+# Builds / caches
+dist/
+build/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+services/ml/data/synthetic_transactions.json
+services/ml/baseline_model.json
+services/ml/metrics.json
+
+# OS / editor
+.DS_Store
+Thumbs.db

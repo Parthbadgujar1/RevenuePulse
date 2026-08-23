@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: revenuepulse-db
+    environment:
+      POSTGRES_DB: revenuepulse
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis (for caching, sessions, queue)
+  redis:
+    image: redis:7-alpine
+    container_name: revenuepulse-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ML Service (Python FastAPI)
+  ml:
+    build: ./services/ml
+    container_name: revenuepulse-ml
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/revenuepulse
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8001:8000"
+    environment:
+      - ENVIRONMENT=development
+
+  # Worker Service (Node.js background jobs)
+  worker:
+    build: ./apps/worker
+    container_name: revenuepulse-worker
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/revenuepulse
+      - REDIS_URL=redis://redis:6379
+      - RAZORPAY_API_KEY=${RAZORPAY_API_KEY}
+      - RAZORPAY_API_SECRET=${RAZORPAY_API_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./apps/worker:/usr/app
+
+  # Web Application (Next.js)
+  web:
+    build: ./apps/web
+    container_name: revenuepulse-web
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/revenuepulse
+      - REDIS_URL=redis://redis:6379
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - RAZORPAY_API_KEY=${RAZORPAY_API_KEY}
+      - RAZORPAY_API_SECRET=${RAZORPAY_API_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ml:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/usr/app
+    # Hot reload for development
+    command: ["npm", "run", "dev"]
+
+volumes:
+  postgres_data:
