@@ -1,8 +1,10 @@
 ﻿import { NextResponse } from 'next/server';
 import { verifyRazorpaySignature } from '@rp/providers';
 import {
-  tryAcquireIdempotencyKey,
-  completeIdempotencyKey,
+  prisma,
+  ensureDemoMerchant,
+  registerWebhookEvent,
+  hashPayload,
 } from '@rp/database';
 import { normalizeRazorpayEvent } from '@rp/razorpay';
 import { enqueueProcessingJob, JobType } from '@rp/observability';
@@ -12,13 +14,13 @@ import type { NextRequest } from 'next/server';
  * POST: Receive Razorpay webhook
  *
  * Flow:
- * 1. Verify webhook signature (simulation mode accepts unsigned demo events)
+ * 1. Verify webhook signature (DEMO_MODE accepts unsigned demo events)
  * 2. Validate schema
- * 3. Check idempotency (prevent duplicate processing)
- * 4. Persist raw event metadata (minimal, safe)
- * 5. Normalize to internal event format
- * 6. Enqueue async processing job
- * 7. Acknowledge webhook safely
+ * 3. Durable idempotency: WebhookEvent row owns the state machine
+ *    (RECEIVED -> PROCESSING -> PROCESSED | FAILED). Duplicate provider
+ *    event ids are acknowledged without reprocessing.
+ * 4. Enqueue async processing job - completion is recorded by the worker
+ *    only after the workflow succeeds.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +32,7 @@ export async function POST(request: NextRequest) {
     const verification = verifyRazorpaySignature(body, signature);
     if (!verification.valid) {
       console.warn('Webhook signature verification failed');
-      return new NextResponse('Invalid signature', { status: 400 });
+      return new NextResponse('Invalid signature', { status: 401 });
     }
 
     // 2. Validate schema - check required fields
@@ -45,57 +47,60 @@ export async function POST(request: NextRequest) {
       }
       // Accept both `event_type` (simulation) and `event` (Razorpay actual)
       eventData.event_type = eventData.event_type || eventData.event;
-    } catch (e) {
+    } catch {
       return new NextResponse('Failed to parse JSON', { status: 400 });
     }
 
-    // 3. Check idempotency - prevent duplicate processing
-    let idempotencyKey: string | null = null;
-    if (eventId) {
-      idempotencyKey = `webhook_${eventId}`;
-      const acquired = await tryAcquireIdempotencyKey(idempotencyKey, 3600);
+    const merchantId = await ensureDemoMerchant(prisma);
 
-      if (!acquired) {
-        // Already processed this webhook - acknowledge safely
-        return new NextResponse(
-          JSON.stringify({ status: 'already_processed' }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
+    // 3. Durable idempotency + persistence in one step.
+    //    providerEventId falls back to a hash of the body when Razorpay
+    //    does not supply an explicit event id header.
+    const registration = await registerWebhookEvent(prisma, {
+      providerEventId: eventId || `sha:${hashPayload(body)}`,
+      eventType: eventData.event_type,
+      rawBody: body,
+      summary: {
+        amount: eventData.data?.amount,
+        currency: eventData.data?.currency,
+        status: eventData.data?.status,
+        errorCode: eventData.data?.error?.code ?? null,
+      },
+      merchantId,
+    });
+
+    if (registration.duplicate) {
+      return new NextResponse(
+        JSON.stringify({ status: 'already_processed' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
-    // 4. Persist raw-safe metadata (minimal, no sensitive payload)
-    const eventRef = await persistEventMetadata(eventData, eventId);
-
-    // 5. Normalize to internal event format
+    // 4. Normalize to internal event format
     const normalizedEvent = normalizeRazorpayEvent(eventData);
 
-    // 6. Enqueue async processing job
+    // 5. Enqueue async processing job (worker records completion)
     const jobId = await enqueueProcessingJob(
       {
         type: JobType.PROCESS_TRANSACTION_EVENT,
         payload: {
           event: normalizedEvent,
-          eventRef,
+          eventRef: registration.id,
+          webhookEventId: registration.id,
           source: 'webhook',
           simulated: verification.simulated,
         },
         source: 'webhook',
-        idempotencyKey: idempotencyKey || undefined,
       },
       { timeout: 300000 }
     );
 
-    // Mark the event as fully accepted for processing
-    if (idempotencyKey) {
-      await completeIdempotencyKey(idempotencyKey);
-    }
-
-    // 7. Acknowledge webhook safely (return 200 immediately)
+    // 6. Acknowledge webhook safely (return 200 immediately)
     return new NextResponse(
       JSON.stringify({
         status: 'accepted',
         jobId,
+        eventId: registration.id,
         simulated: verification.simulated,
         message: 'Webhook accepted for processing',
       }),
@@ -123,23 +128,3 @@ export async function GET() {
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   );
 }
-
-/**
- * Helper: Persist raw event metadata to database
- * Stores only safe, non-sensitive references
- */
-async function persistEventMetadata(
-  eventData: any,
-  eventId?: string
-): Promise<string> {
-  // In production, this would use Prisma to store:
-  // - event type
-  // - merchant ID
-  // - timestamps
-  // - normalized references (NOT full payload)
-  // - encrypted minimal metadata
-
-  // For now, return a reference ID
-  return `event_ref_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-

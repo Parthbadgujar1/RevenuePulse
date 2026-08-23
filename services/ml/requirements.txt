@@ -5,4 +5,4 @@ python-jose[cryptography]
 pydantic
 numpy
 scikit-learn
-pandas
+pandasjoblib

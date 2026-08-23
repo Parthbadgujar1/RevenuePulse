@@ -10,17 +10,6 @@ generator client {
 // Models use String enums validated in application code
 // This avoids Prisma schema validation issues with Enum types
 
-model User {
-  id            String   @id @default(cuid())
-  name          String?
-  email         String   @unique
-  passwordHash  String?
-  role          String
-  status        String   @default("active")
-  createdAt     DateTime
-  updatedAt     DateTime @updatedAt
-}
-
 model Merchant {
   id              String   @id @default(cuid())
   name            String
@@ -30,13 +19,48 @@ model Merchant {
   settings        Json     @default("{}")
   createdAt       DateTime
   updatedAt       DateTime @updatedAt
-  // Foreign key references - handled at application level
-  userIds         String[]
-  transactionIds  String[]
-  providerConnectionIds String[]
-  revenueCaseIds  String[]
-  auditLogIds     String[]
-  notificationIds String[]
+  // Real relational mappings
+  users           User[]
+  providerConnections ProviderConnection[]
+  transactions    Transaction[]
+  revenueCases    RevenueCase[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  webhookEvents   WebhookEvent[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String?
+  email         String   @unique
+  passwordHash  String?
+  role          String
+  status        String   @default("active")
+  createdAt     DateTime
+  updatedAt     DateTime @updatedAt
+  merchant      Merchant? @relation(fields: [merchantId], references: [id])
+  merchantId    String?
+}
+
+// Durable webhook ingestion log - owns the idempotency state machine.
+// States: RECEIVED -> PROCESSING -> PROCESSED | FAILED
+model WebhookEvent {
+  id              String    @id @default(cuid())
+  providerEventId String    @unique
+  provider        String    @default("razorpay")
+  eventType       String
+  payloadHash     String
+  status          String    @default("RECEIVED")
+  summary         Json?
+  receivedAt      DateTime  @default(now())
+  processedAt     DateTime?
+  retryCount      Int       @default(0)
+  error           String?
+  merchant        Merchant? @relation(fields: [merchantId], references: [id])
+  merchantId      String?
+  transaction     Transaction?
+
+  @@index([status])
 }
 
 model ProviderConnection {
@@ -48,6 +72,7 @@ model ProviderConnection {
   webhookSecret     String?
   createdAt         DateTime
   updatedAt         DateTime @updatedAt
+  merchant          Merchant @relation(fields: [merchantId], references: [id])
 }
 
 model Transaction {
@@ -65,7 +90,10 @@ model Transaction {
   occurredAt            DateTime
   rawEventRef           String?          // Reference to raw webhook payload (minimal)
   createdAt             DateTime
-  // Relations handled at application level
+  webhookEvent          WebhookEvent?    @relation(fields: [webhookEventId], references: [id])
+  webhookEventId        String?          @unique
+  merchant              Merchant         @relation(fields: [merchantId], references: [id])
+  revenueCases          RevenueCase[]
 }
 
 model RevenueCase {
@@ -83,7 +111,8 @@ model RevenueCase {
   stoppedReason   String?
   createdAt       DateTime
   updatedAt       DateTime @updatedAt
-  // Relations handled at application level
+  transaction     Transaction @relation(fields: [transactionId], references: [id])
+  merchant        Merchant     @relation(fields: [merchantId], references: [id])
 }
 
 model Prediction {
@@ -145,6 +174,7 @@ model AuditLog {
   beforeState   Json?
   afterState    Json?
   createdAt     DateTime
+  merchant      Merchant @relation(fields: [merchantId], references: [id])
 }
 
 model Notification {
@@ -158,6 +188,7 @@ model Notification {
   entityId    String?
   readAt      DateTime?
   createdAt   DateTime
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
 }
 
 model EvaluationRun {

@@ -8,13 +8,16 @@
     "apps/*"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "echo \"No unit tests configured; run scripts/batch-experiment.ts for end-to-end verification\" && exit 0",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "dev": "turbo run dev --scope=web",
     "build": "turbo run build --scope=web",
     "db:push": "prisma db push",
-    "db:migrate": "prisma migrate make init && prisma migrate deploy"
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate make init && prisma migrate deploy",
+    "ml:train": "python services/ml/data/generate_synthetic.py && python services/ml/train_baseline.py",
+    "experiment": "tsx scripts/batch-experiment.ts 100"
   },
   "devDependencies": {
     "@prisma/client": "^7.9.1",

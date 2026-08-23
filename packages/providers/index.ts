@@ -12,25 +12,47 @@
 import crypto from 'crypto';
 
 /**
+ * Provider operating mode.
+ * - 'demo' (default): unsigned/simulated webhooks are accepted so local demos
+ *   work without credentials; every response is labeled simulated=true and
+ *   outcomes are drawn from the ground-truth simulator.
+ * - 'live': real Razorpay integration. Requires RAZORPAY_WEBHOOK_SECRET;
+ *   signatures are strictly verified and invalid ones are rejected.
+ */
+export type ProviderMode = 'demo' | 'live';
+
+export function getProviderMode(): ProviderMode {
+  return (process.env.RAZORPAY_MODE || 'demo').trim().toLowerCase() === 'live'
+    ? 'live'
+    : 'demo';
+}
+
+/**
  * Verify a Razorpay webhook signature (HMAC SHA256 of raw body with webhook secret).
  *
- * Simulation mode: when RAZORPAY_WEBHOOK_SECRET is not configured, signatures
- * are accepted so local/demo webhooks work without real credentials. The
- * response flag tells callers they are in simulation mode.
+ * In live mode a missing secret throws loudly instead of silently accepting
+ * unsigned requests — misconfiguration must never widen the auth surface.
  */
 export function verifyRazorpaySignature(
   payload: string,
   signature: string
-): { valid: boolean; simulated: boolean } {
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+): { valid: boolean; simulated: boolean; mode: ProviderMode } {
+  const mode = getProviderMode();
 
+  if (mode === 'demo') {
+    return { valid: true, simulated: true, mode };
+  }
+
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
   if (!secret) {
-    // Simulation mode - no real provider configured
-    return { valid: true, simulated: true };
+    throw new Error(
+      'RAZORPAY_MODE=live but RAZORPAY_WEBHOOK_SECRET is not configured. ' +
+        'Refusing to accept unverified webhooks.'
+    );
   }
 
   if (!signature) {
-    return { valid: false, simulated: false };
+    return { valid: false, simulated: false, mode };
   }
 
   const expected = crypto
@@ -45,7 +67,7 @@ export function verifyRazorpaySignature(
   const valid =
     a.length === b.length && crypto.timingSafeEqual(a, b);
 
-  return { valid, simulated: false };
+  return { valid, simulated: false, mode };
 }
 
 export interface RetryParams {
@@ -201,7 +223,7 @@ export class SimulationProvider implements PaymentProvider {
 export class RazorpayProvider implements PaymentProvider {
   private apiKey: string;
   private apiSecret: string;
-  baseUrl: string = 'https://api.razorpapay.com/v1';
+  baseUrl: string = 'https://api.razorpay.com/v1';
 
   constructor(credentials: {
     apiKey: string;

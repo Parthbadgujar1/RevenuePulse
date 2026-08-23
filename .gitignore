@@ -30,3 +30,6 @@ services/ml/metrics.json
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# ML training data (regenerate with services/ml/data/generate_synthetic.py)
+services/ml/data/*.jsonl

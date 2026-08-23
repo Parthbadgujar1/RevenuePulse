@@ -9,7 +9,7 @@ const features = [
   {
     title: "AI Recovery Models",
     description:
-      "Gradient-boosted models score each failed transaction for recovery probability, expected value, and optimal retry timing.",
+      "A calibrated logistic-regression model (isotonic calibration, honest held-out metrics) scores each failed transaction for recovery probability and expected net value.",
   },
   {
     title: "Bounded Agent Actions",

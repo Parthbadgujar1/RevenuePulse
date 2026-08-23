@@ -28,15 +28,36 @@ interface CaseRow {
   createdAt: Date;
 }
 
+interface FunnelRow {
+  stage: string;
+  count: number;
+  ofTotal: number;
+}
+
+interface MoneyRow {
+  label: string;
+  amount: number;
+}
+
 async function getDashboardData() {
   try {
-    const [cases, outcomes] = await Promise.all([
+    const [cases, outcomes, actions, predictions] = await Promise.all([
       prisma.revenueCase.findMany({ orderBy: { createdAt: 'desc' } }),
       prisma.outcome.findMany(),
+      prisma.recoveryAction.findMany(),
+      prisma.prediction.findMany({ select: { caseId: true } }),
     ]);
 
     const atRisk = cases.reduce((sum, c) => sum + c.amountAtRisk, 0);
-    const recovered = outcomes.reduce((sum, o) => sum + o.recoveredAmount, 0);
+    const recovered = outcomes
+      .filter((o) => o.result === 'RECOVERED')
+      .reduce((sum, o) => sum + o.recoveredAmount, 0);
+    const actionCost = outcomes.reduce((sum, o) => sum + o.measuredCost, 0);
+    const netRecovered = recovered - actionCost;
+
+    // Real recovery rate: share of at-risk money actually recovered,
+    // computed from persisted Outcome rows (not hardcoded).
+    const recoveryRate = atRisk > 0 ? (recovered / atRisk) * 100 : 0;
 
     // Category leakage breakdown from structured diagnoses
     const byCategory: Record<string, number> = {};
@@ -70,6 +91,42 @@ async function getDashboardData() {
       ['DETECTED', 'EVALUATED', 'ACTION_PENDING', 'RECOVERY_IN_PROGRESS'].includes(c.status)
     ).length;
 
+    // Recovery funnel: every stage measured from real rows
+    const executedActions = actions.filter((a) => a.executionStatus === 'EXECUTED');
+    const verifiedOutcomes = outcomes.filter((o) => o.verifiedAt);
+    const recoveredOutcomes = outcomes.filter((o) => o.result === 'RECOVERED');
+    const funnel: FunnelRow[] = [
+      { stage: 'Failures diagnosed', count: cases.length, ofTotal: 1 },
+      {
+        stage: 'Scored by ML model',
+        count: predictions.length,
+        ofTotal: cases.length ? predictions.length / cases.length : 0,
+      },
+      {
+        stage: 'Actions executed',
+        count: executedActions.length,
+        ofTotal: cases.length ? executedActions.length / cases.length : 0,
+      },
+      {
+        stage: 'Outcomes verified',
+        count: verifiedOutcomes.length,
+        ofTotal: cases.length ? verifiedOutcomes.length / cases.length : 0,
+      },
+      {
+        stage: 'Recovered',
+        count: recoveredOutcomes.length,
+        ofTotal: cases.length ? recoveredOutcomes.length / cases.length : 0,
+      },
+    ];
+
+    // Money funnel: where the rupees went
+    const money: MoneyRow[] = [
+      { label: 'At risk', amount: atRisk },
+      { label: 'Recovered', amount: recovered },
+      { label: 'Action cost', amount: actionCost },
+      { label: 'Net recovered', amount: netRecovered },
+    ];
+
     return {
       ok: true as const,
       summary: {
@@ -77,18 +134,34 @@ async function getDashboardData() {
         openCases,
         totalCases: cases.length,
         recovered,
-        recoveryRate: 0,
+        recoveryRate,
+        netRecovered,
+        actionCost,
+        awaitingApproval: actions.filter((a) => a.approvalStatus === 'pending').length,
       },
       categories,
       recentCases,
+      funnel,
+      money,
     };
   } catch (error) {
     console.error('Dashboard data load failed:', error);
     return {
       ok: false as const,
-      summary: { atRisk: 0, openCases: 0, totalCases: 0, recovered: 0, recoveryRate: 0 },
+      summary: {
+        atRisk: 0,
+        openCases: 0,
+        totalCases: 0,
+        recovered: 0,
+        recoveryRate: 0,
+        netRecovered: 0,
+        actionCost: 0,
+        awaitingApproval: 0,
+      },
       categories: [] as CategoryRow[],
       recentCases: [] as CaseRow[],
+      funnel: [] as FunnelRow[],
+      money: [] as MoneyRow[],
     };
   }
 }
@@ -102,7 +175,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default async function Dashboard() {
-  const { ok, summary, categories, recentCases } = await getDashboardData();
+  const { ok, summary, categories, recentCases, funnel, money } = await getDashboardData();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -112,6 +185,11 @@ export default async function Dashboard() {
         </h1>
         <p className="text-sm text-gray-500 mb-6">
           Live data · {summary.totalCases} case{summary.totalCases === 1 ? '' : 's'} on record
+          {summary.awaitingApproval > 0 && (
+            <span className="ml-2 rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+              {summary.awaitingApproval} awaiting approval
+            </span>
+          )}
         </p>
 
         {!ok && (
@@ -121,7 +199,7 @@ export default async function Dashboard() {
         )}
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <div className="p-4 rounded-lg bg-blue-500 text-white shadow">
             <div className="text-2xl sm:text-3xl font-bold">{inr(summary.atRisk)}</div>
             <div className="text-sm opacity-90">Revenue At Risk</div>
@@ -134,10 +212,78 @@ export default async function Dashboard() {
             <div className="text-2xl sm:text-3xl font-bold">{inr(summary.recovered)}</div>
             <div className="text-sm opacity-90">Recovered</div>
           </div>
-          <div className="p-4 rounded-lg bg-purple-500 text-white shadow">
-            <div className="text-2xl sm:text-3xl font-bold">{inr(summary.atRisk - summary.recovered)}</div>
-            <div className="text-sm opacity-90">Outstanding</div>
+          <div className="p-4 rounded-lg bg-emerald-600 text-white shadow">
+            <div className="text-2xl sm:text-3xl font-bold">
+              {summary.recoveryRate.toFixed(1)}%
+            </div>
+            <div className="text-sm opacity-90">Recovery Rate</div>
           </div>
+          <div className="p-4 rounded-lg bg-purple-500 text-white shadow col-span-2 lg:col-span-1">
+            <div className="text-2xl sm:text-3xl font-bold">{inr(summary.netRecovered)}</div>
+            <div className="text-sm opacity-90">Net Recovered</div>
+          </div>
+        </div>
+
+        {/* Funnels */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <section>
+            <h2 className="text-lg font-medium mb-4 text-gray-900">Recovery Funnel</h2>
+            <div className="p-3 rounded-lg border border-gray-200 bg-white shadow-sm space-y-2">
+              {funnel.length === 0 ? (
+                <p className="text-sm text-gray-500 p-2">No data yet.</p>
+              ) : (
+                funnel.map((f) => (
+                  <div key={f.stage}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-gray-700">{f.stage}</span>
+                      <span className="text-gray-500">
+                        {f.count} ({(f.ofTotal * 100).toFixed(0)}%)
+                      </span>
+                    </div>
+                    <div className="h-2 rounded bg-gray-100 overflow-hidden">
+                      <div
+                        className="h-full rounded bg-blue-500"
+                        style={{ width: `${Math.max(f.ofTotal * 100, f.count > 0 ? 4 : 0)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-medium mb-4 text-gray-900">Money Funnel</h2>
+            <div className="p-3 rounded-lg border border-gray-200 bg-white shadow-sm">
+              {money.length === 0 ? (
+                <p className="text-sm text-gray-500 p-2">No data yet.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <tbody>
+                    {money.map((m) => (
+                      <tr key={m.label} className="border-b last:border-b-0 border-gray-100">
+                        <td className="py-2 text-gray-700">{m.label}</td>
+                        <td
+                          className={`py-2 text-right font-semibold ${
+                            m.label === 'Net recovered'
+                              ? m.amount >= 0
+                                ? 'text-green-600'
+                                : 'text-red-600'
+                              : 'text-gray-900'
+                          }`}
+                        >
+                          {inr(m.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <p className="mt-2 text-xs text-gray-400">
+                Outcomes in demo mode are simulated from an independent ground-truth propensity.
+              </p>
+            </div>
+          </section>
         </div>
 
         {/* Leakage Analysis */}
