@@ -68,6 +68,9 @@ model ProviderConnection {
   merchantId        String
   provider          String   // "razorpay"
   credentialsRef    String?  // Reference to encrypted secret store
+  keyId             String?  // Razorpay Key ID (not secret)
+  keySecretEncrypted String? // AES-256-GCM encrypted key_secret (never returned to client)
+  lastSyncAt        DateTime?
   status            String   @default("active")
   mode              String?  // "test_demo" (simulated) | "live"
   displayName       String?  // Masked key id, e.g. rzp_test_****1234

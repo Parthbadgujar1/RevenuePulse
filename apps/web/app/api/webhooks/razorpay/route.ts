@@ -28,8 +28,21 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get('x-razorpay-signature') || '';
     const eventId = request.headers.get('x-razorpay-event-id') || '';
 
-    // 1. Verify webhook signature
-    const verification = verifyRazorpaySignature(body, signature);
+    // 1. Verify webhook signature. In live mode, prefer the env secret but
+    //    fall back to the secret stored on the active Razorpay connection
+    //    (set when the merchant connected their keys in the dashboard).
+    let verification = verifyRazorpaySignature(body, signature);
+    if (!verification.valid && verification.mode === 'live') {
+      const conn = await prisma.providerConnection.findFirst({
+        where: { provider: 'razorpay', status: 'active' },
+        orderBy: { id: 'desc' },
+      });
+      if (conn?.webhookSecret) {
+        verification = verifyRazorpaySignature(body, signature, {
+          secret: conn.webhookSecret,
+        });
+      }
+    }
     if (!verification.valid) {
       console.warn('Webhook signature verification failed');
       return new NextResponse('Invalid signature', { status: 401 });

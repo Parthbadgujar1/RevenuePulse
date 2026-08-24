@@ -75,7 +75,13 @@ export default function HomePage() {
               href="/integrations"
               className="rounded-lg border border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-emerald-500 hover:text-emerald-400"
             >
-              Connect Razorpay Test Mode
+              Connect Razorpay API
+            </Link>
+            <Link
+              href="/ingest"
+              className="rounded-lg border border-indigo-500/60 px-5 py-2.5 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-500/10"
+            >
+              📥 Import CSV / Excel / PDF
             </Link>
             <Link
               href="/dashboard"

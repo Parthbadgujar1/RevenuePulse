@@ -11,7 +11,9 @@
   "license": "ISC",
   "dependencies": {
     "@tanstack/react-query": "^5.102.0",
-    "recharts": "^3.10.1"
+    "pdf-parse": "^2.4.5",
+    "recharts": "^3.10.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",

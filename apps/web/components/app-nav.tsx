@@ -8,6 +8,7 @@ const LINKS = [
   { href: '/cases', label: 'Cases' },
   { href: '/actions', label: 'Recovery Actions' },
   { href: '/demo-lab', label: 'Demo Lab' },
+  { href: '/ingest', label: 'Import Data' },
   { href: '/integrations', label: 'Integrations' },
   { href: '/settings', label: 'Policies' },
 ];

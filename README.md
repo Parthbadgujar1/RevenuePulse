@@ -68,8 +68,20 @@ The experiment reports an honest funnel (diagnosed → scored → executed → v
 
 - `POST /api/webhooks/razorpay` — webhook ingestion (signature verification, durable idempotency, async processing)
 - `GET  /api/webhooks/razorpay` — health check
+- `POST /api/ingest` — multipart file import (CSV / XLSX / PDF). `dryRun=true` returns the auto-detected column mapping, failure/captured counts and estimated at-risk amount; `dryRun=false` runs every imported failure through the full pipeline
+- `POST /api/integrations/razorpay/sync` — pull recent payments from the Razorpay REST API using stored keys (key secret AES-256-GCM encrypted at rest)
 - `/dashboard` — KPIs, recovery funnel, money funnel, leakage by category, recent cases
 - ML service: `POST /predict`, `GET /health`, `GET /model-info` (honest held-out metrics + limitations)
+
+## Bring your own data
+
+Three ways to feed real failed payments into the same pipeline:
+
+1. **Webhook** (`RAZORPAY_MODE=live` + webhook secret from the dashboard connection card) — strictly HMAC-verified.
+2. **Razorpay REST sync** — connect Key ID + Key Secret under *Integrations* (stored encrypted), then "Sync Failed Payments" pulls the latest payments via `api.razorpay.com/v1/payments`.
+3. **File import** (`/ingest`) — CSV, Excel (.xlsx/.xls) or even PDF reports. Headers are auto-mapped by fuzzy matching (`Payment ID`, `Transaction Amount (INR)`, `Failure Reason`, … all recognized), amounts auto-detect rupees vs paise (override in the UI), and a dry-run preview shows exactly what will be ingested before anything is committed.
+
+PDF imports use heuristic line parsing (currency-marked amounts + status keywords + payment-id/method tokens), so structured exports like bank statements work best; CSV/XLSX are exact.
 
 ## Honest ML disclosure
 

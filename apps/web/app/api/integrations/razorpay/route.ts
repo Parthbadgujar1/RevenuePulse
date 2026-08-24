@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma, ensureDemoMerchant } from '@rp/database';
 import { getProviderMode } from '@rp/providers';
+import { encryptSecret } from '../../../../lib/crypto';
 
 async function getConnection(merchantId: string) {
   return prisma.providerConnection.findFirst({
@@ -110,7 +111,9 @@ export async function POST(req: NextRequest) {
         status: 'active',
         mode,
         displayName,
-        credentialsRef: live ? `vault:${displayName}` : null,
+        keyId: keyId || null,
+        credentialsRef: live ? `vault:${displayName}` : keySecret ? `vault:${displayName}` : null,
+        keySecretEncrypted: keySecret ? encryptSecret(keySecret) : null,
         webhookSecret,
         createdAt: new Date(),
       },
@@ -121,6 +124,10 @@ export async function POST(req: NextRequest) {
       connected: true,
       mode: (conn as any).mode,
       displayName: (conn as any).displayName,
+      // Configure this in the Razorpay Dashboard -> Webhooks so live
+      // payment.failed events are HMAC-verified end to end.
+      webhookSecret: (conn as any).webhookSecret,
+      webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/webhooks/razorpay`,
     });
   }
 

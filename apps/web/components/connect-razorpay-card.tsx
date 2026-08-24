@@ -50,17 +50,22 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
   async function connect(live: boolean) {
     try {
       await post(
-        live
-          ? { action: 'connect', live: true, keyId, keySecret }
-          : { action: 'connect', keyId: keyId || undefined },
+        {
+          action: 'connect',
+          live,
+          keyId: keyId || undefined,
+          keySecret: keySecret || undefined,
+        },
         live ? 'connect-live' : 'connect-demo'
       );
       setMessage({
         tone: 'ok',
         text: live
           ? 'Connection saved. Live webhook signatures are now strictly verified.'
-          : 'Razorpay Test Mode connected ✓ — simulated events will be accepted.',
+          : 'Razorpay connected ✓' +
+            (keySecret ? ' Keys stored encrypted — API sync enabled.' : ' Simulated events will be accepted.'),
       });
+      setKeySecret('');
       await refresh();
     } catch (e) {
       setMessage({ tone: 'err', text: (e as Error).message });
@@ -91,6 +96,30 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
       await refresh();
     } catch (e) {
       setMessage({ tone: 'err', text: (e as Error).message });
+    }
+  }
+
+  async function sync() {
+    setBusy('sync');
+    setMessage(null);
+    try {
+      const res = await fetch('/api/integrations/razorpay/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 100 }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || `Sync failed (${res.status})`);
+      const failed = j.byStatus?.failed ?? 0;
+      setMessage({
+        tone: 'ok',
+        text: `Synced ${j.fetched} payments (${failed} failed) → ${j.processed} processed, ${j.casesCreated} new recovery cases, ${j.actionsCreated} actions decided.`,
+      });
+      await refresh();
+    } catch (e) {
+      setMessage({ tone: 'err', text: (e as Error).message });
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -193,6 +222,14 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
                   {busy === 'test' ? 'Testing…' : 'Test Connection'}
                 </button>
                 <button
+                  onClick={sync}
+                  disabled={busy !== null}
+                  title="Pull recent payments from the Razorpay REST API using your stored keys"
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60"
+                >
+                  {busy === 'sync' ? 'Syncing…' : '⬇ Sync Failed Payments'}
+                </button>
+                <button
                   onClick={disconnect}
                   disabled={busy !== null}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
@@ -206,7 +243,7 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
           {!connected && (
             <details className="mt-4 text-xs text-gray-500">
               <summary className="cursor-pointer font-medium text-gray-600">
-                Have real test keys? Enter them here
+                Have real keys (test or live)? Enter them here — stored AES-256 encrypted, enables API sync
               </summary>
               <div className="mt-2 space-y-2">
                 <input

@@ -35,7 +35,8 @@ export function getProviderMode(): ProviderMode {
  */
 export function verifyRazorpaySignature(
   payload: string,
-  signature: string
+  signature: string,
+  opts?: { secret?: string }
 ): { valid: boolean; simulated: boolean; mode: ProviderMode } {
   const mode = getProviderMode();
 
@@ -43,10 +44,10 @@ export function verifyRazorpaySignature(
     return { valid: true, simulated: true, mode };
   }
 
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET || opts?.secret;
   if (!secret) {
     throw new Error(
-      'RAZORPAY_MODE=live but RAZORPAY_WEBHOOK_SECRET is not configured. ' +
+      'RAZORPAY_MODE=live but no webhook secret is configured (env RAZORPAY_WEBHOOK_SECRET or stored connection secret). ' +
         'Refusing to accept unverified webhooks.'
     );
   }
