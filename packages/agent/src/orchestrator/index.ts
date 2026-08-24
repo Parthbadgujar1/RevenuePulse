@@ -179,7 +179,8 @@ export class AgentOrchestrator {
       const decision = await this.policyEngine.makeDecision(
         caseId,
         features,
-        { ...DEFAULT_MERCHANT_POLICY, ...(policyResult as object) } as MerchantPolicy
+        { ...DEFAULT_MERCHANT_POLICY, ...(policyResult as object) } as MerchantPolicy,
+        prediction
       );
 
       // Record tool call for the decision

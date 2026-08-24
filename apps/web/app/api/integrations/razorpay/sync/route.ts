@@ -4,17 +4,19 @@
  * through the same pipeline as webhooks, returns counts.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, ensureDemoMerchant } from '@rp/database';
-import { processJob, JobType } from '@rp/observability';import { normalizeRazorpayEvent } from '@rp/razorpay';
+import { prisma } from '@rp/database';
+import { processJob, JobType } from '@rp/observability';
+import { normalizeRazorpayEvent } from '@rp/razorpay';
 import { decryptSecret } from '../../../../../lib/crypto';
+import { requireMerchantContext } from '../../../../../lib/merchant-context';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
-async function resolveCredentials() {
-  // 1. Stored connection (secret AES-256-GCM encrypted at rest)
+async function resolveCredentials(merchantId: string) {
+  // 1. Stored connection for THIS merchant (secret AES-256-GCM encrypted at rest)
   const conn = await prisma.providerConnection.findFirst({
-    where: { provider: 'razorpay', status: 'active' },
+    where: { merchantId, provider: 'razorpay', status: 'active' },
     orderBy: { id: 'desc' },
   });
   if (conn?.keySecretEncrypted && conn.keyId) {
@@ -44,7 +46,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}) as any);
   const limit = Math.min(Math.max(parseInt(String(body?.limit ?? 100), 10) || 100, 1), 400);
 
-  const creds = await resolveCredentials();
+  const { merchantId } = await requireMerchantContext();
+  const creds = await resolveCredentials(merchantId);
   if ('error' in creds && creds.error) {
     return NextResponse.json({ error: creds.error }, { status: 400 });
   }
@@ -73,14 +76,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const merchantId = await ensureDemoMerchant(prisma);
   const cohortStart = new Date();
   let processed = 0;
   let pipelineErrors = 0;
+  let duplicatesSkipped = 0;
   const perStatus: Record<string, number> = {};
 
   for (const p of payments) {
     perStatus[p.status] = (perStatus[p.status] ?? 0) + 1;
+    // Stable idempotency key: syncing the same payment twice is a no-op.
+    const providerEventId = `razorpay-api:${p.id}`;
+    const existing = await prisma.webhookEvent.findUnique({ where: { providerEventId } });
+    if (existing) {
+      duplicatesSkipped++;
+      continue;
+    }
     const rawEvent = {
       event: p.status === 'failed' || p.status === 'cancelled' ? 'payment_failed' : `payment_${p.status}`,
       data: {
@@ -100,7 +110,7 @@ export async function POST(req: NextRequest) {
     const normalized = normalizeRazorpayEvent(rawEvent as any);
     const webhookRow = await prisma.webhookEvent.create({
       data: {
-        providerEventId: `rzp_api_${p.id}_${Date.now()}`,
+        providerEventId,
         eventType: normalized.eventType,
         payloadHash: `sha:${p.id}`,
         status: 'RECEIVED',
@@ -132,6 +142,7 @@ export async function POST(req: NextRequest) {
     fetched: payments.length,
     byStatus: perStatus,
     processed,
+    duplicatesSkipped,
     pipelineErrors,
     casesCreated,
     actionsCreated,

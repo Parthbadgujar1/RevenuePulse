@@ -88,3 +88,23 @@ PDF imports use heuristic line parsing (currency-marked amounts + status keyword
 - Model: logistic regression with isotonic calibration — chosen over gradient boosting because the honest held-out gain did not justify the complexity.
 - Training data is **synthetic** (see `services/ml/data/generate_synthetic.py`); labels mean "a retry-style intervention eventually recovered this payment".
 - Held-out metrics live in `services/ml/metrics.json` and are exposed verbatim at `GET /model-info`. The API refuses to serve if the trained artifact is missing.
+
+## Honesty guarantees (what is real vs simulated)
+
+**The trained model is load-bearing.** Every production decision path (`evaluateRecovery` in the pipeline) calls the FastAPI service that serves `model.joblib`; predictions persist with the real `modelVersion` (`baseline-recovery-v2.0.0`) on every Prediction row and in audit evidence. If the model service is unreachable, the pipeline job **fails loudly** — it never silently substitutes a hand-coded heuristic. A labeled fallback (`RP_ML_FALLBACK=heuristic`, version string `heuristic-fallback-v1`) exists for dev environments without Python.
+
+**Demo vs live execution are structurally separate.**
+- *Simulated* sources (Demo Lab batches, file imports) draw outcomes from an independent seeded ground-truth propensity; executions are stamped `SIMULATED_DEMO` in the audit trail.
+- *Live* sources (Razorpay API sync, verified webhooks) execute in `PROVIDER_LIVE` mode: no outcome is ever fabricated. The case enters `OUTCOME_PENDING` and resolves only when a real provider event arrives (`resolvePendingLiveOutcomes`), recording the real provider transaction id as `verificationRef`.
+- Every case shows a source badge: 🟣 Demo Lab · 🟢 File Import · 🟠 Razorpay API Sync (live) · 🔵 Razorpay Webhook.
+
+**Reproducible experiments.** Demo Lab runs are fully deterministic given a seed: same seed ⇒ same cohort, same model scores, same ground-truth draws, bit-for-bit identical results. Re-running an identical batch is idempotent (deduplicated by stable event keys). The retry-all baseline is realized through the same seeded simulator — not an expected-value shortcut.
+
+**Merchant isolation & secrets.** All dashboard queries are scoped via `requireMerchantContext()`; cross-tenant case ids 404. Razorpay key secrets are validated against the live API at connect time and stored AES-256-GCM encrypted; sync/webhook flows decrypt only in memory. Webhooks require HMAC verification in live mode.
+
+**Idempotency everywhere.** Provider events dedupe on stable keys (webhook event id / payment id / file-hash+row), so replays, re-syncs and re-uploads never create duplicate cases or double-spend recovery budget.
+
+```powershell
+# Unit tests (payload normalization + ML contract, no DB needed)
+npm test
+```

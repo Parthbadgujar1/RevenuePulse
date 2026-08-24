@@ -1,7 +1,8 @@
 // Cases - every failed payment and its AI investigation
 import Link from 'next/link';
 import { prisma } from '@rp/database';
-import { inr, categoryLabel, statusTone, timeAgo } from '../../lib/ui';
+import { requireMerchantContext } from '../../lib/merchant-context';
+import { inr, categoryLabel, statusTone, timeAgo, SOURCE_LABELS } from '../../lib/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,9 +10,12 @@ export default async function CasesPage() {
   let cases: Awaited<ReturnType<typeof prisma.revenueCase.findMany>> = [];
   let ok = true;
   try {
+    const { merchantId } = await requireMerchantContext();
     cases = await prisma.revenueCase.findMany({
+      where: { merchantId },
       orderBy: { createdAt: 'desc' },
       take: 100,
+      include: { transaction: { select: { paymentMethodDetails: true } } },
     });
   } catch {
     ok = false;
@@ -44,6 +48,9 @@ export default async function CasesPage() {
       <div className="mt-6 space-y-2">
         {cases.map((c) => {
           const diag = (c.diagnosis ?? {}) as Record<string, unknown>;
+          const source = String(
+            ((c as any).transaction?.paymentMethodDetails as any)?.source ?? 'webhook'
+          );
           return (
             <Link
               key={c.id}
@@ -58,6 +65,9 @@ export default async function CasesPage() {
                   <span className="font-semibold text-gray-900">{inr(c.amountAtRisk)}</span>
                   <span className={`rounded border px-2 py-0.5 text-xs font-medium ${statusTone(c.status)}`}>
                     {c.status.replace(/_/g, ' ')}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {SOURCE_LABELS[source] ?? '🔵 Webhook'}
                   </span>
                 </div>
                 <div className="text-xs text-gray-500">

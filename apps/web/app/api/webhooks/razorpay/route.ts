@@ -32,15 +32,20 @@ export async function POST(request: NextRequest) {
     //    fall back to the secret stored on the active Razorpay connection
     //    (set when the merchant connected their keys in the dashboard).
     let verification = verifyRazorpaySignature(body, signature);
+    let conn: { merchantId: string; webhookSecret: string | null } | null = null;
     if (!verification.valid && verification.mode === 'live') {
-      const conn = await prisma.providerConnection.findFirst({
+      const found = await prisma.providerConnection.findFirst({
         where: { provider: 'razorpay', status: 'active' },
         orderBy: { id: 'desc' },
+        select: { merchantId: true, webhookSecret: true },
       });
-      if (conn?.webhookSecret) {
-        verification = verifyRazorpaySignature(body, signature, {
-          secret: conn.webhookSecret,
-        });
+      if (found) {
+        conn = found;
+        if (found.webhookSecret) {
+          verification = verifyRazorpaySignature(body, signature, {
+            secret: found.webhookSecret,
+          });
+        }
       }
     }
     if (!verification.valid) {
@@ -64,20 +69,31 @@ export async function POST(request: NextRequest) {
       return new NextResponse('Failed to parse JSON', { status: 400 });
     }
 
-    const merchantId = await ensureDemoMerchant(prisma);
+    // Merchant attribution: a signed live webhook belongs to the merchant
+    // whose connection carries the matching secret; demo events land on the
+    // seeded demo tenant.
+    const merchantId =
+      conn?.merchantId ?? (await ensureDemoMerchant(prisma));
+
+    // Nested entity for summaries (real webhooks use data.<resource>.entity)
+    const entity =
+      eventData.data?.payment?.entity ??
+      eventData.data?.subscription?.entity ??
+      eventData.data?.refund?.entity ??
+      eventData.data ?? {};
 
     // 3. Durable idempotency + persistence in one step.
-    //    providerEventId falls back to a hash of the body when Razorpay
-    //    does not supply an explicit event id header.
+    //    providerEventId falls back to provider payment id, then body hash.
     const registration = await registerWebhookEvent(prisma, {
-      providerEventId: eventId || `sha:${hashPayload(body)}`,
+      providerEventId:
+        eventId || (entity.id ? `evt:${entity.id}:${eventData.event_type}` : `sha:${hashPayload(body)}`),
       eventType: eventData.event_type,
       rawBody: body,
       summary: {
-        amount: eventData.data?.amount,
-        currency: eventData.data?.currency,
-        status: eventData.data?.status,
-        errorCode: eventData.data?.error?.code ?? null,
+        amount: entity.amount,
+        currency: entity.currency,
+        status: entity.status,
+        errorCode: entity.error_code ?? entity.error?.code ?? null,
       },
       merchantId,
     });

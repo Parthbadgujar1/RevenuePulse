@@ -4,7 +4,11 @@
  * durable webhook rows -> diagnose -> ML predict -> policy decision ->
  * bounded execution -> outcome verification -> measured money results.
  *
- * Request body: { count?: number, failureCodes?: string[] }
+ * Request body: { count?: number, failureCodes?: string[], seed?: number }
+ * The seed makes the whole batch reproducible: same seed => same events,
+ * same model scores, and the same seeded ground-truth outcome draws.
+ * Re-running an identical (seed,count) is idempotent (dedup by event id).
+ *
  * Response: application/x-ndjson, one JSON object per line:
  *   { type:'stage', key, label, total }
  *   { type:'progress', key, done }
@@ -12,13 +16,14 @@
  *   { type:'done' } | { type:'error', message }
  */
 import { NextRequest } from 'next/server';
-import { prisma, ensureDemoMerchant } from '@rp/database';
+import { prisma } from '@rp/database';
 import { normalizeRazorpayEvent, categorizeFailure } from '@rp/razorpay';
 import {
   processJob,
   JobType,
   simulateGroundTruthOutcome,
 } from '@rp/observability';
+import { requireMerchantContext } from '../../../../lib/merchant-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +37,7 @@ const FAILURE_TYPES: Array<{ code: string; desc: string; method: string }> = [
 ];
 
 const RETRY_COST_PAISE = 200;
+export const DEFAULT_DEMO_SEED = 20260823;
 
 function mulberry32(seed: number) {
   return () => {
@@ -42,11 +48,21 @@ function mulberry32(seed: number) {
   };
 }
 
+function fnv1a(str: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({} as any));
   const count = Math.min(500, Math.max(5, Number(body?.count) || 100));
+  const seed = Number(body?.seed) > 0 ? Math.floor(Number(body?.seed)) : DEFAULT_DEMO_SEED;
   const requested: string[] = Array.isArray(body?.failureCodes) && body.failureCodes.length
     ? body.failureCodes
     : FAILURE_TYPES.map((f) => f.code);
@@ -55,26 +71,33 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: 'No failure types selected' }), { status: 400 });
   }
 
+  // Dataset identity: deterministic ids mean re-running the same seed/count
+  // is a no-op (idempotent), and measurements stay scoped to this dataset
+  // rather than to a wall-clock window.
+  const datasetPrefix = `demo_s${seed}_`;
+  const datasetLabel = `demo-batch-${seed}-${count}`;
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (obj: unknown) =>
         controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
       try {
-        const rng = mulberry32((Date.now() ^ 0x5f3759df) >>> 0);
-        const merchantId = await ensureDemoMerchant(prisma);
-        const cohortStart = new Date();
+        const rng = mulberry32(seed);
+        const { merchantId } = await requireMerchantContext();
 
         // ---- Stage 1: generate + ingest through the real webhook pipeline ----
         send({ type: 'stage', key: 'ingest', label: 'Generating failed payment events…', total: count });
+        let ingestedNew = 0;
         for (let i = 0; i < count; i++) {
           const f = mix[Math.floor(rng() * mix.length)];
-          const providerTransactionId = `demo_${Date.now()}_${i}_${Math.floor(rng() * 1e6)}`;
+          const providerTransactionId = `${datasetPrefix}${i}`;
+          const amount = Math.floor(rng() * 990000) + 10000; // ₹100 – ₹10,000
           const rawEvent = {
             event: 'payment_failed',
             data: {
               id: providerTransactionId,
-              amount: Math.floor(rng() * 990000) + 10000, // ₹100 – ₹10,000
+              amount,
               currency: 'INR',
               status: 'failed',
               method: f.method,
@@ -85,25 +108,31 @@ export async function POST(req: NextRequest) {
           void categorizeFailure(f.code, f.desc);
           const normalized = normalizeRazorpayEvent(rawEvent as any);
 
-          const webhookRow = await prisma.webhookEvent.create({
-            data: {
-              providerEventId: `demo_evt_${i}_${Date.now()}_${Math.floor(rng() * 1e6)}`,
-              eventType: 'payment_failed',
-              payloadHash: `sha:${providerTransactionId}`,
-              status: 'RECEIVED',
-              merchantId,
-            },
-          });
+          const providerEventId = `demo:${seed}:${i}`;
+          const existing = await prisma.webhookEvent.findUnique({ where: { providerEventId } });
+          if (!existing) {
+            const webhookRow = await prisma.webhookEvent.create({
+              data: {
+                providerEventId,
+                eventType: 'payment_failed',
+                payloadHash: `sha:${providerTransactionId}`,
+                status: 'RECEIVED',
+                merchantId,
+              },
+            });
 
-          const result = await processJob({} as any, JobType.PROCESS_TRANSACTION_EVENT, {
-            event: normalized,
-            eventRef: webhookRow.id,
-            webhookEventId: webhookRow.id,
-            source: 'demo-lab',
-            simulated: true,
-          });
-          if (!result.success) {
-            console.error(`demo-lab event ${i} failed:`, result.error);
+            const result = await processJob({} as any, JobType.PROCESS_TRANSACTION_EVENT, {
+              event: normalized,
+              eventRef: webhookRow.id,
+              webhookEventId: webhookRow.id,
+              source: 'demo-lab',
+              simulated: true,
+              groundTruthSeed: seed,
+            });
+            if (!result.success) {
+              console.error(`demo-lab event ${i} failed:`, result.error);
+            }
+            ingestedNew++;
           }
           if ((i + 1) % 10 === 0 || i === count - 1) {
             send({ type: 'progress', key: 'ingest', done: i + 1 });
@@ -111,33 +140,69 @@ export async function POST(req: NextRequest) {
         }
 
         // ---- Stage 2: wait for the AI pipeline to finish the cohort ----
+        const datasetTxIds = (
+          await prisma.transaction.findMany({
+            where: { merchantId, providerTransactionId: { startsWith: datasetPrefix } },
+            select: { id: true },
+          })
+        ).map((t) => t.id);
+        const datasetCaseIds = (
+          await prisma.revenueCase.findMany({
+            where: { merchantId, transactionId: { in: datasetTxIds } },
+            select: { id: true },
+          })
+        ).map((c) => c.id);
+
         send({ type: 'stage', key: 'pipeline', label: 'Running AI pipeline — diagnose → predict → decide → execute → verify…', total: count });
         let lastKey = '';
         let settled = false;
-        for (let tick = 0; tick < 180 && !settled; tick++) {
-          const [openActions, unverified] = await Promise.all([
-            prisma.recoveryAction.count({ where: { executionStatus: 'PENDING', createdAt: { gte: cohortStart } } }),
-            prisma.recoveryAction.count({ where: { executionStatus: 'EXECUTED', createdAt: { gte: cohortStart }, outcome: null } }),
-          ]);
-          const done = Math.max(0, count - openActions - unverified);
-          send({ type: 'progress', key: 'pipeline', done: Math.min(done, count) });
-          const key = `${openActions}:${unverified}`;
-          if (key === lastKey && openActions === 0 && unverified === 0) {
-            settled = true;
-            break;
+        const stageStart = Date.now();
+        // Settle only when the cohort has shown zero in-flight work for a
+        // full stability window (evaluations hit the ML service async, so
+        // the first few hundred ms can legitimately look "empty").
+        const STABILITY_MS = 2500;
+        const MIN_WAIT_MS = 5000;
+        let lastChangeAt = Date.now();
+        if (ingestedNew > 0) {
+          for (let tick = 0; tick < 180 && !settled; tick++) {
+            const [openActions, unverified] = await Promise.all([
+              prisma.recoveryAction.count({
+                where: { executionStatus: 'PENDING', caseId: { in: datasetCaseIds } },
+              }),
+              prisma.recoveryAction.count({
+                where: { executionStatus: 'EXECUTED', caseId: { in: datasetCaseIds }, outcome: null },
+              }),
+            ]);
+            const done = Math.max(0, count - openActions - unverified);
+            send({ type: 'progress', key: 'pipeline', done: Math.min(done, count) });
+            const key = `${openActions}:${unverified}`;
+            if (key !== lastKey) lastChangeAt = Date.now();
+            const stableFor = Date.now() - lastChangeAt;
+            if (
+              key === lastKey &&
+              openActions === 0 &&
+              unverified === 0 &&
+              stableFor >= STABILITY_MS &&
+              Date.now() - stageStart >= MIN_WAIT_MS
+            ) {
+              settled = true;
+              break;
+            }
+            lastKey = key;
+            await sleep(500);
           }
-          lastKey = key;
-          await sleep(700);
         }
         send({ type: 'progress', key: 'pipeline', done: count });
 
         // ---- Stage 3: measure results from persisted data ----
         send({ type: 'stage', key: 'measure', label: 'Measuring recovered money…', total: 1 });
-        const window_ = { gte: cohortStart };
         const [cases, actions, outcomes] = await Promise.all([
-          prisma.revenueCase.findMany({ where: { createdAt: window_ } }),
-          prisma.recoveryAction.findMany({ where: { createdAt: window_ } }),
-          prisma.outcome.findMany({ where: { createdAt: window_ } }),
+          prisma.revenueCase.findMany({
+            where: { id: { in: datasetCaseIds } },
+            include: { transaction: { select: { providerTransactionId: true } } },
+          }),
+          prisma.recoveryAction.findMany({ where: { caseId: { in: datasetCaseIds } } }),
+          prisma.outcome.findMany({ where: { action: { caseId: { in: datasetCaseIds } } } }),
         ]);
 
         const totalAtRisk = cases.reduce((s, c) => s + c.amountAtRisk, 0);
@@ -150,20 +215,25 @@ export async function POST(req: NextRequest) {
         );
         const stopped = cases.filter((c) => c.status === 'STOPPED');
 
-        // Baselines on the SAME cohort using the SAME ground-truth simulator.
-        // Shown as deterministic EXPECTED values so the comparison is stable;
-        // RevenuePulse numbers are the realized outcome draws.
-        let retryAllExpectedRecovered = 0;
+        // Fair comparison: retry-all is ALSO realized on this cohort using the
+        // SAME seeded ground-truth simulator (deterministic per-payment roll,
+        // keyed on the stable provider transaction id), not just an
+        // expected-value shortcut.
+        let retryAllRecovered = 0;
         let retryAllCost = 0;
         for (const c of cases) {
           const cat =
             ((c.diagnosis as Record<string, unknown>)?.primaryCategory as string) || 'unknown';
-          const p = simulateGroundTruthOutcome(cat, 'retry_later', 0);
+          const p = simulateGroundTruthOutcome(cat, 'retry_later', c.attemptCount);
+          const txId = (c as any).transaction?.providerTransactionId ?? c.id;
+          const roll = mulberry32(fnv1a(`baseline:${txId}`) ^ seed)();
           retryAllCost += RETRY_COST_PAISE;
-          retryAllExpectedRecovered += Math.round(p * c.amountAtRisk);
+          if (roll < p) retryAllRecovered += c.amountAtRisk;
         }
 
         const results = {
+          datasetLabel,
+          seed,
           cohortSize: cases.length,
           funnel: {
             ingested: count,
@@ -186,18 +256,17 @@ export async function POST(req: NextRequest) {
           strategies: {
             noIntervention: { recovered: 0, cost: 0, net: 0 },
             retryAll: {
-              recovered: retryAllExpectedRecovered,
+              recovered: retryAllRecovered,
               cost: retryAllCost,
-              net: retryAllExpectedRecovered - retryAllCost,
-              note: 'expected value',
+              net: retryAllRecovered - retryAllCost,
+              note: 'simulated (seeded)',
             },
             revenuePulse: {
               recovered: moneyRecovered,
               cost: totalCost,
               net: moneyRecovered - totalCost,
             },
-            upliftVsRetryAll:
-              moneyRecovered - totalCost - (retryAllExpectedRecovered - retryAllCost),
+            upliftVsRetryAll: moneyRecovered - totalCost - (retryAllRecovered - retryAllCost),
           },
         };
 

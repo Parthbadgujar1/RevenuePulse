@@ -112,31 +112,36 @@ export class DecisionEngine {
 
   /**
    * Make a complete recovery decision for a case.
-   * 
+   *
    * Workflow:
-   * 1. Calculate recovery probability using baseline model
+   * 1. Use the provided ML prediction (trained model.joblib via the FastAPI
+   *    service) OR fall back to the transparent heuristic baseline when no
+   *    prediction is injected (standalone/testing use only)
    * 2. Calculate economic value (expected net recovery)
    * 3. Check policy compliance
    * 4. Select optimal intervention
    * 5. Determine approval requirements
-   * 
+   *
    * Returns DO_NOTHING if no action has positive expected value
    * or if policy blocks the action.
    */
   async makeDecision(
     caseId: string,
     features: RecoveryFeatures,
-    existingPolicy?: MerchantPolicy
+    existingPolicy?: MerchantPolicy,
+    prediction?: BaselinePrediction
   ): Promise<DecisionResult> {
     const policy = existingPolicy || this.policy;
 
-    // Step 1: Calculate recovery probability
-    const prediction = calculateRecoveryProbability(features);
+    // Step 1: Recovery probability — production callers MUST inject the
+    // trained-model prediction; calculateRecoveryProbability remains only as
+    // the documented transparent fallback for standalone/testing use.
+    const resolved = prediction ?? calculateRecoveryProbability(features);
 
     // Step 2: Calculate economics
     const economics = calculateEconomics(
       features.amount,
-      prediction.recoveryProbability,
+      resolved.recoveryProbability,
       0, // base action cost - will be adjusted by intervention
       0  // no incentive by default
     );
@@ -167,7 +172,7 @@ export class DecisionEngine {
 
       // Check prerequisites
       const prerequisitesMet = definition.prerequisites({
-        probability: prediction.recoveryProbability,
+        probability: resolved.recoveryProbability,
         amount: features.amount,
         policy,
         features,
@@ -208,7 +213,7 @@ export class DecisionEngine {
       };
       const effectiveProbability = Math.min(
         0.95,
-        Math.max(0.01, prediction.recoveryProbability + (EFFECTIVENESS_LIFT[interventionType] ?? 0))
+        Math.max(0.01, resolved.recoveryProbability + (EFFECTIVENESS_LIFT[interventionType] ?? 0))
       );
 
       // Calculate economics for this intervention
@@ -227,7 +232,7 @@ export class DecisionEngine {
 
         // Build rationale
         const amountStr = (features.amount / 100).toLocaleString();
-        const probStr = (prediction.recoveryProbability * 100).toFixed(1);
+        const probStr = (resolved.recoveryProbability * 100).toFixed(1);
         const netStr = (interventionEconomics.expectedNetRecovery / 100).toLocaleString();
         bestRationale = `High recoverability and positive expected net recovery (₹${netStr}) within merchant limits. Amount: ₹${amountStr}, Probability: ${probStr}%.`;
 
@@ -247,7 +252,7 @@ export class DecisionEngine {
     if (bestAction === InterventionType.DO_NOTHING && violations.length === 0) {
       bestRationale = economicDoNothingRationale(
         features.amount,
-        prediction.recoveryProbability,
+        resolved.recoveryProbability,
         economics
       );
     }
@@ -257,18 +262,18 @@ export class DecisionEngine {
       caseId,
       diagnosis: {
         category: features.failureCategory,
-        confidence: prediction.confidence,
+        confidence: resolved.confidence,
         evidence: [
           `Failure category: ${features.failureCategory}`,
           `Amount at risk: ₹${(features.amount / 100).toLocaleString()}`,
-          `Recovery probability: ${(prediction.recoveryProbability * 100).toFixed(1)}%`,
+          `Recovery probability: ${(resolved.recoveryProbability * 100).toFixed(1)}%`,
         ],
       },
       prediction: {
-        probability: prediction.recoveryProbability,
-        expectedRecoveryValue: prediction.expectedRecoveryValue,
-        confidence: prediction.confidence,
-        modelVersion: prediction.modelVersion,
+        probability: resolved.recoveryProbability,
+        expectedRecoveryValue: resolved.expectedRecoveryValue,
+        confidence: resolved.confidence,
+        modelVersion: resolved.modelVersion,
       },
       decision: {
         action: bestAction,
@@ -288,7 +293,7 @@ export class DecisionEngine {
       },
       reasoning: buildDecisionReasoning(
         bestAction,
-        prediction,
+        resolved,
         economics,
         policy,
         features.amount

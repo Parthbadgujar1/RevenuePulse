@@ -37,9 +37,18 @@ export const STATUS_TONES: Record<string, string> = {
   EVALUATED: 'bg-blue-100 text-blue-700 border-blue-300',
   ACTION_PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-300',
   RECOVERY_IN_PROGRESS: 'bg-purple-100 text-purple-700 border-purple-300',
+  OUTCOME_PENDING: 'bg-orange-100 text-orange-800 border-orange-300',
   RECOVERED: 'bg-green-100 text-green-700 border-green-300',
   FAILED: 'bg-gray-200 text-gray-700 border-gray-300',
   STOPPED: 'bg-gray-200 text-gray-700 border-gray-300',
+};
+
+/** Source attribution chips — where each case came from. */
+export const SOURCE_LABELS: Record<string, string> = {
+  'demo-lab': '🟣 Demo Lab (simulated)',
+  upload: '🟢 File Import',
+  'razorpay-api': '🟠 Razorpay API Sync (live)',
+  webhook: '🔵 Razorpay Webhook',
 };
 
 export function statusTone(status: string): string {

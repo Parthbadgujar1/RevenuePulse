@@ -2,7 +2,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@rp/database';
-import { inr, humanizeAction, categoryLabel, statusTone, timeAgo } from '../../../lib/ui';
+import { requireMerchantContext } from '../../../lib/merchant-context';
+import { inr, humanizeAction, categoryLabel, statusTone, timeAgo, SOURCE_LABELS } from '../../../lib/ui';
 import ApproveButton from '../../../components/approve-button';
 
 export const dynamic = 'force-dynamic';
@@ -23,9 +24,11 @@ export default async function CaseDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const ctx = await requireMerchantContext();
 
-  const revenueCase = await prisma.revenueCase.findUnique({
-    where: { id },
+  // Merchant-scoped: another tenant's case id must 404, not leak.
+  const revenueCase = await prisma.revenueCase.findFirst({
+    where: { id, merchantId: ctx.merchantId },
     include: { transaction: true },
   }).catch(() => null);
 
@@ -108,6 +111,7 @@ export default async function CaseDetailPage({
                 Action cost {inr(latestOutcome.measuredCost)} · Net recovered{' '}
                 {inr(latestOutcome.recoveredAmount - latestOutcome.measuredCost)}
                 {latestOutcome.verifiedAt ? ` · verified ${timeAgo(latestOutcome.verifiedAt)}` : ''}
+                {latestOutcome.verificationRef ? ` · provider ref ${latestOutcome.verificationRef}` : ''}
               </p>
             </>
           ) : (
@@ -116,6 +120,19 @@ export default async function CaseDetailPage({
               policy engine may schedule another bounded attempt.
             </p>
           )}
+        </div>
+      )}
+
+      {/* Awaiting real-world outcome (live mode) */}
+      {revenueCase.status === 'OUTCOME_PENDING' && (
+        <div className="mt-4 rounded-lg border border-orange-300 bg-orange-50 p-4">
+          <p className="text-sm font-semibold text-orange-900">
+            ⏳ Awaiting provider outcome — action submitted in LIVE mode
+          </p>
+          <p className="mt-0.5 text-sm text-orange-800">
+            No outcome is fabricated for live executions. This case resolves automatically when a
+            real payment.captured / payment.failed event arrives for this payment.
+          </p>
         </div>
       )}
 
@@ -234,6 +251,11 @@ export default async function CaseDetailPage({
               <dd className="capitalize text-gray-800">{tx?.paymentMethod ?? '—'}</dd>
               <dt className="text-gray-500">Occurred</dt>
               <dd className="text-gray-800">{tx?.occurredAt ? timeAgo(tx.occurredAt) : '—'}</dd>
+              <dt className="text-gray-500">Source</dt>
+              <dd className="text-gray-800">
+                {SOURCE_LABELS[String((tx?.paymentMethodDetails as any)?.source ?? 'webhook')] ??
+                  '🔵 Razorpay Webhook'}
+              </dd>
             </dl>
           </div>
         </section>

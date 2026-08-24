@@ -113,7 +113,9 @@ async def predict(request: PredictionRequest):
     except Exception:
         contributions = {}
 
-    confidence = 1.0 - abs(proba - 0.5) * 2 * 0.4  # higher away from 0.5
+    # Confidence = calibrated model's own margin: max(p, 1-p) in [0.5, 1].
+    # (The old formula peaked AT p=0.5, which rewarded maximum uncertainty.)
+    confidence = max(proba, 1.0 - proba)
 
     return PredictionResponse(
         case_id=request.case_id or f"case_{uuid.uuid4().hex[:8]}",

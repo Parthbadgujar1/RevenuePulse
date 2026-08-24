@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, ensureDemoMerchant } from '@rp/database';
+import crypto from 'crypto';
+import { prisma } from '@rp/database';
 import { processJob, JobType } from '@rp/observability';
 import { normalizeRazorpayEvent } from '@rp/razorpay';
 import { parseCsv } from '../../../lib/ingest/csv';
@@ -11,6 +12,7 @@ import {
   previewCategory,
   type AmountUnit,
 } from '../../../lib/ingest/map';
+import { requireMerchantContext } from '../../../lib/merchant-context';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -24,6 +26,13 @@ function tableFromBuffer(name: string, buf: Buffer): Promise<ReturnType<typeof p
   if (ext === 'xlsx' || ext === 'xls') return Promise.resolve(parseExcel(buf));
   if (ext === 'pdf') return parsePdf(buf);
   return Promise.reject(new Error(`Unsupported file type ".${ext}" — use CSV, XLSX or PDF`));
+}
+
+/** Stable per-row identity for idempotency keys. */
+function normalizedId(raw: Record<string, unknown>): string {
+  const d = raw.data as Record<string, unknown> | undefined;
+  const id = String(d?.id ?? '');
+  return id || crypto.createHash('sha1').update(JSON.stringify(raw)).digest('hex').slice(0, 12);
 }
 
 export async function POST(req: NextRequest) {
@@ -45,9 +54,13 @@ export async function POST(req: NextRequest) {
   const dryRun = String(form.get('dryRun') ?? 'true') !== 'false';
   const amountUnit = (String(form.get('amountUnit') ?? 'auto') as AmountUnit) || 'auto';
 
+  // Stable file fingerprint for idempotent re-imports
+  const fileBuffer = Buffer.from(await file.arrayBuffer());
+  const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex').slice(0, 16);
+
   let table;
   try {
-    table = await tableFromBuffer(file.name, Buffer.from(await file.arrayBuffer()));
+    table = await tableFromBuffer(file.name, fileBuffer);
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? 'Could not parse file' }, { status: 400 });
   }
@@ -128,16 +141,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ...preview, ingested: true, note: 'No failed payments found — nothing to recover.' });
   }
 
-  const merchantId = await ensureDemoMerchant(prisma);
+  const { merchantId } = await requireMerchantContext();
   const cohortStart = new Date();
   let processed = 0;
   let pipelineErrors = 0;
+  let duplicatesSkipped = 0;
 
-  for (const raw of rawEvents) {
+  for (let rowIdx = 0; rowIdx < rawEvents.length; rowIdx++) {
+    const raw = rawEvents[rowIdx];
+    // Stable idempotency key: same file + same payment id never re-ingests.
+    const providerEventId = `upload:${fileHash}:${normalizedId(raw)}`;
+    const existing = await prisma.webhookEvent.findUnique({ where: { providerEventId } });
+    if (existing) {
+      duplicatesSkipped++;
+      continue;
+    }
     const normalized = normalizeRazorpayEvent(raw as any);
     const webhookRow = await prisma.webhookEvent.create({
       data: {
-        providerEventId: `upload_${Date.now()}_${processed}_${Math.floor(Math.random() * 1e6)}`,
+        providerEventId,
         eventType: normalized.eventType,
         payloadHash: `sha:${normalized.safeMetadata.providerTransactionId}`,
         status: 'RECEIVED',
@@ -155,17 +177,22 @@ export async function POST(req: NextRequest) {
     else pipelineErrors++;
   }
 
-  const casesCreated = await prisma.revenueCase.count({
-    where: { createdAt: { gte: cohortStart } },
+  const cohortCases = await prisma.revenueCase.findMany({
+    where: { merchantId, createdAt: { gte: cohortStart } },
+    select: { id: true },
   });
-  const actionsCreated = await prisma.recoveryAction.count({
-    where: { createdAt: { gte: cohortStart } },
-  });
+  const [casesCreated, actionsCreated] = await Promise.all([
+    cohortCases.length,
+    prisma.recoveryAction.count({
+      where: { caseId: { in: cohortCases.map((c) => c.id) }, createdAt: { gte: cohortStart } },
+    }),
+  ]);
 
   return NextResponse.json({
     ...preview,
     ingested: true,
     processed,
+    duplicatesSkipped,
     pipelineErrors,
     casesCreated,
     actionsCreated,

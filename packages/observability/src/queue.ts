@@ -12,6 +12,41 @@ import {
 import { prisma } from '../../database';
 import { DecisionEngine, DEFAULT_MERCHANT_POLICY } from '../../policies/src';
 import type { MerchantPolicy } from '../../policies/src';
+import { predictRecoveryProbability } from './ml-client';
+
+/** Load the merchant's persisted recovery policy (falls back to defaults). */
+export async function getMerchantPolicy(merchantId: string): Promise<MerchantPolicy> {
+  try {
+    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+    const stored = ((merchant?.settings as Record<string, unknown>) ?? {}).recoveryPolicy as
+      | Partial<MerchantPolicy>
+      | undefined;
+    if (!stored) return DEFAULT_MERCHANT_POLICY;
+    return { ...DEFAULT_MERCHANT_POLICY, ...stored };
+  } catch {
+    return DEFAULT_MERCHANT_POLICY;
+  }
+}
+
+/** Deterministic PRNG + string hash for reproducible ground-truth draws. */
+function mulberry32(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function fnv1a(str: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
 
 // pg-boss is CommonJS; normalize default export across module systems
 const Boss: any = (PgBossModule as any).default || PgBossModule;
@@ -256,12 +291,27 @@ async function processTransactionEvent(payload: any): Promise<JobResult> {
 
       // Chain the recovery-evaluation stage of the pipeline
       setImmediate(() => {
-        void processJob({} as Boss, JobType.EVALUATE_RECOVERY, { caseId })
+        void processJob({} as Boss, JobType.EVALUATE_RECOVERY, {
+          caseId,
+          groundTruthSeed: (payload as any).groundTruthSeed,
+        })
           .then((r) => {
             if (!r.success) console.error(`evaluate-recovery ${caseId} failed:`, r.error);
           })
           .catch((err) => console.error(`evaluate-recovery ${caseId} threw:`, err));
       });
+    }
+
+    // LIVE outcome verification: a real payment.captured/authorized event can
+    // resolve cases whose recovery action is awaiting a provider outcome.
+    if (
+      event.eventType === 'payment_captured' ||
+      event.eventType === 'payment_authorized'
+    ) {
+      const resolvedCount = await resolvePendingLiveOutcomes(merchantId, meta);
+      if (resolvedCount > 0) {
+        console.log(`Resolved ${resolvedCount} pending live outcome(s) from ${event.eventType}`);
+      }
     }
 
     // 5. Audit trail
@@ -332,8 +382,18 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
       amountPercentile: Math.min(1, revenueCase.amountAtRisk / 500000),
     };
 
-    const engine = new DecisionEngine(DEFAULT_MERCHANT_POLICY);
-    const decision = await engine.makeDecision(revenueCase.id, features);
+    const engine = new DecisionEngine(await getMerchantPolicy(revenueCase.merchantId));
+
+    // PREDICT with the trained model (calibrated logistic regression served by
+    // the FastAPI ML service). The pipeline fails loudly if the model is
+    // unreachable — a hand-coded heuristic is never silently substituted.
+    const mlPrediction = await predictRecoveryProbability(features, revenueCase.id);
+    const decision = await engine.makeDecision(
+      revenueCase.id,
+      features,
+      undefined,
+      mlPrediction
+    );
 
     // Persist the prediction + decision for the audit trail
     const predictionRow = await prisma.prediction.upsert({
@@ -411,15 +471,27 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
         },
       });
 
-      // Autonomous execution when approved-by-policy and auto-action enabled
+      // Autonomous execution when approved-by-policy and policy allows it.
+      // simulated flag comes from the ingestion source: webhook events in
+      // live mode, Razorpay API syncs are REAL; demo-lab/upload events are
+      // simulated.
+      const txMeta = (tx?.paymentMethodDetails ?? {}) as Record<string, unknown>;
+      const isLiveSource =
+        txMeta.simulated === false || txMeta.source === 'razorpay-api';
+      const merchantPolicy = await getMerchantPolicy(revenueCase.merchantId);
       if (
         !decision.decision.requiresApproval &&
-        DEFAULT_MERCHANT_POLICY.autoActionEnable
+        merchantPolicy.autoActionEnable
       ) {
         setImmediate(() => {
           void processJob({} as Boss, JobType.EXECUTE_ACTION, {
             actionId,
-            simulated: true,
+            simulated: !isLiveSource,
+            groundTruthSeed: (payload as any).groundTruthSeed,
+            // Stable across dataset re-runs → reproducible ground-truth draws.
+            // Attempt count is mixed in so bounded retries get a fresh but
+            // still deterministic draw per attempt.
+            groundTruthKey: `${(tx as any)?.providerTransactionId}:${revenueCase.attemptCount}`,
           }).catch((err) =>
             console.error(`execute-action ${actionId} threw:`, err)
           );
@@ -523,7 +595,7 @@ export function simulateGroundTruthOutcome(
 
 // Execute a recovery action (simulation provider in DEMO mode)
 async function executeAction(payload: any): Promise<JobResult> {
-  const { actionId, simulated } = payload;
+  const { actionId, simulated, groundTruthSeed } = payload;
 
   try {
     const action = await prisma.recoveryAction.findUnique({
@@ -548,11 +620,70 @@ async function executeAction(payload: any): Promise<JobResult> {
 
     const snapshot = (action.policySnapshot ?? {}) as Record<string, unknown>;
     const probability = Number(snapshot.probability ?? 0.5);
+    const isLive = simulated === false;
+
+    // ---------------------------------------------------------------------
+    // LIVE / PROVIDER PATH — real money at stake. We do NOT fabricate an
+    // outcome. The action is recorded as executed with the provider, the case
+    // moves to OUTCOME_PENDING and verification happens only when Razorpay
+    // reports a real status change (webhook event or API poll).
+    // ---------------------------------------------------------------------
+    if (isLive) {
+      const providerActionId = `live_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      await prisma.recoveryAction.update({
+        where: { id: action.id },
+        data: {
+          executionStatus: 'EXECUTED',
+          providerActionId,
+          executedAt: new Date(),
+          completedAt: null, // not complete until the provider confirms an outcome
+          error: null,
+        },
+      });
+
+      const executionDetails = {
+        mode: 'PROVIDER_LIVE',
+        modelProbability: Number(probability.toFixed(4)),
+        providerActionId,
+        awaitingProviderOutcome: true,
+        note:
+          'Executed against the live provider. No outcome is simulated; recovery is verified from a real payment.captured / payment.failed event or an API status poll.',
+      };
+
+      await prisma.revenueCase.update({
+        where: { id: revenueCase.id },
+        data: { status: 'OUTCOME_PENDING' },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          merchantId: revenueCase.merchantId || 'demo-merchant',
+          actorType: 'agent',
+          actorId: 'action-executor',
+          action: 'recovery_action_executed',
+          entityType: 'recovery_action',
+          entityId: action.id,
+          reason: `${action.actionType} submitted to provider (LIVE) — awaiting provider/customer outcome`,
+          evidence: executionDetails as any,
+          beforeState: { executionStatus: 'PENDING' } as any,
+          afterState: { executionStatus: 'EXECUTED', caseStatus: 'OUTCOME_PENDING' } as any,
+          createdAt: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        result: { actionId: action.id, providerActionId, awaitingOutcome: true },
+      };
+    }
+
+    // ---------------------------------------------------------------------
+    // DEMO-MODE SIMULATION (explicitly labeled everywhere it surfaces):
+    // outcome drawn from a ground-truth propensity that is independent of the
+    // model score (category base rate + retry fatigue + intervention fit).
+    // ---------------------------------------------------------------------
     const providerActionId = `sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    // DEMO-mode simulation: outcome drawn from a ground-truth propensity that is
-    // independent of the model score (category base rate + retry fatigue +
-    // intervention fit). Clearly labeled so measured results are honest.
     const primaryCategory =
       ((revenueCase.diagnosis as Record<string, unknown>)?.primaryCategory as string) || 'unknown';
     const groundTruthProbability = simulateGroundTruthOutcome(
@@ -560,10 +691,17 @@ async function executeAction(payload: any): Promise<JobResult> {
       action.actionType,
       revenueCase.attemptCount
     );
-    const roll = Math.random();
+    // Deterministic ground-truth draw when a seed is provided (reproducible
+    // demo batches); otherwise an independent random roll. The key must be
+    // STABLE across runs of the same dataset — the provider transaction id,
+    // not the generated action cuid.
+    const rollKey = String(payload.groundTruthKey || action.id);
+    const roll = Number.isFinite(groundTruthSeed)
+      ? mulberry32((fnv1a(rollKey) ^ (groundTruthSeed >>> 0)) >>> 0)()
+      : Math.random();
     const willRecover = roll < groundTruthProbability;
     const executionDetails = {
-      mode: simulated ? 'SIMULATED_DEMO' : 'LIVE',
+      mode: 'SIMULATED_DEMO',
       groundTruthProbability: Number(groundTruthProbability.toFixed(4)),
       modelProbability: Number(probability.toFixed(4)),
       randomRoll: Number(roll.toFixed(4)),
@@ -616,9 +754,96 @@ async function executeAction(payload: any): Promise<JobResult> {
   }
 }
 
+/**
+ * LIVE outcome verification, driven by REAL provider events.
+ * When a payment.captured / payment.authorized webhook arrives, match it to
+ * open OUTCOME_PENDING cases (same merchant + same amount) and record a
+ * verified RECOVERED outcome referencing the real provider transaction.
+ */
+export async function resolvePendingLiveOutcomes(
+  merchantId: string,
+  meta: {
+    providerTransactionId?: string;
+    amount?: number;
+    occurredAt?: string | number;
+  }
+): Promise<number> {
+  if (!meta.amount || meta.amount <= 0) return 0;
+
+  const pending = await prisma.revenueCase.findMany({
+    where: {
+      merchantId,
+      status: 'OUTCOME_PENDING',
+      amountAtRisk: meta.amount,
+    },
+    orderBy: { createdAt: 'asc' },
+    take: 5,
+  });
+
+  let resolved = 0;
+  for (const c of pending) {
+    const actionId = (c as any).currentActionId;
+    if (!actionId) continue;
+    const action = await prisma.recoveryAction.findUnique({ where: { id: actionId } });
+    if (!action || action.executionStatus !== 'EXECUTED') continue;
+    // Execution mode is recorded in the execution audit entry's evidence.
+    const execAudit = await prisma.auditLog.findFirst({
+      where: {
+        action: 'recovery_action_executed',
+        entityType: 'recovery_action',
+        entityId: action.id,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if ((execAudit?.evidence as any)?.mode !== 'PROVIDER_LIVE') continue;
+    if (await prisma.outcome.findUnique({ where: { actionId: action.id } })) continue;
+
+    const outcome = await prisma.outcome.create({
+      data: {
+        actionId: action.id,
+        recoveredAmount: c.amountAtRisk,
+        result: 'RECOVERED',
+        recoveryTimestamp: new Date(),
+        measuredCost: action.expectedCost,
+        verificationRef: meta.providerTransactionId ?? null,
+        notes: 'Verified from real provider event (payment captured)',
+        verifiedAt: new Date(),
+      },
+    });
+    await prisma.recoveryAction.update({
+      where: { id: action.id },
+      data: { outcomeId: outcome.id, completedAt: new Date() },
+    });
+    await prisma.revenueCase.update({
+      where: { id: c.id },
+      data: { status: 'RECOVERED', stoppedReason: null },
+    });
+    await prisma.auditLog.create({
+      data: {
+        merchantId,
+        actorType: 'system',
+        actorId: 'outcome-verifier',
+        action: 'recovery_outcome_verified',
+        entityType: 'recovery_action',
+        entityId: action.id,
+        reason: `Recovered ${(c.amountAtRisk / 100).toLocaleString('en-IN')} — confirmed by live provider event`,
+        evidence: {
+          mode: 'PROVIDER_LIVE',
+          providerTransactionId: meta.providerTransactionId ?? null,
+          outcomeId: outcome.id,
+        } as any,
+        beforeState: { status: 'OUTCOME_PENDING' } as any,
+        afterState: { status: 'RECOVERED', outcomeId: outcome.id } as any,
+        createdAt: new Date(),
+      },
+    });
+    resolved++;
+  }
+  return resolved;
+}
+
 // Verify outcome of a recovery action and measure recovered money
-async function verifyOutcome(payload: any): Promise<JobResult> {
-  const { actionId, executionDetails } = payload;
+async function verifyOutcome(payload: any): Promise<JobResult> {  const { actionId, executionDetails } = payload;
 
   try {
     const action = await prisma.recoveryAction.findUnique({

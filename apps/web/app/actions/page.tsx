@@ -1,6 +1,7 @@
 // Recovery Actions - what the agent decided and executed
 import Link from 'next/link';
 import { prisma } from '@rp/database';
+import { requireMerchantContext } from '../../lib/merchant-context';
 import { inr, humanizeAction, categoryLabel, timeAgo, statusTone } from '../../lib/ui';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,16 @@ export default async function ActionsPage() {
   }> = [];
   let ok = true;
   try {
-    const actions = await prisma.recoveryAction.findMany({ orderBy: { createdAt: 'desc' as const }, take: 100 });
+    const { merchantId } = await requireMerchantContext();
+    // Scope via the merchant's cases (RecoveryAction has no Prisma relation).
+    const caseIds = (
+      await prisma.revenueCase.findMany({ where: { merchantId }, select: { id: true } })
+    ).map((c) => c.id);
+    const actions = await prisma.recoveryAction.findMany({
+      where: { caseId: { in: caseIds } },
+      orderBy: { createdAt: 'desc' as const },
+      take: 100,
+    });
     const cases = await prisma.revenueCase.findMany({
       where: { id: { in: actions.map((a) => a.caseId) } },
       include: { transaction: true },

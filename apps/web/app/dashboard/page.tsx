@@ -3,6 +3,7 @@
 // Falls back to an empty state if the database is unreachable.
 
 import { prisma } from '@rp/database';
+import { requireMerchantContext } from '../../lib/merchant-context';
 import AppNav from '../../components/app-nav';
 import Link from 'next/link';
 
@@ -43,12 +44,22 @@ interface MoneyRow {
 
 async function getDashboardData() {
   try {
-    const [cases, outcomes, actions, predictions] = await Promise.all([
-      prisma.revenueCase.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.outcome.findMany(),
-      prisma.recoveryAction.findMany(),
-      prisma.prediction.findMany({ select: { caseId: true } }),
+    const { merchantId } = await requireMerchantContext();
+    // RecoveryAction/Prediction/Outcome carry plain id references (no Prisma
+    // relations to RevenueCase), so scope everything via the case ids.
+    const cases = await prisma.revenueCase.findMany({
+      where: { merchantId },
+      orderBy: { createdAt: 'desc' },
+    });
+    const caseIds = cases.map((c) => c.id);
+    const [actions, predictions] = await Promise.all([
+      prisma.recoveryAction.findMany({ where: { caseId: { in: caseIds } } }),
+      prisma.prediction.findMany({ where: { caseId: { in: caseIds } }, select: { caseId: true } }),
     ]);
+    const actionIds = actions.map((a) => a.id);
+    const outcomes = await prisma.outcome.findMany({
+      where: { actionId: { in: actionIds } },
+    });
 
     const atRisk = cases.reduce((sum, c) => sum + c.amountAtRisk, 0);
     const recovered = outcomes

@@ -486,6 +486,15 @@ export function categorizeFailure(
 
 // Razorpay event types mapped to internal event names
 const EVENT_TYPE_MAP: Record<string, string> = {
+  // Real Razorpay webhook event names (dot notation)
+  'payment.failed': 'payment_failed',
+  'payment.authorized': 'payment_authorized',
+  'payment.captured': 'payment_captured',
+  'payment.pending': 'payment_pending',
+  'subscription.charged': 'payment_captured',
+  'refund.created': 'refund_created',
+  'refund.processed': 'refund_processed',
+  // Simulation / legacy underscore names
   payment_link_created: 'payment_link_created',
   payment_link_expired: 'payment_link_expired',
   payment_link_payment_failed: 'payment_failed',
@@ -537,28 +546,51 @@ export interface NormalizedProviderEvent {
 /**
  * Normalize a raw Razorpay/simulation event into the internal format.
  * Extracts only safe metadata - no card numbers, no full PAN.
+ *
+ * Real Razorpay webhooks nest the payload under `data.<resource>.entity`
+ * (e.g. data.payment.entity); simulation events use a flat `data` object.
+ * Both shapes are supported, plus subscription/refund resources.
  */
 export function normalizeRazorpayEvent(event: any): NormalizedProviderEvent {
   const type = event.event_type || event.event;
   const data = event.data || {};
 
-  const internalEventType = EVENT_TYPE_MAP[type] || 'unknown_event';
+  const entity =
+    data.payment?.entity ??
+    data.subscription?.entity ??
+    data.refund?.entity ??
+    data.invoice?.entity ??
+    data;
+
+  // Subscription entities carry their own id/amount fields; payments carry
+  // error blocks. Map defensively so a real webhook never yields undefined
+  // amount/id while synthetic events keep working unchanged.
+  const isSubscription = Boolean(data.subscription?.entity) && !data.payment?.entity;
+  const internalEventType =
+    EVENT_TYPE_MAP[type] ||
+    (isSubscription && type === 'subscription_charged' ? 'payment_captured' : 'unknown_event');
 
   const safeMetadata = {
-    providerTransactionId: data.id,
-    amount: data.amount,
-    currency: data.currency || 'INR',
-    status: data.status,
-    paymentMethod: data.method,
-    failureCode: data.error?.code,
-    failureMessage: data.error?.description,
+    providerTransactionId: entity.id,
+    amount: entity.amount ?? entity.amount_paid ?? 0,
+    currency: entity.currency || 'INR',
+    status: entity.status,
+    paymentMethod: entity.method || (isSubscription ? 'subscription' : undefined),
+    failureCode: entity.error_code ?? entity.error?.code,
+    failureMessage:
+      entity.error_description ?? entity.error?.description ?? entity.error_reason,
     failureCategory: categorizeFailure(
-      data.error?.code,
-      data.error?.description
+      entity.error_code ?? entity.error?.code,
+      entity.error_description ?? entity.error?.description ?? entity.error_reason
     ),
-    occurredAt: data.time_created,
-    customerEmail: data.email,
-    customerContact: data.contact,
+    occurredAt:
+      entity.created_at
+        ? typeof entity.created_at === 'number'
+          ? entity.created_at * 1000 // Razorpay uses unix seconds
+          : entity.created_at
+        : data.time_created,
+    customerEmail: entity.email,
+    customerContact: entity.contact,
   };
 
   return {

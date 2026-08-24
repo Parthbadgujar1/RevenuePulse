@@ -29,6 +29,8 @@ interface StageState {
 
 interface Results {
   cohortSize: number;
+  datasetLabel?: string;
+  seed?: number;
   funnel: Record<string, number>;
   money: { atRisk: number; recovered: number; cost: number; net: number; recoveryRatePct: number };
   strategies: {
@@ -41,6 +43,7 @@ interface Results {
 
 export default function RunDemoForm() {
   const [count, setCount] = useState(100);
+  const [seed, setSeed] = useState(20260823);
   const [selected, setSelected] = useState<string[]>(FAILURE_OPTIONS.map((f) => f.code));
   const [running, setRunning] = useState(false);
   const [stages, setStages] = useState<Record<string, StageState>>({});
@@ -68,7 +71,7 @@ export default function RunDemoForm() {
       const res = await fetch('/api/demo-lab/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count, failureCodes: selected }),
+        body: JSON.stringify({ count, seed, failureCodes: selected }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) throw new Error(`Runner failed (${res.status})`);
@@ -147,7 +150,7 @@ export default function RunDemoForm() {
           ))}
         </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div>
             <label className="text-sm font-medium text-gray-700">Number of transactions</label>
             <select
@@ -160,6 +163,19 @@ export default function RunDemoForm() {
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">
+              Seed{' '}
+              <span className="font-normal text-gray-400">(same seed = reproducible batch)</span>
+            </label>
+            <input
+              type="number"
+              value={seed}
+              onChange={(e) => setSeed(Number(e.target.value) || 20260823)}
+              disabled={running}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
           </div>
           <div>
             <span className="text-sm font-medium text-gray-700">Failure distribution</span>
