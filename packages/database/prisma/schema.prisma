@@ -69,6 +69,8 @@ model ProviderConnection {
   provider          String   // "razorpay"
   credentialsRef    String?  // Reference to encrypted secret store
   status            String   @default("active")
+  mode              String?  // "test_demo" (simulated) | "live"
+  displayName       String?  // Masked key id, e.g. rzp_test_****1234
   webhookSecret     String?
   createdAt         DateTime
   updatedAt         DateTime @updatedAt
@@ -98,6 +100,7 @@ model Transaction {
 
 model RevenueCase {
   id              String       @id @default(cuid())
+  ref             String?      @unique // Human-friendly case ref, e.g. RP-1001
   transactionId   String       @unique
   caseType        String       // "payment_degradation" | "subscription_recovery"
   amountAtRisk    Int          // In paise
@@ -142,7 +145,9 @@ model RecoveryAction {
   executedAt        DateTime?
   completedAt       DateTime?
   error             String?
-  outcomeId         String?
+  outcomeId         String?  @unique
+  outcome           Outcome?
+  createdAt         DateTime @default(now())
   @@index([caseId])
   @@index([executionStatus])
   @@index([idempotencyKey])
@@ -151,6 +156,7 @@ model RecoveryAction {
 model Outcome {
   id                String   @id @default(cuid())
   actionId          String   @unique
+  action            RecoveryAction @relation(fields: [actionId], references: [id])
   recoveredAmount   Int      // In paise
   result            String   // Outcome result string
   recoveryTimestamp DateTime
@@ -158,6 +164,7 @@ model Outcome {
   notes             String?
   verifiedAt        DateTime?
   verificationRef   String?  // Webhook/event reference
+  createdAt         DateTime @default(now())
 }
 
 model AuditLog {

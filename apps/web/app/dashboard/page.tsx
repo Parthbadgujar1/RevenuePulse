@@ -3,6 +3,8 @@
 // Falls back to an empty state if the database is unreachable.
 
 import { prisma } from '@rp/database';
+import AppNav from '../../components/app-nav';
+import Link from 'next/link';
 
 function inr(paise: number): string {
   return new Intl.NumberFormat('en-IN', {
@@ -95,12 +97,23 @@ async function getDashboardData() {
     const executedActions = actions.filter((a) => a.executionStatus === 'EXECUTED');
     const verifiedOutcomes = outcomes.filter((o) => o.verifiedAt);
     const recoveredOutcomes = outcomes.filter((o) => o.result === 'RECOVERED');
+    const stoppedCases = cases.filter((c) => c.status === 'STOPPED');
+    const approvalPendingActions = actions.filter(
+      (a) => a.approvalStatus === 'pending' && a.executionStatus !== 'EXECUTED'
+    );
+    const failedAttempts = verifiedOutcomes.length - recoveredOutcomes.length;
+    const eligibleCases = cases.length - stoppedCases.length;
     const funnel: FunnelRow[] = [
       { stage: 'Failures diagnosed', count: cases.length, ofTotal: 1 },
       {
         stage: 'Scored by ML model',
         count: predictions.length,
         ofTotal: cases.length ? predictions.length / cases.length : 0,
+      },
+      {
+        stage: 'Eligible for recovery',
+        count: eligibleCases,
+        ofTotal: cases.length ? eligibleCases / cases.length : 0,
       },
       {
         stage: 'Actions executed',
@@ -137,7 +150,9 @@ async function getDashboardData() {
         recoveryRate,
         netRecovered,
         actionCost,
-        awaitingApproval: actions.filter((a) => a.approvalStatus === 'pending').length,
+        awaitingApproval: approvalPendingActions.length,
+        stoppedByPolicyOrEconomics: stoppedCases.length,
+        failedAttempts,
       },
       categories,
       recentCases,
@@ -157,6 +172,8 @@ async function getDashboardData() {
         netRecovered: 0,
         actionCost: 0,
         awaitingApproval: 0,
+        stoppedByPolicyOrEconomics: 0,
+        failedAttempts: 0,
       },
       categories: [] as CategoryRow[],
       recentCases: [] as CaseRow[],
@@ -179,11 +196,20 @@ export default async function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <AppNav />
       <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-        <h1 className="text-xl sm:text-2xl font-bold mb-2 text-gray-900">
-          RevenuePulse — Revenue Recovery Dashboard
-        </h1>
-        <p className="text-sm text-gray-500 mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+            Revenue Recovery Dashboard
+          </h1>
+          <Link
+            href="/demo-lab"
+            className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+          >
+            ▶ Run Demo Batch
+          </Link>
+        </div>
+        <p className="mt-1 text-sm text-gray-500">
           Live data · {summary.totalCases} case{summary.totalCases === 1 ? '' : 's'} on record
           {summary.awaitingApproval > 0 && (
             <span className="ml-2 rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
@@ -285,6 +311,16 @@ export default async function Dashboard() {
             </div>
           </section>
         </div>
+
+        {/* Funnel explanation */}
+        <p className="mb-8 -mt-2 text-xs text-gray-500">
+          ⏹ {summary.stoppedByPolicyOrEconomics} stopped by policy/economics · 👤{' '}
+          {summary.awaitingApproval} awaiting human approval · ↩︎ {summary.failedAttempts} verified
+          attempts did not recover. Every case is clickable in{' '}
+          <Link href="/cases" className="font-medium text-emerald-600 hover:underline">Cases</Link> —
+          see what the agent decided in{' '}
+          <Link href="/actions" className="font-medium text-emerald-600 hover:underline">Recovery Actions</Link>.
+        </p>
 
         {/* Leakage Analysis */}
         <section className="mb-8">

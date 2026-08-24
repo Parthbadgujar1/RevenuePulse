@@ -61,6 +61,31 @@ export default function HomePage() {
           right intervention — under your merchants&apos; policies.
         </p>
 
+        {/* Data-source onboarding */}
+        <div className="mt-8">
+          <p className="text-sm font-medium text-slate-400">Choose a data source to begin:</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Link
+              href="/demo-lab"
+              className="rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+            >
+              ▶ Run 100-Case Demo
+            </Link>
+            <Link
+              href="/integrations"
+              className="rounded-lg border border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-emerald-500 hover:text-emerald-400"
+            >
+              Connect Razorpay Test Mode
+            </Link>
+            <Link
+              href="/dashboard"
+              className="rounded-lg border border-slate-800 px-5 py-2.5 text-sm font-medium text-slate-400 transition hover:border-slate-600 hover:text-slate-200"
+            >
+              Open Dashboard
+            </Link>
+          </div>
+        </div>
+
         <dl className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((s) => (
             <div

@@ -192,6 +192,18 @@ async function processTransactionEvent(payload: any): Promise<JobResult> {
         Math.min(30, Math.floor(meta.amount / 100000)) +
         (categoryPriority[category] ?? 0);
 
+      // Human-friendly case reference, e.g. RP-1042
+      let caseRef: string | undefined;
+      const caseCount = await prisma.revenueCase.count();
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const candidate = `RP-${1001 + caseCount + attempt}`;
+        const taken = await prisma.revenueCase.findUnique({ where: { ref: candidate } });
+        if (!taken) {
+          caseRef = candidate;
+          break;
+        }
+      }
+
       const revenueCase = await prisma.revenueCase.upsert({
         where: { transactionId: transaction.id },
         update: {
@@ -216,10 +228,31 @@ async function processTransactionEvent(payload: any): Promise<JobResult> {
           priority,
           status: 'DETECTED',
           merchantId,
+          ref: caseRef,
           createdAt: new Date(),
         },
       });
       caseId = revenueCase.id;
+
+      await prisma.auditLog.create({
+        data: {
+          merchantId,
+          actorType: 'system',
+          actorId: 'failure-diagnoser',
+          action: 'failure_diagnosed',
+          entityType: 'revenue_case',
+          entityId: revenueCase.id,
+          reason: `Failure diagnosed: ${category}${meta.failureCode ? ` (${meta.failureCode})` : ''}`,
+          evidence: {
+            category,
+            failureCode: meta.failureCode ?? null,
+            failureMessage: meta.failureMessage ?? null,
+            amountAtRisk: meta.amount,
+            priority,
+          } as any,
+          createdAt: new Date(),
+        },
+      });
 
       // Chain the recovery-evaluation stage of the pipeline
       setImmediate(() => {
@@ -319,6 +352,25 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
         expectedValue: decision.prediction.expectedRecoveryValue,
         confidence: decision.prediction.confidence,
         featureSnapshot: features as any,
+        createdAt: new Date(),
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        merchantId: revenueCase.merchantId,
+        actorType: 'agent',
+        actorId: 'ml-model',
+        action: 'recovery_predicted',
+        entityType: 'revenue_case',
+        entityId: revenueCase.id,
+        reason: `ML model scored recovery probability: ${(decision.prediction.probability * 100).toFixed(0)}%`,
+        evidence: {
+          predictionId: predictionRow.id,
+          modelVersion: decision.prediction.modelVersion,
+          probability: decision.prediction.probability,
+          expectedRecoveryValue: decision.prediction.expectedRecoveryValue,
+        } as any,
         createdAt: new Date(),
       },
     });
@@ -614,6 +666,11 @@ async function verifyOutcome(payload: any): Promise<JobResult> {
         verifiedAt: new Date(),
         verificationRef: executionDetails?.providerActionId ?? null,
       },
+    });
+
+    await prisma.recoveryAction.update({
+      where: { id: action.id },
+      data: { outcomeId: outcome.id },
     });
 
     await prisma.revenueCase.update({
