@@ -5,6 +5,7 @@ import { prisma } from '@rp/database';
 import { requireMerchantContext } from '../../../lib/merchant-context';
 import { inr, humanizeAction, categoryLabel, statusTone, timeAgo, SOURCE_LABELS } from '../../../lib/ui';
 import ApproveButton from '../../../components/approve-button';
+import VerifyOutcomeButton from '../../../components/verify-outcome-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -131,8 +132,10 @@ export default async function CaseDetailPage({
           </p>
           <p className="mt-0.5 text-sm text-orange-800">
             No outcome is fabricated for live executions. This case resolves automatically when a
-            real payment.captured / payment.failed event arrives for this payment.
+            real payment.captured / payment.failed event arrives for this payment — or check the
+            provider directly:
           </p>
+          <VerifyOutcomeButton />
         </div>
       )}
 

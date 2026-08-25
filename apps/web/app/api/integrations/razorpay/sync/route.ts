@@ -7,51 +7,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@rp/database';
 import { processJob, JobType } from '@rp/observability';
 import { normalizeRazorpayEvent } from '@rp/razorpay';
-import { decryptSecret } from '../../../../../lib/crypto';
+import { resolveRazorpayCredentials } from '../../../../../lib/razorpay-creds';
 import { requireMerchantContext } from '../../../../../lib/merchant-context';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
-
-async function resolveCredentials(merchantId: string) {
-  // 1. Stored connection for THIS merchant (secret AES-256-GCM encrypted at rest)
-  const conn = await prisma.providerConnection.findFirst({
-    where: { merchantId, provider: 'razorpay', status: 'active' },
-    orderBy: { id: 'desc' },
-  });
-  if (conn?.keySecretEncrypted && conn.keyId) {
-    const secret = decryptSecret(conn.keySecretEncrypted);
-    if (!secret) {
-      return {
-        error:
-          'Stored Razorpay key secret could not be decrypted. Reconnect the integration.',
-      };
-    }
-    return { keyId: conn.keyId, keySecret: secret };
-  }
-  // 2. Env fallback
-  if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-    return {
-      keyId: process.env.RAZORPAY_KEY_ID,
-      keySecret: process.env.RAZORPAY_KEY_SECRET,
-    };
-  }
-  return {
-    error:
-      'No Razorpay API keys available. Connect with Key ID + Key Secret on /integrations (stored encrypted), or set RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET.',
-  };
-}
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}) as any);
   const limit = Math.min(Math.max(parseInt(String(body?.limit ?? 100), 10) || 100, 1), 400);
 
   const { merchantId } = await requireMerchantContext();
-  const creds = await resolveCredentials(merchantId);
-  if ('error' in creds && creds.error) {
+  const creds = await resolveRazorpayCredentials(merchantId);
+  if ('error' in creds) {
     return NextResponse.json({ error: creds.error }, { status: 400 });
   }
-  const { keyId, keySecret } = creds as { keyId: string; keySecret: string };
+  const { keyId, keySecret } = creds;
 
   const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
   let payments: any[];
