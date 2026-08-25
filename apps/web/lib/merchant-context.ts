@@ -11,16 +11,41 @@ export interface MerchantContext {
   demoFallback: boolean;
 }
 
+/** Thrown when no session exists and the demo fallback is disabled. */
+export class AuthRequiredError extends Error {
+  constructor() {
+    super('Authentication required');
+    this.name = 'AuthRequiredError';
+  }
+}
+
+/** HTTP status for an API catch-all: 401 for auth failures, else 500. */
+export function apiErrorStatus(err: unknown): number {
+  return err instanceof AuthRequiredError ? 401 : 500;
+}
+
+/**
+ * Demo fallback policy:
+ * - dev/test (NODE_ENV !== 'production'): enabled unless RP_DEMO_FALLBACK=0
+ * - production: DISABLED by default — fail closed. Set RP_DEMO_FALLBACK=1
+ *   explicitly to run a public demo tenant.
+ */
+function demoFallbackEnabled(): boolean {
+  const flag = process.env.RP_DEMO_FALLBACK;
+  if (flag === '1') return true;
+  if (flag === '0') return false;
+  return process.env.NODE_ENV !== 'production';
+}
+
 /**
  * Central authorization context for every protected API route and page.
  *
  * Session user -> merchantId, so ALL downstream Prisma queries can be
  * merchant-scoped (no global findMany leaks across tenants).
  *
- * Local/demo note: when no session exists (e.g. smoke tests, local dev
- * without sign-in) we fall back to the single seeded demo merchant instead
- * of failing — but the returned `demoFallback` flag makes that explicit.
- * Production deployments should remove the fallback (fail closed).
+ * When no session exists we fall back to the single seeded demo merchant
+ * for local dev/smoke tests — but ONLY while demoFallbackEnabled() allows
+ * it. Otherwise AuthRequiredError is thrown (fail closed).
  */
 export async function requireMerchantContext(): Promise<MerchantContext> {
   const session = await getServerSession(authOptions);
@@ -36,6 +61,10 @@ export async function requireMerchantContext(): Promise<MerchantContext> {
       merchantId: user.merchantId,
       demoFallback: false,
     };
+  }
+
+  if (!demoFallbackEnabled()) {
+    throw new AuthRequiredError();
   }
 
   // Demo fallback tenant (documented above)
@@ -59,6 +88,9 @@ export function withMerchantContext<T>(
       const data = await handler(ctx, req);
       return Response.json(data);
     } catch (err) {
+      if (err instanceof AuthRequiredError) {
+        return Response.json({ error: err.message }, { status: 401 });
+      }
       console.error('[api] handler error:', err);
       return Response.json(
         { error: (err as Error).message ?? 'Internal error' },

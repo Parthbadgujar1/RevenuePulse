@@ -100,7 +100,7 @@ PDF imports use heuristic line parsing (currency-marked amounts + status keyword
 
 **Reproducible experiments.** Demo Lab runs are fully deterministic given a seed: same seed ⇒ same cohort, same model scores, same ground-truth draws, bit-for-bit identical results. Re-running an identical batch is idempotent (deduplicated by stable event keys). The retry-all baseline is realized through the same seeded simulator — not an expected-value shortcut.
 
-**Merchant isolation & secrets.** All dashboard queries are scoped via `requireMerchantContext()`; cross-tenant case ids 404. Razorpay key secrets are validated against the live API at connect time and stored AES-256-GCM encrypted; sync/webhook flows decrypt only in memory. Webhooks require HMAC verification in live mode.
+**Merchant isolation & secrets.** All dashboard queries are scoped via `requireMerchantContext()`; cross-tenant case ids 404. The anonymous demo tenant is a dev-only convenience: it is disabled in production (`NODE_ENV=production`) unless `RP_DEMO_FALLBACK=1` is set explicitly. Razorpay key secrets are validated against the live API at connect time and stored AES-256-GCM encrypted; sync/webhook flows decrypt only in memory. Webhooks require HMAC verification in live mode.
 
 **Idempotency everywhere.** Provider events dedupe on stable keys (webhook event id / payment id / file-hash+row), so replays, re-syncs and re-uploads never create duplicate cases or double-spend recovery budget.
 

@@ -13,6 +13,7 @@
  */
 import { prisma } from '@rp/database';
 import { resolveRazorpayCredentials } from './razorpay-creds';
+import { classifyProviderPaymentStatus } from './provider-status';
 
 export interface VerifySummary {
   status: 'ok' | 'skipped' | 'error';
@@ -113,8 +114,9 @@ export async function verifyPendingLiveOutcomes(
 
       checked++;
       const now = new Date();
+      const verdict = classifyProviderPaymentStatus(payment.status);
 
-      if (payment.status === 'captured') {
+      if (verdict === 'recovered') {
         const outcome = await prisma.outcome.create({
           data: {
             actionId: action.id,
@@ -151,7 +153,7 @@ export async function verifyPendingLiveOutcomes(
           },
         });
         recovered++;
-      } else if (['failed', 'cancelled'].includes(String(payment.status))) {
+      } else if (verdict === 'not_recovered') {
         // Terminal failure per provider — record the honest negative outcome.
         const outcome = await prisma.outcome.create({
           data: {

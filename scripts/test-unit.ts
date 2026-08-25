@@ -10,6 +10,7 @@ import {
   categorizeFailure,
 } from '../packages/razorpay/src/index';
 import { toMlFeatures } from '../packages/observability/src/ml-client';
+import { classifyProviderPaymentStatus } from '../apps/web/lib/provider-status';
 import type { RecoveryFeatures } from '../packages/domain/src';
 
 let passed = 0;
@@ -130,6 +131,24 @@ assert((ml as any).failure_category === 'insufficient_funds', 'mapping failure_c
 assert((ml as any).number_of_previous_failures === 1, 'mapping number_of_previous_failures');
 assert((ml as any).amount_percentile === 0.7, 'mapping amount_percentile');
 assert(Object.keys(ml as any).length === 12, 'exactly 12 ML features', Object.keys(ml as any));
+
+// ---------------------------------------------------------------------------
+// 7. Live-outcome classification (Razorpay payment status -> outcome bucket)
+//    captured = recovered; failed/cancelled = not recovered; everything else
+//    (authorized, refunded, created, unknown) must stay pending — never
+//    fabricate an outcome from a non-terminal status.
+// ---------------------------------------------------------------------------
+assert(classifyProviderPaymentStatus('captured') === 'recovered', 'captured -> recovered');
+assert(classifyProviderPaymentStatus('CAPTURED') === 'recovered', 'case-insensitive captured');
+assert(classifyProviderPaymentStatus('failed') === 'not_recovered', 'failed -> not_recovered');
+assert(classifyProviderPaymentStatus('cancelled') === 'not_recovered', 'cancelled -> not_recovered');
+for (const pending of ['authorized', 'refunded', 'created', 'processed', '', undefined, null]) {
+  assert(
+    classifyProviderPaymentStatus(pending) === 'pending',
+    `non-terminal "${String(pending)}" stays pending`,
+    classifyProviderPaymentStatus(pending)
+  );
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

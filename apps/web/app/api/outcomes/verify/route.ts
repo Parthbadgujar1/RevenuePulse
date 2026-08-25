@@ -8,7 +8,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPendingLiveOutcomes, VerifySummary } from '../../../../lib/outcome-verifier';
-import { requireMerchantContext } from '../../../../lib/merchant-context';
+import { requireMerchantContext, apiErrorStatus } from '../../../../lib/merchant-context';
 
 export const runtime = 'nodejs';
 
@@ -24,6 +24,9 @@ export async function POST(_req: NextRequest) {
     return NextResponse.json({ ok: true, ...summary });
   } catch (e: any) {
     console.error('[outcomes/verify] error:', e);
-    return NextResponse.json({ error: e?.message ?? 'Verification failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message ?? 'Verification failed' },
+      { status: apiErrorStatus(e) }
+    );
   }
 }

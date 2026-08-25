@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@rp/database';
 import { DEFAULT_MERCHANT_POLICY } from '@rp/policies';
 import type { MerchantPolicy } from '@rp/policies';
-import { requireMerchantContext } from '../../../../lib/merchant-context';
+import { requireMerchantContext, apiErrorStatus } from '../../../../lib/merchant-context';
 
 const VALID_INTERVENTIONS = [
   'retry_later',
@@ -124,7 +124,10 @@ export async function GET() {
       hasOverrides: Boolean(stored),
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? 'Failed to load policy' }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message ?? 'Failed to load policy' },
+      { status: apiErrorStatus(e) }
+    );
   }
 }
 
@@ -155,6 +158,9 @@ export async function PUT(req: NextRequest) {
       effectivePolicy: { ...DEFAULT_MERCHANT_POLICY, ...policy },
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? 'Failed to save policy' }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message ?? 'Failed to save policy' },
+      { status: apiErrorStatus(e) }
+    );
   }
 }
