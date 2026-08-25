@@ -95,7 +95,7 @@ PDF imports use heuristic line parsing (currency-marked amounts + status keyword
 
 **Demo vs live execution are structurally separate.**
 - *Simulated* sources (Demo Lab batches, file imports) draw outcomes from an independent seeded ground-truth propensity; executions are stamped `SIMULATED_DEMO` in the audit trail.
-- *Live* sources (Razorpay API sync, verified webhooks) execute in `PROVIDER_LIVE` mode: no outcome is ever fabricated. The case enters `OUTCOME_PENDING` and resolves only when a real provider event arrives (`resolvePendingLiveOutcomes`), recording the real provider transaction id as `verificationRef`.
+- *Live* sources (Razorpay API sync, verified webhooks) execute in `PROVIDER_LIVE` mode: no outcome is ever fabricated. The case enters `OUTCOME_PENDING` and resolves only when a real provider event arrives (`resolvePendingLiveOutcomes`) or when the Razorpay API reports a terminal payment status — via the scheduled poller (`RP_VERIFY_POLL_SECONDS`, default 300s, `0` disables), the manual "Verify now" button on the case page (`POST /api/outcomes/verify`), recording the real provider transaction id as `verificationRef`.
 - Every case shows a source badge: 🟣 Demo Lab · 🟢 File Import · 🟠 Razorpay API Sync (live) · 🔵 Razorpay Webhook.
 
 **Reproducible experiments.** Demo Lab runs are fully deterministic given a seed: same seed ⇒ same cohort, same model scores, same ground-truth draws, bit-for-bit identical results. Re-running an identical batch is idempotent (deduplicated by stable event keys). The retry-all baseline is realized through the same seeded simulator — not an expected-value shortcut.
