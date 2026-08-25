@@ -9,15 +9,23 @@
  */
 
 import { PgBoss } from 'pg-boss';
-import { processJob, JobType } from '../../packages/observability/src/queue';
+import {
+  processJob,
+  JobType,
+  queueNameFor,
+  isQueueMode,
+} from '../../packages/observability/src/queue';
 
 const DATABASE_URL =
   process.env.DATABASE_URL ||
   'postgresql://postgres:password@localhost:5432/revenuepulse?schema=public';
 
-const QUEUE_PREFIX = 'rp-';
-
 async function main(): Promise<void> {
+  if (!isQueueMode()) {
+    console.warn(
+      '[worker] RP_USE_QUEUE is not "1" — the web app is processing jobs inline, so this worker will sit idle. Set RP_USE_QUEUE=1 on the web process to route jobs through the queue.'
+    );
+  }
   const boss = new PgBoss({
     connectionString: DATABASE_URL,
     // Keep schema isolated from application tables
@@ -32,7 +40,7 @@ async function main(): Promise<void> {
   console.log('[worker] pg-boss started');
 
   for (const jobType of Object.values(JobType)) {
-    const queue = `${QUEUE_PREFIX}${jobType}`;
+    const queue = queueNameFor(jobType);
     await boss.createQueue(queue);
     // pg-boss v12 delivers jobs to the handler as a batch array
     await boss.work(queue, async (batch: any[]) => {

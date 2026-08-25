@@ -1,7 +1,6 @@
 // Job Queue - PostgreSQL-backed queue using pg-boss
 // Handles async job processing for webhook events, recovery evaluations, etc.
 
-import { Pool } from 'pg';
 import * as PgBossModule from 'pg-boss';
 import {
   ensureDemoMerchant,
@@ -49,7 +48,8 @@ function fnv1a(str: string): number {
 }
 
 // pg-boss is CommonJS; normalize default export across module systems
-const Boss: any = (PgBossModule as any).default || PgBossModule;
+const Boss: any =
+  (PgBossModule as any).PgBoss || (PgBossModule as any).default || PgBossModule;
 type Boss = any;
 
 // Job types for the recovery system
@@ -86,29 +86,53 @@ export interface JobOptions {
   timeout?: number; // milliseconds before job is timed out
 }
 
-// Create a pg-boss boss instance connected to the database
-export function createBoss(pool: Pool): Boss {
-  const boss = new Boss();
-  
-  // Set up the data source
-  boss.on('ready', () => {
-    console.log('pg-boss ready, awaiting jobs...');
-  });
-  
-  boss.on('error', (err) => {
-    console.error('pg-boss error:', err);
-  });
-  
-  // Connect to the database using the pool
-  // Note: pg-boss manages its own connection internally
-  boss.dataSource = pool;
-  
-  return boss;
+// Queue naming shared by producer (web) and consumer (apps/worker):
+// one queue per JobType, e.g. rp-process-transaction-event
+export const QUEUE_PREFIX = 'rp-';
+export function queueNameFor(jobType: JobType): string {
+  return `${QUEUE_PREFIX}${jobType}`;
 }
 
-// Enqueue a job for asynchronous processing
-// In production this delegates to pg-boss workers; in development the job
-// handler runs in-process so the full pipeline is exercised end-to-end.
+/**
+ * True when pipeline jobs should be handed to pg-boss workers instead of
+ * running in the web process. Opt-in via RP_USE_QUEUE=1 — the default keeps
+ * dev/demo single-process behavior.
+ */
+export function isQueueMode(): boolean {
+  return process.env.RP_USE_QUEUE === '1';
+}
+
+let sharedBoss: any = null;
+let bossStarting: Promise<any> | null = null;
+
+/** Lazily started pg-boss producer connection (queue mode only). */
+async function getProducerBoss(): Promise<any> {
+  if (sharedBoss) return sharedBoss;
+  if (!bossStarting) {
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgresql://postgres:password@localhost:5432/revenuepulse?schema=public';
+    const boss = new Boss({ connectionString, schema: 'pgboss' });
+    boss.on('error', (err: Error) =>
+      console.error('[enqueue] pg-boss error:', err.message)
+    );
+    bossStarting = boss.start().then(() => {
+      sharedBoss = boss;
+      return boss;
+    });
+  }
+  return bossStarting;
+}
+
+// Enqueue a job for asynchronous processing.
+//
+// RP_USE_QUEUE=1 (queue mode): the job is durably persisted in PostgreSQL via
+// pg-boss and consumed by apps/worker — the returned id is the real pg-boss
+// job id. The durable WebhookEvent row carries state until the worker
+// finishes, so nothing is lost.
+//
+// Default (inline mode): the handler runs in-process shortly after enqueue so
+// dev/demo environments exercise the full pipeline without a worker process.
 export async function enqueueProcessingJob(
   job: {
     type: JobType;
@@ -118,23 +142,36 @@ export async function enqueueProcessingJob(
   },
   options?: JobOptions
 ): Promise<string> {
-  const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  console.log(`Job enqueued: ${job.type} - ${jobId}`);
-
-  if (process.env.NODE_ENV !== 'production') {
-    // Execute the real handler inline so events persist to the database
-    setImmediate(() => {
-      void processJob({} as Boss, job.type, job.payload)
-        .then((result) => {
-          if (!result.success) {
-            console.error(`Job ${jobId} failed:`, result.error);
-          }
-        })
-        .catch((err) => {
-          console.error(`Job ${jobId} threw:`, err);
-        });
+  if (isQueueMode()) {
+    const boss = await getProducerBoss();
+    // Worker extracts job.data.payload ?? job.data before calling processJob.
+    const jobId = await boss.send(queueNameFor(job.type), { payload: job.payload }, {
+      retryLimit: 3,
+      retryDelay: 5,
+      ...(options?.timeout ? { expireInSeconds: Math.ceil(options.timeout / 1000) } : {}),
     });
+    if (!jobId) {
+      throw new Error(`pg-boss refused job for queue ${queueNameFor(job.type)}`);
+    }
+    console.log(`Job queued on ${queueNameFor(job.type)}: ${jobId}`);
+    return String(jobId);
   }
+
+  const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  console.log(`Job enqueued (inline): ${job.type} - ${jobId}`);
+
+  // Execute the real handler inline so events persist to the database
+  setImmediate(() => {
+    void processJob({} as Boss, job.type, job.payload)
+      .then((result) => {
+        if (!result.success) {
+          console.error(`Job ${jobId} failed:`, result.error);
+        }
+      })
+      .catch((err) => {
+        console.error(`Job ${jobId} threw:`, err);
+      });
+  });
 
   return jobId;
 }

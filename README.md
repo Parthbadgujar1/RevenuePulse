@@ -7,7 +7,7 @@ AI revenue-recovery platform for subscription businesses. RevenuePulse watches p
 | Piece | Stack |
 |---|---|
 | Dashboard / API | Next.js (App Router) + Tailwind CSS — `apps/web` |
-| Background worker | pg-boss consumer over PostgreSQL — `apps/worker` |
+| Background worker | pg-boss consumer over PostgreSQL — `apps/worker` (enable with `RP_USE_QUEUE=1` on the web process, then `npm run worker`; default runs jobs inline in the web process) |
 | Core packages | domain (taxonomy, features), policies (decision engine), observability (pipeline + queue), agent (tool registry + orchestrator), providers/razorpay (demo-first adapters) — `packages/*` |
 | Database | Prisma 7 + PostgreSQL (driver adapter `@prisma/adapter-pg`) — `packages/database` (canonical schema: `packages/database/prisma/schema.prisma`) |
 | ML service | FastAPI + scikit-learn calibrated logistic regression — `services/ml` |
@@ -108,3 +108,13 @@ PDF imports use heuristic line parsing (currency-marked amounts + status keyword
 # Unit tests (payload normalization + ML contract, no DB needed)
 npm test
 ```
+
+## Environment knobs
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `RAZORPAY_MODE` | `demo` | `demo` simulates outcomes; `live` executes against the real API |
+| `RP_USE_QUEUE` | off (`inline`) | `1` routes pipeline jobs through pg-boss; run `npm run worker` to consume them |
+| `RP_VERIFY_POLL_SECONDS` | `300` | Background live-outcome poll interval inside the web server; `0` disables |
+| `RP_DEMO_FALLBACK` | on in dev, **off in production** | `1` allows the anonymous demo tenant in production; `0` forces it off everywhere |
+| `ML_SERVICE_URL` | `http://127.0.0.1:8001` | FastAPI service serving `model.joblib`; pipeline fails loudly without it |

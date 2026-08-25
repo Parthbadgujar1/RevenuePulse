@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "test": "npx tsx scripts/test-unit.ts",
+    "worker": "npx tsx apps/worker/index.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "dev": "turbo run dev --scope=web",
