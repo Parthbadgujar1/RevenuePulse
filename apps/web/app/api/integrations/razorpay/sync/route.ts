@@ -27,19 +27,35 @@ export async function POST(req: NextRequest) {
   const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
   let payments: any[];
   try {
-    // Razorpay lists newest-first; fetch then filter failures client-side.
-    const res = await fetch(`https://api.razorpay.com/v1/payments?count=${limit}`, {
-      headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
-    });
-    if (res.status === 401) {
-      return NextResponse.json({ error: 'Razorpay rejected the credentials (401). Check Key ID / Key Secret.' }, { status: 401 });
+    // Razorpay's list endpoint has no server-side status filter, so paginate
+    // (newest-first) and stop as soon as the requested number of failures is
+    // collected or the feed is exhausted. Hard per-request timeout keeps a
+    // slow api.razorpay.com from hanging the route.
+    payments = [];
+    const pageSize = 100;
+    const maxPages = 5;
+    let exhausted = false;
+    for (let page = 0; page < maxPages && !exhausted && payments.length < limit; page++) {
+      const res = await fetch(
+        `https://api.razorpay.com/v1/payments?count=${pageSize}&skip=${page * pageSize}`,
+        {
+          headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(15000),
+        }
+      );
+      if (res.status === 401) {
+        return NextResponse.json({ error: 'Razorpay rejected the credentials (401). Check Key ID / Key Secret.' }, { status: 401 });
+      }
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        return NextResponse.json({ error: `Razorpay API error ${res.status}: ${text.slice(0, 300)}` }, { status: 502 });
+      }
+      const json = await res.json();
+      const items = Array.isArray(json.items) ? json.items : [];
+      payments.push(...items.filter((p: any) => p.status === 'failed' || p.status === 'cancelled'));
+      if (items.length < pageSize) exhausted = true;
     }
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      return NextResponse.json({ error: `Razorpay API error ${res.status}: ${text.slice(0, 300)}` }, { status: 502 });
-    }
-    const json = await res.json();
-    payments = Array.isArray(json.items) ? json.items : [];
+    payments = payments.slice(0, limit);
   } catch (e: any) {
     return NextResponse.json(
       { error: `Could not reach api.razorpay.com: ${e?.message ?? 'network error'}` },

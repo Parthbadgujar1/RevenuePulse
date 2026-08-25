@@ -1,63 +1,80 @@
 /**
  * Authentication Module
  *
- * Email/password only for MVP.
- * Uses bcrypt for password hashing.
- * NextAuth.js for session management.
- * RBAC enforced via middleware.
+ * Email/password with Prisma-backed user persistence (User table).
+ * bcryptjs for password hashing (cost 12).
+ * NextAuth.js JWT sessions carrying role/merchantId tenant claims.
+ * RBAC helpers exported for route-level permission checks.
  */
-
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { createHash, randomBytes } from "crypto";
 import type { NextAuthOptions } from "next-auth";
+import { prisma } from "@rp/database";
 
-// In-memory user store for MVP; swap for Prisma lookups in production.
-interface AppUser {
-  id: string;
-  name?: string;
-  email: string;
-  passwordHash: string;
-  role: 'MERCHANT_OWNER' | 'FINANCE_MANAGER' | 'SUPPORT_OPERATOR' | 'ADMIN';
-  merchantId?: string;
-}
+export type UserRole =
+  | 'MERCHANT_OWNER'
+  | 'FINANCE_MANAGER'
+  | 'SUPPORT_OPERATOR'
+  | 'ADMIN';
 
-const users: AppUser[] = [];
+const DEMO_OWNER_EMAIL = 'owner@revenuepulse.dev';
+const DEMO_OWNER_PASSWORD = 'demo1234';
 
-// Dev/demo bootstrap - seed a demo merchant owner so local sign-in works
-// without a registration flow. No-op in production.
-if (process.env.NODE_ENV !== 'production') {
-  void (async () => {
-    users.push({
-      id: 'user_demo_owner',
-      name: 'Demo Owner',
-      email: 'owner@revenuepulse.dev',
-      passwordHash: await hashPassword('demo1234'),
-      role: 'MERCHANT_OWNER',
-      merchantId: 'demo-merchant',
-    });
-  })();
-}
-
-/**
- * Hash password using bcrypt
- */
 async function hashPassword(password: string): Promise<string> {
   const saltRounds = 12;
-  return await bcrypt.hash(password, saltRounds);
+  return bcrypt.hash(password, saltRounds);
+}
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash);
 }
 
 /**
- * Verify password against hash
+ * Ensure the demo merchant + owner account exist so local sign-in works
+ * without a registration flow. Non-production only; lazily invoked from
+ * authorize() so a fresh/reset database self-heals on first login attempt.
  */
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return await bcrypt.compare(password, hash);
+async function ensureDemoOwner(): Promise<void> {
+  if (process.env.NODE_ENV === 'production') return;
+  try {
+    const merchant = await prisma.merchant.upsert({
+      where: { id: 'demo-merchant' },
+      update: {},
+      create: {
+        id: 'demo-merchant',
+        name: 'Demo Merchant',
+        currency: 'INR',
+        createdAt: new Date(),
+      },
+    });
+    const existing = await prisma.user.findUnique({
+      where: { email: DEMO_OWNER_EMAIL },
+    });
+    if (!existing) {
+      await prisma.user.create({
+        data: {
+          name: 'Demo Owner',
+          email: DEMO_OWNER_EMAIL,
+          passwordHash: await hashPassword(DEMO_OWNER_PASSWORD),
+          role: 'MERCHANT_OWNER',
+          status: 'active',
+          merchantId: merchant.id,
+          createdAt: new Date(),
+        },
+      });
+    }
+  } catch {
+    // Database may be briefly unavailable during startup; authorize() will
+    // surface a real error when a genuine login is attempted.
+  }
 }
 
 /**
  * RBAC permissions by role
  */
-const rolePermissions: Record<string, string[]> = {
+const rolePermissions: Record<UserRole, string[]> = {
   MERCHANT_OWNER: [
     'dashboard:view',
     'policies:configure',
@@ -89,13 +106,10 @@ const rolePermissions: Record<string, string[]> = {
   ],
 };
 
-/**
- * Check if a user has a specific permission
- */
-function hasPermission(user: { role?: string } | null | undefined, permission: string): boolean {
-  if (!user || !user.role) return false;
-  const permissions = rolePermissions[user.role] || [];
-  return permissions.includes(permission);
+/** Check a role against a required permission string. */
+export function hasPermission(role: string | null | undefined, permission: string): boolean {
+  if (!role) return false;
+  return (rolePermissions[role as UserRole] || []).includes(permission);
 }
 
 export const authOptions: NextAuthOptions = {
@@ -111,28 +125,33 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        const email = credentials?.email;
+        const email = credentials?.email?.trim().toLowerCase();
         const password = credentials?.password;
 
         if (!email || !password) {
           throw new Error('Email and password are required');
         }
 
-        // Find user by email
-        const user = users.find((u) => u.email === email);
+        await ensureDemoOwner();
 
-        if (!user) {
-          throw new Error('No user found with this email');
+        const user = await prisma.user.findUnique({
+          where: { email },
+        });
+
+        if (!user || !user.passwordHash) {
+          // Same message for unknown user and missing credential to avoid
+          // leaking account existence.
+          throw new Error('Invalid email or password');
+        }
+        if (user.status !== 'active') {
+          throw new Error('Account is not active');
         }
 
-        // Verify password
         const isValid = await verifyPassword(password, user.passwordHash);
-
         if (!isValid) {
-          throw new Error('Invalid password');
+          throw new Error('Invalid email or password');
         }
 
-        // Return user object (stored into JWT via callbacks)
         return {
           id: user.id,
           email: user.email,
@@ -143,11 +162,10 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  // Session strategy: JWT for stateless auth
   session: {
     strategy: 'jwt' as const,
+    maxAge: 8 * 60 * 60, // 8h working-day sessions
   },
-  // Callbacks to propagate role/tenant claims into token + session
   callbacks: {
     async jwt({ token, user }) {
       const u = user as unknown as { role?: string; merchantId?: string } | undefined;
@@ -165,7 +183,6 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  // Secret for JWT signing - must be provided via environment variables
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === 'development',
 };
@@ -177,69 +194,95 @@ const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
 
 /**
- * Middleware for permission checking.
- * Wraps a route handler and enforces RBAC before invoking it.
- * Usage: `export const POST = withPermission('actions:approve')(handler)`
- */
-function withPermission(
-  permission: string,
-  routeHandler: (req: Request, user: AppUser) => Promise<Response>
-) {
-  return async (req: Request): Promise<Response> => {
-    const session = await getSession();
-
-    if (!session?.user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!hasPermission(session.user as { role?: string }, permission)) {
-      return new Response(JSON.stringify({ error: 'Forbidden: Insufficient permissions' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    return routeHandler(req, session.user as unknown as AppUser);
-  };
-}
-
-/**
- * Get the current session from the request.
- * Placeholder until NextAuth server-session wiring is added per-route.
- */
-async function getSession(): Promise<{ user: unknown } | null> {
-  // NextAuth manages sessions through its own handlers; routes should use getServerSession.
-  return null;
-}
-
-/**
- * Registration function - called when creating a new user
+ * Registration - persists the user to the database.
  */
 export async function registerUser(
   email: string,
   password: string,
   name: string,
-  role: 'MERCHANT_OWNER' | 'FINANCE_MANAGER' | 'SUPPORT_OPERATOR' | 'ADMIN',
+  role: UserRole,
   merchantId?: string
 ) {
-  if (users.find((u) => u.email === email)) {
+  const normalized = email.trim().toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email: normalized } });
+  if (existing) {
     throw new Error('User with this email already exists');
   }
 
-  const passwordHash = await hashPassword(password);
+  return prisma.user.create({
+    data: {
+      name,
+      email: normalized,
+      passwordHash: await hashPassword(password),
+      role,
+      status: 'active',
+      merchantId,
+      createdAt: new Date(),
+    },
+    select: { id: true, email: true, name: true, role: true, merchantId: true },
+  });
+}
 
-  const user: AppUser = {
-    id: `user_${Date.now()}`,
-    name,
-    email,
-    passwordHash,
-    role,
-    merchantId,
-  };
+// ---------------------------------------------------------------------------
+// Password reset flow (S1.2)
+//
+// Tokens are stored hashed (sha256); the raw token exists only at issue time.
+// Default TTL 1 hour, single use.
+// ---------------------------------------------------------------------------
 
-  users.push(user);
-  return user;
+function hashToken(raw: string): string {
+  return createHash('sha256').update(raw).digest('hex');
+}
+
+/**
+ * Create a password-reset token for the given email.
+ * Returns the RAW token (caller must deliver it via email) or null when the
+ * account does not exist — callers should respond identically either way to
+ * avoid account enumeration.
+ */
+export async function createPasswordResetToken(email: string): Promise<string | null> {
+  const user = await prisma.user.findUnique({
+    where: { email: email.trim().toLowerCase() },
+  });
+  if (!user) return null;
+
+  // Invalidate any outstanding tokens for this user (single active flow).
+  await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+
+  const raw = randomBytes(32).toString('base64url');
+  await prisma.passwordResetToken.create({
+    data: {
+      userId: user.id,
+      tokenHash: hashToken(raw),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    },
+  });
+  return raw;
+}
+
+/**
+ * Consume a reset token and set the new password.
+ * Throws on invalid/expired/used tokens.
+ */
+export async function resetPasswordWithToken(raw: string, newPassword: string): Promise<void> {
+  const record = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash: hashToken(raw) },
+  });
+  if (!record || record.usedAt || record.expiresAt < new Date()) {
+    throw new Error('Invalid or expired reset token');
+  }
+  if (newPassword.length < 8) {
+    throw new Error('Password must be at least 8 characters');
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: record.userId },
+      data: { passwordHash: await hashPassword(newPassword) },
+    }),
+    prisma.passwordResetToken.update({
+      where: { id: record.id },
+      data: { usedAt: new Date() },
+    }),
+  ]);
 }

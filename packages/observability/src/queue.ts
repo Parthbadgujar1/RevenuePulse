@@ -11,6 +11,7 @@ import {
 import { prisma } from '../../database';
 import { DecisionEngine, DEFAULT_MERCHANT_POLICY } from '../../policies/src';
 import type { MerchantPolicy } from '../../policies/src';
+import { getInterventionLift } from '../../policies/src/intervention-lifts';
 import { predictRecoveryProbability } from './ml-client';
 
 /** Load the merchant's persisted recovery policy (falls back to defaults). */
@@ -624,37 +625,10 @@ export function simulateGroundTruthOutcome(
 ): number {
   let p = GROUND_TRUTH_BASE_RATES[primaryCategory] ?? 0.4;
   p -= 0.08 * attemptCount; // retry fatigue
-  // Intervention fit mirrors the benchmarked lifts used in training-data
-  // generation: card-update outreach fixes dead instruments, payday-timed
-  // retries suit transient failures, blind retries on expired cards waste.
-  switch (actionType) {
-    case 'retry_later':
-      if (primaryCategory === 'insufficient_funds') p += 0.1;
-      else if (primaryCategory === 'network_timeout') p += 0.14;
-      else if (['bank_failure', 'auth_failure'].includes(primaryCategory)) p += 0.06;
-      else if (['expired_instrument', 'payment_method_degradation'].includes(primaryCategory)) p -= 0.18;
-      break;
-    case 'timed_reminder':
-      if (primaryCategory === 'insufficient_funds') p += 0.07;
-      else if (primaryCategory === 'subscription_failure') p += 0.05;
-      else p += 0.01;
-      break;
-    case 'checkout_recovery':
-      p += primaryCategory === 'auth_failure' ? 0.08 : 0.04;
-      break;
-    case 'subscription_recovery':
-      p += primaryCategory === 'subscription_failure' ? 0.09 : 0.03;
-      break;
-    case 'payment_method_recovery':
-      if (primaryCategory === 'expired_instrument') p += 0.24;
-      else if (primaryCategory === 'payment_method_degradation') p += 0.16;
-      else if (primaryCategory === 'auth_failure') p += 0.08;
-      else p -= 0.02;
-      break;
-    case 'human_escalation':
-      p += primaryCategory === 'customer_cancellation' ? -0.02 : 0.06;
-      break;
-  }
+  // Intervention fit from the SHARED lift table (intervention-lifts.ts) —
+  // identical numbers drive the decision engine, so the simulator's reality
+  // and the engine's expectations cannot diverge.
+  p += getInterventionLift(actionType, primaryCategory);
   return Math.min(0.95, Math.max(0.02, p));
 }
 
@@ -822,8 +796,15 @@ async function executeAction(payload: any): Promise<JobResult> {
 /**
  * LIVE outcome verification, driven by REAL provider events.
  * When a payment.captured / payment.authorized webhook arrives, match it to
- * open OUTCOME_PENDING cases (same merchant + same amount) and record a
- * verified RECOVERED outcome referencing the real provider transaction.
+ * open OUTCOME_PENDING cases and record a verified RECOVERED outcome
+ * referencing the real provider transaction.
+ *
+ * Matching policy:
+ *   - PRIMARY: exact join Transaction.providerTransactionId === event payment
+ *     id — unambiguous regardless of amount collisions.
+ *   - FALLBACK (events without a payment id): oldest single case for the
+ *     merchant with the same amountAtRisk. Never more than one case is
+ *     resolved from an ambiguous match.
  */
 export async function resolvePendingLiveOutcomes(
   merchantId: string,
@@ -835,14 +816,19 @@ export async function resolvePendingLiveOutcomes(
 ): Promise<number> {
   if (!meta.amount || meta.amount <= 0) return 0;
 
+  const exactMatch = Boolean(meta.providerTransactionId);
   const pending = await prisma.revenueCase.findMany({
     where: {
       merchantId,
       status: 'OUTCOME_PENDING',
-      amountAtRisk: meta.amount,
+      ...(exactMatch
+        ? { transaction: { providerTransactionId: meta.providerTransactionId } }
+        : { amountAtRisk: meta.amount }),
     },
     orderBy: { createdAt: 'asc' },
-    take: 5,
+    // Exact id match may legitimately fan out (defensive); ambiguous amount
+    // matching must stay single-case.
+    take: exactMatch ? 5 : 1,
   });
 
   let resolved = 0;

@@ -7,7 +7,7 @@ import {
   hashPayload,
 } from '@rp/database';
 import { normalizeRazorpayEvent } from '@rp/razorpay';
-import { enqueueProcessingJob, JobType } from '@rp/observability';
+import { enqueueProcessingJob, JobType, incWebhookEvent } from '@rp/observability';
 import type { NextRequest } from 'next/server';
 
 /**
@@ -29,22 +29,24 @@ export async function POST(request: NextRequest) {
     const eventId = request.headers.get('x-razorpay-event-id') || '';
 
     // 1. Verify webhook signature. In live mode, prefer the env secret but
-    //    fall back to the secret stored on the active Razorpay connection
-    //    (set when the merchant connected their keys in the dashboard).
+    //    fall back to stored per-merchant connection secrets: try EVERY
+    //    active Razorpay connection until one validates, so multi-tenant
+    //    attribution is by matching secret rather than "latest row wins".
     let verification = verifyRazorpaySignature(body, signature);
     let conn: { merchantId: string; webhookSecret: string | null } | null = null;
     if (!verification.valid && verification.mode === 'live') {
-      const found = await prisma.providerConnection.findFirst({
-        where: { provider: 'razorpay', status: 'active' },
-        orderBy: { id: 'desc' },
+      const connections = await prisma.providerConnection.findMany({
+        where: { provider: 'razorpay', status: 'active', webhookSecret: { not: null } },
         select: { merchantId: true, webhookSecret: true },
       });
-      if (found) {
-        conn = found;
-        if (found.webhookSecret) {
-          verification = verifyRazorpaySignature(body, signature, {
-            secret: found.webhookSecret,
-          });
+      for (const candidate of connections) {
+        const attempt = verifyRazorpaySignature(body, signature, {
+          secret: candidate.webhookSecret!,
+        });
+        if (attempt.valid) {
+          verification = attempt;
+          conn = candidate;
+          break;
         }
       }
     }
@@ -99,6 +101,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (registration.duplicate) {
+      incWebhookEvent('duplicate', eventData.event_type);
       return new NextResponse(
         JSON.stringify({ status: 'already_processed' }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -125,6 +128,7 @@ export async function POST(request: NextRequest) {
     );
 
     // 6. Acknowledge webhook safely (return 200 immediately)
+    incWebhookEvent('accepted', eventData.event_type);
     return new NextResponse(
       JSON.stringify({
         status: 'accepted',

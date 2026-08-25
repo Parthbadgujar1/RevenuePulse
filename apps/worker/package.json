@@ -4,7 +4,7 @@
   "description": "RevenuePulse background job worker (pg-boss)",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx tsx ../../scripts/test-unit.ts"
   },
   "keywords": [],
   "author": "",

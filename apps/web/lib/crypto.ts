@@ -1,15 +1,15 @@
 import * as crypto from 'crypto';
+import { getAppSecret } from './env';
 
 /**
  * AES-256-GCM encryption for provider API secrets at rest.
- * Key derived from NEXTAUTH_SECRET (or a dev fallback) via scrypt.
+ * Key derived from NEXTAUTH_SECRET (or RP_SECRET) via scrypt.
+ *
+ * Fail-closed: in production a missing secret throws at startup via
+ * getAppSecret(); development falls back to the documented dev key.
  */
 function key(): Buffer {
-  const secret =
-    process.env.NEXTAUTH_SECRET ||
-    process.env.RP_SECRET ||
-    'revenuepulse-dev-only-secret';
-  return crypto.scryptSync(secret, 'revenuepulse.kesalt', 32);
+  return crypto.scryptSync(getAppSecret(), 'revenuepulse.kesalt', 32);
 }
 
 export function encryptSecret(plain: string): string {

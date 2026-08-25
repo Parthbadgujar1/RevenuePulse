@@ -40,6 +40,20 @@ model User {
   updatedAt     DateTime @updatedAt
   merchant      Merchant? @relation(fields: [merchantId], references: [id])
   merchantId    String?
+  passwordResetTokens PasswordResetToken[]
+}
+
+// Single-use, time-limited password reset tokens (stored hashed).
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // Durable webhook ingestion log - owns the idempotency state machine.

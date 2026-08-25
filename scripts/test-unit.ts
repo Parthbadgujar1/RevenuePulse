@@ -150,5 +150,51 @@ for (const pending of ['authorized', 'refunded', 'created', 'processed', '', und
   );
 }
 
+// ---------------------------------------------------------------------------
+// 8. Shared intervention-lift table (single source of truth)
+//    The decision engine and the ground-truth simulator must agree: the
+//    simulator consumes getInterventionLift directly, so a regression here
+//    means someone re-introduced a divergent hardcoded table.
+// ---------------------------------------------------------------------------
+import {
+  getInterventionLift,
+  INTERVENTION_LIFTS,
+} from '../packages/policies/src/intervention-lifts';
+import { simulateGroundTruthOutcome } from '../packages/observability/src/queue';
+import { FailureCategory } from '../packages/domain/src/constants/failure-taxonomy';
+
+assert(
+  getInterventionLift('payment_method_recovery', 'expired_instrument') === 0.24,
+  'card-update lift on expired instrument is +0.24'
+);
+assert(
+  getInterventionLift('retry_later', 'expired_instrument') === -0.18,
+  'blind retry on expired instrument is -0.18'
+);
+assert(
+  getInterventionLift('human_escalation', 'customer_cancellation') === -0.02,
+  'escalation on voluntary cancel is -0.02 (modest last resort)'
+);
+assert(getInterventionLift('unknown_action', 'insufficient_funds') === 0, 'unknown action is neutral');
+assert(getInterventionLift('timed_reminder', 'some_new_category') === 0.01, 'unknown category falls back to default');
+
+// Simulator parity: with attemptCount=0 (no retry-fatigue term), simulator
+// output must equal categoryBase + shared lift for every action/category pair.
+// This pins the simulator to the shared table so engine expectations and
+// simulated reality can never silently diverge.
+import { GROUND_TRUTH_BASE_RATES } from '../packages/observability/src/queue';
+for (const action of Object.keys(INTERVENTION_LIFTS)) {
+  for (const cat of Object.values(FailureCategory)) {
+    const categoryBase = GROUND_TRUTH_BASE_RATES[cat] ?? 0.4;
+    const expected = Math.min(0.95, Math.max(0.02, categoryBase + getInterventionLift(action, cat)));
+    const actual = simulateGroundTruthOutcome(cat, action, 0);
+    assert(
+      Math.abs(actual - expected) < 1e-9,
+      `simulator parity ${action}/${cat}`,
+      { expected, actual }
+    );
+  }
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

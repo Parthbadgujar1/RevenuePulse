@@ -16,7 +16,8 @@
     "build": "turbo run build --scope=web",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate make init && prisma migrate deploy",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
     "ml:train": "python services/ml/data/generate_synthetic.py && python services/ml/train_baseline.py",
     "experiment": "tsx scripts/batch-experiment.ts 100"
   },

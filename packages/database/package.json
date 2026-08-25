@@ -2,10 +2,10 @@
   "name": "@rp/database",
   "version": "1.0.0",
   "description": "Prisma client, schema and idempotency helpers for RevenuePulse",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "index.ts",
+  "types": "index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx tsx ../../scripts/test-unit.ts"
   },
   "keywords": [],
   "author": "",

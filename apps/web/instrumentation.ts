@@ -7,6 +7,15 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    const { validateProductionEnv } = await import('./lib/env');
+    const problems = validateProductionEnv();
+    if (problems.length > 0) {
+      // Fail fast: refuse to serve traffic with a misconfigured deployment.
+      throw new Error(
+        `Production environment validation failed:\n- ${problems.join('\n- ')}`
+      );
+    }
+
     const { startOutcomePoller } = await import('./lib/outcome-poller');
     startOutcomePoller();
   }
