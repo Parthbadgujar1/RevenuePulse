@@ -1,0 +1,9 @@
+payment_id,created_at,status,method,amount,error_code,error_description,email,phone,currency
+pay_10001,2026-08-20T09:15:00Z,failed,card,2499.00,INSUFFICIENT_FUNDS,Insufficient funds in account,aarav.shah@example.com,+919812345670,INR
+pay_10002,2026-08-21T14:32:00Z,failed,card,8999.00,CARD_EXPIRED,Card has expired,priya.rao@example.com,+919812345671,INR
+pay_10003,2026-08-22T11:05:00Z,failed,upi,499.00,GATEWAY_ERROR,Issuer bank declined the transaction,rohan.mehta@example.com,+919812345672,INR
+pay_10004,2026-08-22T18:47:00Z,failed,netbanking,15999.00,AUTH_FAILURE,Authentication required by bank,sneha.iyer@example.com,+919812345673,INR
+pay_10005,2026-08-23T08:20:00Z,failed,upi,749.00,NETWORK_TIMEOUT,Payment network timed out,karan.patel@example.com,+919812345674,INR
+pay_10006,2026-08-23T16:10:00Z,failed,card,29999.00,CUSTOMER_CANCELLED,Customer cancelled the payment,ananya.nair@example.com,+919812345675,INR
+pay_10007,2026-08-24T10:55:00Z,failed,card,1299.00,REPEATED_FAILURE,Third consecutive failure on this instrument,vikram.singh@example.com,+919812345676,INR
+pay_10008,2026-08-24T13:40:00Z,captured,upi,1499.00,,Payment captured successfully,meera.joshi@example.com,+919812345677,INR

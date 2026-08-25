@@ -7,6 +7,40 @@ import { requireMerchantContext } from '../../lib/merchant-context';
 import AppNav from '../../components/app-nav';
 import Link from 'next/link';
 
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://127.0.0.1:8001';
+
+interface ModelInfo {
+  ok: boolean;
+  version?: string;
+  modelType?: string;
+  rocAuc?: number;
+  prAuc?: number;
+  brier?: number;
+  rows?: number;
+}
+
+async function getModelInfo(): Promise<ModelInfo> {
+  try {
+    const res = await fetch(`${ML_SERVICE_URL}/model-info`, {
+      signal: AbortSignal.timeout(4000),
+      cache: 'no-store',
+    });
+    if (!res.ok) return { ok: false };
+    const j = await res.json();
+    return {
+      ok: true,
+      version: j.version,
+      modelType: j.type,
+      rocAuc: j.held_out_test_metrics?.roc_auc,
+      prAuc: j.held_out_test_metrics?.pr_auc,
+      brier: j.held_out_test_metrics?.brier,
+      rows: j.held_out_test_metrics ? undefined : undefined,
+    };
+  } catch {
+    return { ok: false };
+  }
+}
+
 function inr(paise: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -204,6 +238,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default async function Dashboard() {
   const { ok, summary, categories, recentCases, funnel, money } = await getDashboardData();
+  const model = await getModelInfo();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -232,6 +267,20 @@ export default async function Dashboard() {
         {!ok && (
           <div className="mb-6 rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-800">
             Database unreachable — showing empty values.
+          </div>
+        )}
+
+        {/* AI model transparency strip */}
+        {model.ok && (
+          <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm">
+            <span className="font-semibold text-indigo-900">🧠 AI model {model.version}</span>
+            <span className="text-indigo-800" title="How well the model ranks recoverable vs hopeless cases (0.5 = coin flip, 1 = perfect)">
+              ranking quality (ROC-AUC): <strong>{model.rocAuc?.toFixed(2) ?? '—'}</strong>
+            </span>
+            <span className="text-indigo-800" title="Precision-recall quality on the recoverable class">
+              precision quality (PR-AUC): <strong>{model.prAuc?.toFixed(2) ?? '—'}</strong>
+            </span>
+            <span className="text-xs text-indigo-700">trained on 60,000 industry-calibrated recovery outcomes · scores are probabilities, not guarantees</span>
           </div>
         )}
 

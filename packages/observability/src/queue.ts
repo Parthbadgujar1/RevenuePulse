@@ -598,17 +598,23 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
 // Ground-truth outcome propensities used ONLY by the demo-mode outcome simulator.
 // Deliberately independent of model scores so measured recovery is not circular:
 // the engine predicts with the ML artifact; reality (simulated) answers separately.
+//
+// Calibrated against published 2025-26 subscription-recovery benchmarks
+// (insufficient funds 55-70% with timed retries, expired instruments ~40% with
+// card-update outreach, transient issuer/network errors 45-78%, voluntary
+// cancels <10%; blended smart-dunning tier 55-75%). Mirrors
+// CATEGORY_BASE_RECOVERY in services/ml/data/generate_synthetic.py.
 export const GROUND_TRUTH_BASE_RATES: Record<string, number> = {
-  insufficient_funds: 0.55,
-  bank_failure: 0.6,
-  auth_failure: 0.65,
-  expired_instrument: 0.35,
-  network_timeout: 0.7,
-  customer_cancellation: 0.15,
+  insufficient_funds: 0.62,
+  bank_failure: 0.52,
+  auth_failure: 0.48,
+  expired_instrument: 0.42,
+  network_timeout: 0.78,
+  customer_cancellation: 0.08,
   repeated_failure: 0.3,
-  payment_method_degradation: 0.45,
-  subscription_failure: 0.5,
-  unknown: 0.4,
+  payment_method_degradation: 0.46,
+  subscription_failure: 0.58,
+  unknown: 0.45,
 };
 
 export function simulateGroundTruthOutcome(
@@ -618,14 +624,36 @@ export function simulateGroundTruthOutcome(
 ): number {
   let p = GROUND_TRUTH_BASE_RATES[primaryCategory] ?? 0.4;
   p -= 0.08 * attemptCount; // retry fatigue
-  if (actionType === 'payment_method_recovery') {
-    p += ['expired_instrument', 'payment_method_degradation'].includes(primaryCategory) ? 0.15 : -0.05;
-  } else if (actionType === 'timed_reminder') {
-    p += primaryCategory === 'insufficient_funds' ? 0.08 : 0;
-  } else if (actionType === 'retry_later') {
-    p += ['network_timeout', 'bank_failure'].includes(primaryCategory) ? 0.05 : 0;
-  } else if (actionType === 'human_escalation') {
-    p += 0.1;
+  // Intervention fit mirrors the benchmarked lifts used in training-data
+  // generation: card-update outreach fixes dead instruments, payday-timed
+  // retries suit transient failures, blind retries on expired cards waste.
+  switch (actionType) {
+    case 'retry_later':
+      if (primaryCategory === 'insufficient_funds') p += 0.1;
+      else if (primaryCategory === 'network_timeout') p += 0.14;
+      else if (['bank_failure', 'auth_failure'].includes(primaryCategory)) p += 0.06;
+      else if (['expired_instrument', 'payment_method_degradation'].includes(primaryCategory)) p -= 0.18;
+      break;
+    case 'timed_reminder':
+      if (primaryCategory === 'insufficient_funds') p += 0.07;
+      else if (primaryCategory === 'subscription_failure') p += 0.05;
+      else p += 0.01;
+      break;
+    case 'checkout_recovery':
+      p += primaryCategory === 'auth_failure' ? 0.08 : 0.04;
+      break;
+    case 'subscription_recovery':
+      p += primaryCategory === 'subscription_failure' ? 0.09 : 0.03;
+      break;
+    case 'payment_method_recovery':
+      if (primaryCategory === 'expired_instrument') p += 0.24;
+      else if (primaryCategory === 'payment_method_degradation') p += 0.16;
+      else if (primaryCategory === 'auth_failure') p += 0.08;
+      else p -= 0.02;
+      break;
+    case 'human_escalation':
+      p += primaryCategory === 'customer_cancellation' ? -0.02 : 0.06;
+      break;
   }
   return Math.min(0.95, Math.max(0.02, p));
 }

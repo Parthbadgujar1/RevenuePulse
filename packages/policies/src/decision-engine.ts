@@ -200,16 +200,34 @@ export class DecisionEngine {
       }
 
       // Intervention-specific effectiveness lift on the predicted probability.
-      // Mirrors the demo-mode ground-truth simulator so decision economics
-      // reflect how each intervention actually shifts recovery odds by category.
+      // Mirrors the demo-mode ground-truth simulator AND the benchmarked
+      // training-data generation (2025-26 dunning research): card-update
+      // outreach fixes dead instruments (+24 pts), payday-aligned retries
+      // suit transient failures, blind retries on expired cards waste
+      // attempts (-18 pts), and human escalation is a modest last-resort
+      // lift rather than a dominant default so automation stays first.
       const EFFECTIVENESS_LIFT: Record<string, number> = {
         [InterventionType.RETRY_LATER]:
-          [FailureCategory.NETWORK_TIMEOUT, FailureCategory.BANK_FAILURE].includes(features.failureCategory) ? 0.05 : 0,
+          features.failureCategory === FailureCategory.NETWORK_TIMEOUT ? 0.14
+          : features.failureCategory === FailureCategory.INSUFFICIENT_FUNDS ? 0.10
+          : [FailureCategory.BANK_FAILURE, FailureCategory.AUTH_FAILURE].includes(features.failureCategory) ? 0.06
+          : [FailureCategory.EXPIRED_INSTRUMENT, FailureCategory.PAYMENT_METHOD_DEGRADATION].includes(features.failureCategory) ? -0.18
+          : 0,
         [InterventionType.TIMED_REMINDER]:
-          features.failureCategory === FailureCategory.INSUFFICIENT_FUNDS ? 0.08 : 0,
+          features.failureCategory === FailureCategory.INSUFFICIENT_FUNDS ? 0.07
+          : features.failureCategory === FailureCategory.SUBSCRIPTION_FAILURE ? 0.05
+          : 0.01,
+        [InterventionType.CHECKOUT_RECOVERY]:
+          features.failureCategory === FailureCategory.AUTH_FAILURE ? 0.08 : 0.04,
+        [InterventionType.SUBSCRIPTION_RECOVERY]:
+          features.failureCategory === FailureCategory.SUBSCRIPTION_FAILURE ? 0.09 : 0.03,
         [InterventionType.PAYMENT_METHOD_RECOVERY]:
-          [FailureCategory.EXPIRED_INSTRUMENT, FailureCategory.PAYMENT_METHOD_DEGRADATION].includes(features.failureCategory) ? 0.15 : -0.05,
-        [InterventionType.HUMAN_ESCALATION]: 0.1,
+          features.failureCategory === FailureCategory.EXPIRED_INSTRUMENT ? 0.24
+          : features.failureCategory === FailureCategory.PAYMENT_METHOD_DEGRADATION ? 0.16
+          : features.failureCategory === FailureCategory.AUTH_FAILURE ? 0.08
+          : -0.02,
+        [InterventionType.HUMAN_ESCALATION]:
+          features.failureCategory === FailureCategory.CUSTOMER_CANCELLATION ? -0.02 : 0.06,
       };
       const effectiveProbability = Math.min(
         0.95,
