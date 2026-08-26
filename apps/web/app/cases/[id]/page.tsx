@@ -13,6 +13,7 @@ import {
 import ApproveButton from '../../../components/approve-button';
 import AdminActions from '../../../components/admin-actions';
 import VerifyOutcomeButton from '../../../components/verify-outcome-button';
+import RetryScheduleViewer from '../../../components/retry-schedule-viewer';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,7 +73,7 @@ export default async function CaseDetailPage({
     prisma.recoveryAction.findMany({ where: { caseId: id }, orderBy: { id: 'asc' as const } }),
   ]);
   const actionIds = actions.map((a) => a.id);
-  const [outcomeRows, auditLogs, refunds] = await Promise.all([
+  const [outcomeRows, auditLogs, refunds, retrySchedules] = await Promise.all([
     prisma.outcome.findMany({
       where: { actionId: { in: actionIds } },
       orderBy: { createdAt: 'asc' as const },
@@ -91,6 +92,10 @@ export default async function CaseDetailPage({
       where: { caseId: id },
       orderBy: { createdAt: 'desc' as const },
     }),
+    prisma.retrySchedule.findMany({
+      where: { caseId: id },
+      orderBy: { nextRetryAt: 'asc' as const },
+    }).catch(() => []),
   ]);
 
   const tx = (revenueCase as any).transaction;
@@ -406,6 +411,12 @@ export default async function CaseDetailPage({
               );
             })}
           </ol>
+
+          {retrySchedules.length > 0 && (
+            <div className="mt-6">
+              <RetryScheduleViewer caseId={id} />
+            </div>
+          )}
         </section>
       </div>
     </div>
