@@ -1,0 +1,501 @@
+payment_id,created_at,status,method,amount,error_code,error_description,email,phone,currency
+pay_10001,2026-06-13T11:01:00Z,captured,upi,104536.65,,Payment captured successfully,priya.mehta@example.com,919839345092,INR
+pay_10002,2026-03-01T08:35:00Z,captured,card,718.91,,Payment captured successfully,rahul.reddy@example.com,919866722344,INR
+pay_10003,2026-03-29T16:09:00Z,captured,card,8798.89,,Payment captured successfully,mihika.pawar@example.com,919826753883,INR
+pay_10004,2026-08-25T20:05:00Z,captured,upi,862.52,,Payment captured successfully,varun.mehta@example.com,919841244663,INR
+pay_10005,2026-08-10T11:24:00Z,captured,card,707.55,,Payment captured successfully,rahul.pawar@example.com,919842857966,INR
+pay_10006,2026-02-11T22:24:00Z,failed,card,939.31,CARD_EXPIRED,Card has expired,shreya.kulkarni@example.com,919818883684,INR
+pay_10007,2026-02-24T18:13:00Z,captured,upi,74662.75,,Payment captured successfully,avni.khan@example.com,919888320463,INR
+pay_10008,2026-04-13T19:14:00Z,captured,netbanking,2973.57,,Payment captured successfully,diya.saxena@example.com,919818526544,INR
+pay_10009,2026-04-09T20:38:00Z,captured,netbanking,122072.18,,Payment captured successfully,aditi.iyer@example.com,919849392920,INR
+pay_10010,2026-04-22T13:29:00Z,captured,card,776.67,,Payment captured successfully,simran.agarwal@example.com,919878137358,INR
+pay_10011,2026-06-05T14:09:00Z,failed,card,47146.35,FRAUD_SUSPECTED,Transaction flagged for risk review,simran.joshi@example.com,919817774584,INR
+pay_10012,2026-03-03T10:05:00Z,failed,upi,115975.08,ACCOUNT_BLOCKED,Bank account or card is blocked,dev.naik@example.com,919836998038,INR
+pay_10013,2026-07-02T17:25:00Z,failed,netbanking,10175.24,INVALID_CVV,Card verification failed,aarav.mehta@example.com,919894705205,INR
+pay_10014,2026-01-16T15:04:00Z,captured,netbanking,1283.36,,Payment captured successfully,rajat.mishra@example.com,919873440831,INR
+pay_10015,2026-03-04T23:51:00Z,captured,card,274.46,,Payment captured successfully,vikram.rao@example.com,919864038913,INR
+pay_10016,2026-07-06T18:51:00Z,captured,netbanking,1760.65,,Payment captured successfully,karan.jain@example.com,919883863413,INR
+pay_10017,2026-01-26T09:41:00Z,captured,netbanking,44703.5,,Payment captured successfully,shreya.rao@example.com,919832097220,INR
+pay_10018,2026-04-08T08:24:00Z,captured,card,149542.27,,Payment captured successfully,nandini.patel@example.com,919835487660,INR
+pay_10019,2026-03-17T14:03:00Z,failed,upi,100285.04,GATEWAY_ERROR,Issuer bank declined the transaction,karan.saxena@example.com,919819121552,INR
+pay_10020,2026-06-22T15:25:00Z,captured,card,91922.49,,Payment captured successfully,yash.kulkarni@example.com,919837415205,INR
+pay_10021,2026-06-21T18:15:00Z,captured,card,303.7,,Payment captured successfully,rajat.iyer@example.com,919819832887,INR
+pay_10022,2026-05-18T14:32:00Z,captured,card,65774.68,,Payment captured successfully,anushka.agarwal@example.com,919880993218,INR
+pay_10023,2026-01-03T17:59:00Z,captured,upi,6154.17,,Payment captured successfully,kavya.reddy@example.com,919856020613,INR
+pay_10024,2026-02-22T16:32:00Z,captured,upi,923.27,,Payment captured successfully,aditya.agarwal@example.com,919845159040,INR
+pay_10025,2026-02-11T22:35:00Z,captured,upi,647.73,,Payment captured successfully,avni.pawar@example.com,919829876811,INR
+pay_10026,2026-04-21T12:02:00Z,captured,card,4183.69,,Payment captured successfully,manav.pawar@example.com,919864543049,INR
+pay_10027,2026-06-08T12:59:00Z,captured,netbanking,13106.91,,Payment captured successfully,akash.sharma@example.com,919843308443,INR
+pay_10028,2026-03-10T13:50:00Z,captured,upi,9706.43,,Payment captured successfully,siddharth.joshi@example.com,919813176186,INR
+pay_10029,2026-06-18T14:25:00Z,captured,card,89967.84,,Payment captured successfully,priya.iyer@example.com,919845059710,INR
+pay_10030,2026-02-15T16:02:00Z,captured,card,36216.7,,Payment captured successfully,arjun.kulkarni@example.com,919815957459,INR
+pay_10031,2026-07-01T21:00:00Z,failed,upi,40795.58,DUPLICATE_PAYMENT,Duplicate payment detected,meera.naik@example.com,919850308572,INR
+pay_10032,2026-05-10T17:42:00Z,captured,card,2182.33,,Payment captured successfully,simran.malhotra@example.com,919883542887,INR
+pay_10033,2026-08-02T08:19:00Z,captured,card,3319.36,,Payment captured successfully,rahul.sharma@example.com,919821381064,INR
+pay_10034,2026-03-14T18:05:00Z,captured,upi,3690.51,,Payment captured successfully,anushka.mehta@example.com,919871124923,INR
+pay_10035,2026-04-17T14:45:00Z,captured,upi,594.5,,Payment captured successfully,siddharth.nair@example.com,919879519112,INR
+pay_10036,2026-04-29T09:35:00Z,captured,card,148789.25,,Payment captured successfully,om.saxena@example.com,919877750178,INR
+pay_10037,2026-04-20T22:57:00Z,captured,card,77731.14,,Payment captured successfully,pooja.kulkarni@example.com,919869038700,INR
+pay_10038,2026-01-20T17:15:00Z,failed,card,3160.07,ACCOUNT_BLOCKED,Bank account or card is blocked,mihika.khan@example.com,919818357162,INR
+pay_10039,2026-02-22T21:24:00Z,captured,netbanking,666.26,,Payment captured successfully,simran.malhotra@example.com,919866240084,INR
+pay_10040,2026-05-18T15:31:00Z,captured,card,1116.07,,Payment captured successfully,aditya.saxena@example.com,919881688860,INR
+pay_10041,2026-01-07T20:37:00Z,captured,upi,31158.98,,Payment captured successfully,mihika.gupta@example.com,919855298556,INR
+pay_10042,2026-07-14T20:17:00Z,failed,upi,5818.98,GATEWAY_ERROR,Issuer bank declined the transaction,rohan.shah@example.com,919843189803,INR
+pay_10043,2026-02-21T08:39:00Z,failed,card,10639.13,AUTH_FAILURE,Authentication required by bank,rahul.deshmukh@example.com,919824508768,INR
+pay_10044,2026-05-29T08:59:00Z,failed,card,4831.73,BANK_DECLINED,Bank declined the transaction,mohit.iyer@example.com,919885958181,INR
+pay_10045,2026-07-20T09:22:00Z,failed,upi,15442.81,FRAUD_SUSPECTED,Transaction flagged for risk review,mihika.reddy@example.com,919830534124,INR
+pay_10046,2026-04-22T13:46:00Z,captured,upi,96487.38,,Payment captured successfully,pooja.mehta@example.com,919847437115,INR
+pay_10047,2026-08-14T22:15:00Z,failed,upi,32300.23,LIMIT_EXCEEDED,Transaction limit exceeded,mohit.reddy@example.com,919847080140,INR
+pay_10048,2026-05-23T08:33:00Z,captured,netbanking,41535.0,,Payment captured successfully,priya.mehta@example.com,919849491631,INR
+pay_10049,2026-02-26T20:44:00Z,captured,card,149663.15,,Payment captured successfully,mihika.kulkarni@example.com,919851154241,INR
+pay_10050,2026-03-06T15:07:00Z,captured,upi,39155.03,,Payment captured successfully,avni.chavan@example.com,919890099897,INR
+pay_10051,2026-03-14T11:53:00Z,captured,card,380.99,,Payment captured successfully,aditya.agarwal@example.com,919875884623,INR
+pay_10052,2026-01-27T08:36:00Z,captured,card,581.97,,Payment captured successfully,shreya.bhosale@example.com,919819943140,INR
+pay_10053,2026-05-28T09:09:00Z,captured,card,126444.34,,Payment captured successfully,anushka.joshi@example.com,919880138498,INR
+pay_10054,2026-04-08T22:58:00Z,captured,card,887.13,,Payment captured successfully,kavya.agarwal@example.com,919838323322,INR
+pay_10055,2026-03-09T10:10:00Z,failed,card,640.59,BANK_DECLINED,Bank declined the transaction,mihika.mehta@example.com,919841329612,INR
+pay_10056,2026-08-25T16:50:00Z,captured,upi,4214.82,,Payment captured successfully,ishita.mehta@example.com,919818004482,INR
+pay_10057,2026-02-12T17:38:00Z,captured,upi,6243.41,,Payment captured successfully,nandini.jain@example.com,919820796722,INR
+pay_10058,2026-06-03T09:56:00Z,captured,card,133595.86,,Payment captured successfully,priya.sharma@example.com,919846173157,INR
+pay_10059,2026-05-28T09:48:00Z,captured,upi,21351.94,,Payment captured successfully,raj.verma@example.com,919864807553,INR
+pay_10060,2026-03-27T18:42:00Z,failed,card,90045.23,GATEWAY_ERROR,Issuer bank declined the transaction,yash.iyer@example.com,919864247457,INR
+pay_10061,2026-08-10T08:42:00Z,captured,netbanking,36791.56,,Payment captured successfully,kavya.kulkarni@example.com,919883715012,INR
+pay_10062,2026-02-03T17:28:00Z,captured,netbanking,11299.59,,Payment captured successfully,isha.khan@example.com,919822510327,INR
+pay_10063,2026-02-27T11:29:00Z,captured,netbanking,25214.86,,Payment captured successfully,raj.joshi@example.com,919871308842,INR
+pay_10064,2026-05-22T12:24:00Z,captured,card,17443.28,,Payment captured successfully,abhishek.kulkarni@example.com,919810344303,INR
+pay_10065,2026-03-14T17:53:00Z,captured,upi,84512.39,,Payment captured successfully,harsh.jain@example.com,919853188224,INR
+pay_10066,2026-08-11T14:44:00Z,captured,card,26135.85,,Payment captured successfully,ishita.bhosale@example.com,919814968688,INR
+pay_10067,2026-02-02T18:55:00Z,failed,card,1398.75,LIMIT_EXCEEDED,Transaction limit exceeded,shreya.agarwal@example.com,919820779739,INR
+pay_10068,2026-08-07T18:54:00Z,failed,upi,98794.75,BANK_DECLINED,Issuer bank declined the transaction,varun.joshi@example.com,919822130508,INR
+pay_10069,2026-04-22T11:48:00Z,captured,upi,897.06,,Payment captured successfully,tanvi.khan@example.com,919829538047,INR
+pay_10070,2026-03-04T21:36:00Z,captured,upi,28388.67,,Payment captured successfully,ishita.joshi@example.com,919871894493,INR
+pay_10071,2026-06-13T16:29:00Z,captured,card,38715.7,,Payment captured successfully,avni.deshmukh@example.com,919895756900,INR
+pay_10072,2026-04-19T16:29:00Z,captured,upi,107192.27,,Payment captured successfully,varun.shah@example.com,919898346110,INR
+pay_10073,2026-04-12T16:00:00Z,captured,upi,5490.39,,Payment captured successfully,siddharth.saxena@example.com,919857287718,INR
+pay_10074,2026-02-26T14:39:00Z,captured,card,803.46,,Payment captured successfully,om.rao@example.com,919887789079,INR
+pay_10075,2026-04-04T12:05:00Z,captured,netbanking,7007.75,,Payment captured successfully,riya.nair@example.com,919844489940,INR
+pay_10076,2026-08-22T23:51:00Z,captured,card,4216.13,,Payment captured successfully,shreya.pawar@example.com,919859093496,INR
+pay_10077,2026-01-24T20:00:00Z,failed,card,12489.37,INVALID_CVV,Card verification failed,anushka.pawar@example.com,919854024257,INR
+pay_10078,2026-08-23T15:41:00Z,captured,card,858.08,,Payment captured successfully,nandini.iyer@example.com,919823044889,INR
+pay_10079,2026-03-02T12:24:00Z,captured,card,3971.82,,Payment captured successfully,vikram.bhosale@example.com,919892631441,INR
+pay_10080,2026-04-15T16:02:00Z,captured,upi,7360.89,,Payment captured successfully,manav.rao@example.com,919863437398,INR
+pay_10081,2026-03-12T14:07:00Z,captured,netbanking,858.35,,Payment captured successfully,pooja.patel@example.com,919885776373,INR
+pay_10082,2026-02-22T10:53:00Z,failed,upi,64755.42,NETWORK_TIMEOUT,Payment network timed out,dev.kulkarni@example.com,919833420607,INR
+pay_10083,2026-01-29T08:08:00Z,captured,card,21098.44,,Payment captured successfully,karan.bhosale@example.com,919870166480,INR
+pay_10084,2026-07-19T19:32:00Z,captured,upi,140875.17,,Payment captured successfully,priya.rao@example.com,919874287863,INR
+pay_10085,2026-08-05T20:27:00Z,failed,upi,591.22,DUPLICATE_PAYMENT,Duplicate payment detected,mohit.chavan@example.com,919849580505,INR
+pay_10086,2026-04-27T21:06:00Z,captured,upi,34296.18,,Payment captured successfully,siddharth.khan@example.com,919855490631,INR
+pay_10087,2026-07-31T22:25:00Z,failed,card,28100.16,INSUFFICIENT_FUNDS,Insufficient funds in account,tanvi.patel@example.com,919884674816,INR
+pay_10088,2026-01-16T18:42:00Z,captured,card,12502.09,,Payment captured successfully,manav.iyer@example.com,919887566910,INR
+pay_10089,2026-05-10T14:09:00Z,failed,upi,126260.56,ACCOUNT_BLOCKED,Bank account or card is blocked,anushka.saxena@example.com,919896261621,INR
+pay_10090,2026-05-23T08:38:00Z,captured,netbanking,6803.98,,Payment captured successfully,neha.patel@example.com,919886010330,INR
+pay_10091,2026-06-18T20:04:00Z,failed,card,12460.37,BANK_DECLINED,Bank declined the transaction,rajat.saxena@example.com,919821402740,INR
+pay_10092,2026-08-15T09:09:00Z,captured,card,38167.19,,Payment captured successfully,kavya.chavan@example.com,919825276327,INR
+pay_10093,2026-03-30T21:07:00Z,failed,card,89526.34,REPEATED_FAILURE,Repeated consecutive failure on this instrument,kavya.patel@example.com,919844295247,INR
+pay_10094,2026-03-16T18:07:00Z,failed,card,8801.69,CARD_EXPIRED,Card has expired,mihika.mehta@example.com,919852018286,INR
+pay_10095,2026-05-28T21:36:00Z,captured,card,67187.32,,Payment captured successfully,tanvi.mehta@example.com,919868614462,INR
+pay_10096,2026-08-05T11:15:00Z,failed,card,1314.51,AUTH_FAILURE,Authentication required by bank,arjun.verma@example.com,919857123808,INR
+pay_10097,2026-07-06T12:15:00Z,captured,card,41569.57,,Payment captured successfully,rajat.mishra@example.com,919870251043,INR
+pay_10098,2026-06-24T18:55:00Z,failed,netbanking,129632.97,GATEWAY_ERROR,Issuer bank declined the transaction,om.rao@example.com,919817635653,INR
+pay_10099,2026-04-05T17:04:00Z,captured,upi,980.89,,Payment captured successfully,rajat.agarwal@example.com,919835265073,INR
+pay_10100,2026-03-24T23:32:00Z,captured,card,121431.55,,Payment captured successfully,rohan.joshi@example.com,919868754920,INR
+pay_10101,2026-04-23T13:23:00Z,failed,card,8383.33,AUTH_FAILURE,Authentication required by bank,harsh.deshmukh@example.com,919843822301,INR
+pay_10102,2026-07-05T12:21:00Z,captured,card,4666.07,,Payment captured successfully,ananya.deshmukh@example.com,919885017250,INR
+pay_10103,2026-04-07T18:52:00Z,captured,card,46934.77,,Payment captured successfully,priya.verma@example.com,919851455302,INR
+pay_10104,2026-02-16T14:21:00Z,captured,netbanking,588.02,,Payment captured successfully,dev.naik@example.com,919880669879,INR
+pay_10105,2026-01-10T18:56:00Z,captured,upi,2506.5,,Payment captured successfully,rohan.khan@example.com,919858895439,INR
+pay_10106,2026-06-23T15:28:00Z,captured,upi,23370.66,,Payment captured successfully,arjun.verma@example.com,919886560394,INR
+pay_10107,2026-04-23T22:49:00Z,captured,card,3109.31,,Payment captured successfully,sneha.agarwal@example.com,919874503785,INR
+pay_10108,2026-08-12T19:35:00Z,captured,netbanking,17935.55,,Payment captured successfully,ishita.khan@example.com,919822309586,INR
+pay_10109,2026-08-22T15:52:00Z,captured,card,478.67,,Payment captured successfully,priya.gupta@example.com,919823298711,INR
+pay_10110,2026-08-03T18:50:00Z,captured,card,44088.04,,Payment captured successfully,aarav.mehta@example.com,919812550658,INR
+pay_10111,2026-03-07T14:53:00Z,failed,card,951.18,ACCOUNT_BLOCKED,Bank account or card is blocked,anushka.jain@example.com,919818429833,INR
+pay_10112,2026-01-29T23:38:00Z,failed,upi,12184.72,BANK_DECLINED,Issuer bank declined the transaction,ananya.chavan@example.com,919858399417,INR
+pay_10113,2026-01-18T08:24:00Z,captured,netbanking,233.83,,Payment captured successfully,vikram.mishra@example.com,919854629892,INR
+pay_10114,2026-02-04T09:22:00Z,captured,upi,1700.18,,Payment captured successfully,karan.reddy@example.com,919871428713,INR
+pay_10115,2026-01-10T17:12:00Z,captured,card,148912.27,,Payment captured successfully,rohan.agarwal@example.com,919835649468,INR
+pay_10116,2026-03-15T19:55:00Z,captured,upi,27880.3,,Payment captured successfully,harsh.gupta@example.com,919835074182,INR
+pay_10117,2026-05-08T23:23:00Z,captured,netbanking,4203.79,,Payment captured successfully,yash.iyer@example.com,919820746667,INR
+pay_10118,2026-03-25T17:19:00Z,captured,card,9438.64,,Payment captured successfully,diya.kulkarni@example.com,919895828117,INR
+pay_10119,2026-07-22T09:04:00Z,captured,upi,53114.06,,Payment captured successfully,om.rao@example.com,919826942307,INR
+pay_10120,2026-01-18T15:49:00Z,captured,upi,5323.82,,Payment captured successfully,karan.mishra@example.com,919828481124,INR
+pay_10121,2026-05-16T19:25:00Z,failed,card,101774.53,LIMIT_EXCEEDED,Transaction limit exceeded,kavya.saxena@example.com,919848329479,INR
+pay_10122,2026-06-27T23:12:00Z,captured,card,13985.89,,Payment captured successfully,karan.pawar@example.com,919882769008,INR
+pay_10123,2026-03-16T17:54:00Z,captured,card,3800.18,,Payment captured successfully,pooja.bhosale@example.com,919813527782,INR
+pay_10124,2026-04-03T19:29:00Z,captured,upi,25824.87,,Payment captured successfully,akash.mishra@example.com,919819898653,INR
+pay_10125,2026-02-02T18:41:00Z,failed,card,105130.34,NETWORK_TIMEOUT,Payment network timed out,sneha.iyer@example.com,919879538491,INR
+pay_10126,2026-02-09T17:10:00Z,captured,card,946.79,,Payment captured successfully,isha.kulkarni@example.com,919826800072,INR
+pay_10127,2026-06-10T17:39:00Z,captured,upi,115873.29,,Payment captured successfully,rajat.rao@example.com,919813808225,INR
+pay_10128,2026-01-21T09:41:00Z,captured,upi,53028.59,,Payment captured successfully,simran.bhosale@example.com,919842866956,INR
+pay_10129,2026-07-26T20:19:00Z,captured,card,1632.16,,Payment captured successfully,yash.naik@example.com,919856354851,INR
+pay_10130,2026-04-13T12:48:00Z,failed,card,648.32,UPI_COLLECT_EXPIRED,UPI collect request expired,akash.joshi@example.com,919831434525,INR
+pay_10131,2026-07-28T18:59:00Z,captured,upi,9982.16,,Payment captured successfully,ananya.malhotra@example.com,919877839607,INR
+pay_10132,2026-04-28T15:13:00Z,captured,upi,10974.59,,Payment captured successfully,vikram.khan@example.com,919827976443,INR
+pay_10133,2026-08-14T16:46:00Z,failed,card,5511.53,INVALID_DETAILS,Payment details were invalid,riya.saxena@example.com,919892012822,INR
+pay_10134,2026-01-31T12:06:00Z,captured,card,69905.79,,Payment captured successfully,rohan.rao@example.com,919815222944,INR
+pay_10135,2026-02-05T18:51:00Z,captured,card,3424.44,,Payment captured successfully,anushka.naik@example.com,919850162553,INR
+pay_10136,2026-06-01T18:32:00Z,captured,upi,624.87,,Payment captured successfully,avni.deshmukh@example.com,919894457912,INR
+pay_10137,2026-01-07T23:16:00Z,captured,netbanking,4103.87,,Payment captured successfully,anushka.malhotra@example.com,919829834119,INR
+pay_10138,2026-07-30T15:02:00Z,captured,upi,1762.95,,Payment captured successfully,anushka.bhosale@example.com,919818359252,INR
+pay_10139,2026-06-30T12:33:00Z,captured,card,67318.24,,Payment captured successfully,manav.sharma@example.com,919896343485,INR
+pay_10140,2026-07-25T16:39:00Z,captured,upi,7984.69,,Payment captured successfully,nandini.gupta@example.com,919874398125,INR
+pay_10141,2026-03-31T16:18:00Z,captured,card,2518.4,,Payment captured successfully,varun.reddy@example.com,919820607151,INR
+pay_10142,2026-03-30T22:41:00Z,failed,card,1808.07,CARD_EXPIRED,Card has expired,siddharth.rao@example.com,919823448342,INR
+pay_10143,2026-04-16T18:45:00Z,captured,card,49225.9,,Payment captured successfully,arjun.deshmukh@example.com,919853106399,INR
+pay_10144,2026-03-15T09:58:00Z,captured,upi,1928.65,,Payment captured successfully,neha.rao@example.com,919863283709,INR
+pay_10145,2026-07-21T23:11:00Z,captured,netbanking,968.71,,Payment captured successfully,aditi.deshmukh@example.com,919870981700,INR
+pay_10146,2026-06-14T23:56:00Z,captured,netbanking,18942.52,,Payment captured successfully,neha.shah@example.com,919855246430,INR
+pay_10147,2026-07-22T17:36:00Z,failed,upi,11386.62,UPI_COLLECT_EXPIRED,UPI collect request expired,raj.gupta@example.com,919843292316,INR
+pay_10148,2026-01-02T16:24:00Z,captured,card,8019.16,,Payment captured successfully,sneha.sharma@example.com,919825867870,INR
+pay_10149,2026-04-30T17:10:00Z,captured,card,12034.87,,Payment captured successfully,siddharth.joshi@example.com,919827927298,INR
+pay_10150,2026-05-03T12:29:00Z,captured,upi,2662.97,,Payment captured successfully,mohit.mehta@example.com,919880532309,INR
+pay_10151,2026-04-25T19:04:00Z,captured,netbanking,4314.27,,Payment captured successfully,sakshi.jain@example.com,919825601471,INR
+pay_10152,2026-06-24T14:45:00Z,captured,upi,30869.68,,Payment captured successfully,isha.jain@example.com,919851361818,INR
+pay_10153,2026-07-05T08:25:00Z,captured,card,120038.49,,Payment captured successfully,karan.bhosale@example.com,919814259382,INR
+pay_10154,2026-03-15T21:11:00Z,captured,upi,29712.25,,Payment captured successfully,harsh.malhotra@example.com,919820770971,INR
+pay_10155,2026-06-24T12:41:00Z,captured,netbanking,293.91,,Payment captured successfully,simran.jain@example.com,919883074216,INR
+pay_10156,2026-04-19T20:52:00Z,captured,card,567.5,,Payment captured successfully,akash.saxena@example.com,919812099943,INR
+pay_10157,2026-03-03T14:04:00Z,captured,card,16703.62,,Payment captured successfully,dev.singh@example.com,919817575790,INR
+pay_10158,2026-02-05T17:14:00Z,captured,upi,10978.58,,Payment captured successfully,sakshi.joshi@example.com,919865507111,INR
+pay_10159,2026-03-18T16:03:00Z,captured,upi,672.33,,Payment captured successfully,harsh.chavan@example.com,919852779814,INR
+pay_10160,2026-06-28T21:26:00Z,captured,card,4016.91,,Payment captured successfully,sneha.pawar@example.com,919865388634,INR
+pay_10161,2026-04-17T12:24:00Z,failed,card,3586.18,UPI_COLLECT_EXPIRED,UPI collect request expired,mohit.rao@example.com,919819768947,INR
+pay_10162,2026-02-18T14:30:00Z,captured,card,924.63,,Payment captured successfully,raj.joshi@example.com,919891121400,INR
+pay_10163,2026-06-30T14:25:00Z,captured,netbanking,8806.24,,Payment captured successfully,nandini.jain@example.com,919823234972,INR
+pay_10164,2026-07-25T23:48:00Z,failed,upi,2482.45,UPI_COLLECT_EXPIRED,UPI collect request expired,aditi.joshi@example.com,919860981231,INR
+pay_10165,2026-05-26T15:31:00Z,captured,upi,32101.25,,Payment captured successfully,manav.nair@example.com,919828784915,INR
+pay_10166,2026-07-04T23:11:00Z,captured,netbanking,632.71,,Payment captured successfully,akash.patel@example.com,919894651342,INR
+pay_10167,2026-03-01T10:45:00Z,captured,card,37319.86,,Payment captured successfully,priya.shah@example.com,919881432350,INR
+pay_10168,2026-05-22T21:00:00Z,captured,card,32577.06,,Payment captured successfully,neha.iyer@example.com,919822927031,INR
+pay_10169,2026-05-15T12:15:00Z,captured,card,28890.98,,Payment captured successfully,pooja.reddy@example.com,919840314047,INR
+pay_10170,2026-03-18T10:41:00Z,captured,netbanking,718.92,,Payment captured successfully,ananya.bhosale@example.com,919868238367,INR
+pay_10171,2026-06-15T18:36:00Z,captured,netbanking,140127.3,,Payment captured successfully,rohan.mehta@example.com,919847631028,INR
+pay_10172,2026-08-19T09:11:00Z,captured,netbanking,41328.15,,Payment captured successfully,simran.nair@example.com,919885693188,INR
+pay_10173,2026-03-03T20:43:00Z,captured,netbanking,122416.36,,Payment captured successfully,manav.rao@example.com,919823111164,INR
+pay_10174,2026-04-22T15:53:00Z,captured,card,10955.49,,Payment captured successfully,om.bhosale@example.com,919840620216,INR
+pay_10175,2026-04-02T20:27:00Z,failed,card,667.7,NETWORK_TIMEOUT,Payment network timed out,ishita.naik@example.com,919862294176,INR
+pay_10176,2026-03-23T19:06:00Z,captured,card,18578.0,,Payment captured successfully,isha.chavan@example.com,919864766762,INR
+pay_10177,2026-01-27T08:05:00Z,captured,card,28482.94,,Payment captured successfully,isha.joshi@example.com,919886767229,INR
+pay_10178,2026-05-14T13:43:00Z,captured,card,17214.29,,Payment captured successfully,karan.verma@example.com,919843782566,INR
+pay_10179,2026-03-05T23:38:00Z,captured,upi,28848.82,,Payment captured successfully,aditi.jain@example.com,919854927535,INR
+pay_10180,2026-04-21T12:19:00Z,captured,card,8141.52,,Payment captured successfully,nandini.mishra@example.com,919842537638,INR
+pay_10181,2026-03-25T20:17:00Z,failed,upi,104562.91,INVALID_DETAILS,Payment details were invalid,kavya.jain@example.com,919849101812,INR
+pay_10182,2026-08-01T10:52:00Z,captured,upi,3691.24,,Payment captured successfully,harsh.mehta@example.com,919870272714,INR
+pay_10183,2026-06-03T23:37:00Z,captured,card,11916.4,,Payment captured successfully,dev.saxena@example.com,919895655118,INR
+pay_10184,2026-08-23T10:06:00Z,captured,upi,16550.34,,Payment captured successfully,aditi.khan@example.com,919824219637,INR
+pay_10185,2026-01-03T11:16:00Z,captured,card,22735.89,,Payment captured successfully,avni.reddy@example.com,919877171380,INR
+pay_10186,2026-02-08T19:01:00Z,captured,upi,5858.46,,Payment captured successfully,mihika.singh@example.com,919879942848,INR
+pay_10187,2026-05-04T19:30:00Z,captured,card,776.6,,Payment captured successfully,vikram.sharma@example.com,919832059232,INR
+pay_10188,2026-07-09T15:33:00Z,failed,card,3238.84,ACCOUNT_BLOCKED,Bank account or card is blocked,anushka.singh@example.com,919870340936,INR
+pay_10189,2026-06-01T21:24:00Z,failed,card,107734.79,INSUFFICIENT_FUNDS,Insufficient funds in account,nikhil.sharma@example.com,919875697427,INR
+pay_10190,2026-05-16T18:38:00Z,captured,card,8519.5,,Payment captured successfully,avni.mehta@example.com,919827978165,INR
+pay_10191,2026-03-22T11:15:00Z,captured,card,29637.95,,Payment captured successfully,nandini.agarwal@example.com,919882125824,INR
+pay_10192,2026-06-27T13:35:00Z,captured,card,430.07,,Payment captured successfully,arjun.malhotra@example.com,919885374270,INR
+pay_10193,2026-05-10T23:26:00Z,captured,upi,4358.73,,Payment captured successfully,riya.joshi@example.com,919882156607,INR
+pay_10194,2026-03-15T13:49:00Z,captured,card,61420.67,,Payment captured successfully,tanvi.pawar@example.com,919815584869,INR
+pay_10195,2026-07-14T22:34:00Z,captured,card,539.12,,Payment captured successfully,manav.mehta@example.com,919868930964,INR
+pay_10196,2026-08-10T11:49:00Z,failed,upi,45135.84,NETWORK_TIMEOUT,Payment network timed out,kavya.rao@example.com,919886514083,INR
+pay_10197,2026-03-31T16:38:00Z,failed,upi,457.92,ACCOUNT_BLOCKED,Bank account or card is blocked,riya.agarwal@example.com,919827030641,INR
+pay_10198,2026-06-29T12:15:00Z,captured,card,13434.71,,Payment captured successfully,harsh.jain@example.com,919820135622,INR
+pay_10199,2026-06-12T10:25:00Z,captured,upi,421.58,,Payment captured successfully,ananya.naik@example.com,919871532017,INR
+pay_10200,2026-06-12T19:54:00Z,captured,card,9296.0,,Payment captured successfully,rajat.patel@example.com,919885986307,INR
+pay_10201,2026-08-07T23:50:00Z,captured,card,745.04,,Payment captured successfully,rahul.jain@example.com,919871272827,INR
+pay_10202,2026-01-01T21:12:00Z,captured,netbanking,926.53,,Payment captured successfully,nikhil.mehta@example.com,919859908025,INR
+pay_10203,2026-06-20T13:03:00Z,failed,card,443.41,CARD_EXPIRED,Card has expired,sakshi.sharma@example.com,919869735865,INR
+pay_10204,2026-01-03T08:44:00Z,captured,card,295.48,,Payment captured successfully,vikram.iyer@example.com,919852057323,INR
+pay_10205,2026-04-05T17:08:00Z,failed,card,56841.16,CUSTOMER_CANCELLED,Customer cancelled the payment,kavya.agarwal@example.com,919830317091,INR
+pay_10206,2026-08-24T21:39:00Z,captured,upi,41334.85,,Payment captured successfully,diya.gupta@example.com,919828767690,INR
+pay_10207,2026-03-05T16:41:00Z,failed,card,11075.32,REPEATED_FAILURE,Repeated consecutive failure on this instrument,varun.agarwal@example.com,919817324144,INR
+pay_10208,2026-07-20T15:31:00Z,captured,card,5710.05,,Payment captured successfully,aditya.malhotra@example.com,919886286724,INR
+pay_10209,2026-04-18T19:34:00Z,failed,upi,12702.9,CARD_EXPIRED,Card has expired,shreya.chavan@example.com,919848451741,INR
+pay_10210,2026-06-10T21:27:00Z,captured,upi,80990.69,,Payment captured successfully,ishita.pawar@example.com,919853855682,INR
+pay_10211,2026-04-11T10:19:00Z,captured,upi,18017.36,,Payment captured successfully,sneha.deshmukh@example.com,919899399687,INR
+pay_10212,2026-07-09T13:07:00Z,failed,card,9963.63,NETWORK_TIMEOUT,Payment network timed out,riya.naik@example.com,919825845304,INR
+pay_10213,2026-07-17T08:21:00Z,captured,upi,35182.23,,Payment captured successfully,sneha.bhosale@example.com,919886086168,INR
+pay_10214,2026-02-12T19:10:00Z,captured,card,281.32,,Payment captured successfully,aarav.joshi@example.com,919816171536,INR
+pay_10215,2026-05-01T19:24:00Z,failed,netbanking,43108.24,INVALID_CVV,Card verification failed,yash.kulkarni@example.com,919820453825,INR
+pay_10216,2026-05-27T19:07:00Z,captured,upi,920.55,,Payment captured successfully,varun.deshmukh@example.com,919853929586,INR
+pay_10217,2026-01-23T22:00:00Z,captured,card,23490.2,,Payment captured successfully,arjun.naik@example.com,919883357939,INR
+pay_10218,2026-07-14T15:09:00Z,failed,card,8463.89,UPI_COLLECT_EXPIRED,UPI collect request expired,simran.iyer@example.com,919837540722,INR
+pay_10219,2026-05-16T15:26:00Z,captured,upi,142127.44,,Payment captured successfully,tanvi.jain@example.com,919821395409,INR
+pay_10220,2026-05-29T11:32:00Z,captured,card,1299.25,,Payment captured successfully,yash.malhotra@example.com,919853788744,INR
+pay_10221,2026-03-23T22:17:00Z,captured,card,18813.94,,Payment captured successfully,akash.iyer@example.com,919881930575,INR
+pay_10222,2026-04-02T14:28:00Z,failed,card,132638.67,CARD_EXPIRED,Card has expired,manav.malhotra@example.com,919878915391,INR
+pay_10223,2026-01-13T17:16:00Z,captured,upi,338.09,,Payment captured successfully,aditya.iyer@example.com,919811604831,INR
+pay_10224,2026-01-16T15:08:00Z,failed,card,519.47,LIMIT_EXCEEDED,Transaction limit exceeded,aditya.mehta@example.com,919854499873,INR
+pay_10225,2026-02-01T09:29:00Z,failed,card,32363.93,REPEATED_FAILURE,Repeated consecutive failure on this instrument,riya.kulkarni@example.com,919869862640,INR
+pay_10226,2026-08-15T12:02:00Z,captured,upi,692.58,,Payment captured successfully,aditya.khan@example.com,919836770773,INR
+pay_10227,2026-06-14T15:40:00Z,captured,netbanking,39967.26,,Payment captured successfully,rajat.chavan@example.com,919853165014,INR
+pay_10228,2026-04-10T16:11:00Z,captured,card,24832.36,,Payment captured successfully,avni.joshi@example.com,919831424479,INR
+pay_10229,2026-01-26T15:42:00Z,captured,card,144780.25,,Payment captured successfully,harsh.verma@example.com,919833315234,INR
+pay_10230,2026-02-15T15:37:00Z,captured,card,85168.21,,Payment captured successfully,rajat.singh@example.com,919876065552,INR
+pay_10231,2026-05-19T17:11:00Z,failed,upi,50068.35,NETWORK_TIMEOUT,Payment network timed out,neha.gupta@example.com,919817993466,INR
+pay_10232,2026-01-06T12:37:00Z,captured,upi,27770.78,,Payment captured successfully,aditi.deshmukh@example.com,919853299069,INR
+pay_10233,2026-02-04T13:46:00Z,captured,netbanking,146874.29,,Payment captured successfully,siddharth.sharma@example.com,919889047551,INR
+pay_10234,2026-07-28T13:24:00Z,captured,card,48206.63,,Payment captured successfully,rajat.rao@example.com,919834438599,INR
+pay_10235,2026-06-04T18:58:00Z,failed,upi,688.1,UPI_COLLECT_EXPIRED,UPI collect request expired,aditi.jain@example.com,919811529494,INR
+pay_10236,2026-03-09T14:15:00Z,captured,upi,16685.11,,Payment captured successfully,akash.bhosale@example.com,919860829941,INR
+pay_10237,2026-03-31T20:06:00Z,captured,upi,829.98,,Payment captured successfully,yash.kulkarni@example.com,919824055958,INR
+pay_10238,2026-01-19T18:10:00Z,captured,netbanking,83795.06,,Payment captured successfully,priya.khan@example.com,919897729428,INR
+pay_10239,2026-02-12T21:10:00Z,captured,card,142557.36,,Payment captured successfully,varun.deshmukh@example.com,919841883191,INR
+pay_10240,2026-01-25T09:25:00Z,captured,upi,79454.94,,Payment captured successfully,vikram.shah@example.com,919837776759,INR
+pay_10241,2026-02-13T17:05:00Z,captured,card,76500.44,,Payment captured successfully,tanvi.malhotra@example.com,919859580252,INR
+pay_10242,2026-02-17T22:02:00Z,failed,card,571.05,FRAUD_SUSPECTED,Transaction flagged for risk review,akash.mishra@example.com,919840536245,INR
+pay_10243,2026-05-22T09:53:00Z,captured,card,4861.55,,Payment captured successfully,ananya.malhotra@example.com,919814661179,INR
+pay_10244,2026-05-09T12:07:00Z,captured,netbanking,558.23,,Payment captured successfully,diya.singh@example.com,919894184877,INR
+pay_10245,2026-02-07T16:20:00Z,captured,netbanking,8880.6,,Payment captured successfully,aarav.reddy@example.com,919893625419,INR
+pay_10246,2026-05-31T21:07:00Z,captured,card,142492.82,,Payment captured successfully,varun.pawar@example.com,919856153339,INR
+pay_10247,2026-08-13T21:16:00Z,captured,card,64385.27,,Payment captured successfully,shreya.rao@example.com,919863122402,INR
+pay_10248,2026-08-16T18:44:00Z,captured,card,13969.42,,Payment captured successfully,nandini.reddy@example.com,919823182514,INR
+pay_10249,2026-08-11T15:08:00Z,failed,card,793.98,REPEATED_FAILURE,Repeated consecutive failure on this instrument,akash.naik@example.com,919875023164,INR
+pay_10250,2026-07-14T19:52:00Z,captured,card,128051.64,,Payment captured successfully,priya.nair@example.com,919835872271,INR
+pay_10251,2026-08-13T14:53:00Z,captured,card,21968.64,,Payment captured successfully,meera.sharma@example.com,919814102122,INR
+pay_10252,2026-03-03T19:31:00Z,captured,upi,10868.22,,Payment captured successfully,ananya.deshmukh@example.com,919813684342,INR
+pay_10253,2026-04-09T09:10:00Z,captured,netbanking,22878.7,,Payment captured successfully,aarav.bhosale@example.com,919827758896,INR
+pay_10254,2026-06-15T13:38:00Z,captured,upi,14429.11,,Payment captured successfully,harsh.verma@example.com,919871605671,INR
+pay_10255,2026-03-06T14:29:00Z,captured,card,10844.29,,Payment captured successfully,mohit.saxena@example.com,919847940248,INR
+pay_10256,2026-03-18T11:30:00Z,failed,card,13614.05,INVALID_CVV,Card verification failed,mohit.malhotra@example.com,919898654879,INR
+pay_10257,2026-03-23T12:46:00Z,captured,card,123673.21,,Payment captured successfully,rajat.singh@example.com,919856059101,INR
+pay_10258,2026-07-05T15:43:00Z,failed,upi,134541.92,AUTH_FAILURE,Authentication required by bank,nikhil.naik@example.com,919885031958,INR
+pay_10259,2026-07-15T13:43:00Z,captured,netbanking,7233.06,,Payment captured successfully,avni.deshmukh@example.com,919872244897,INR
+pay_10260,2026-08-06T11:30:00Z,captured,card,706.52,,Payment captured successfully,harsh.chavan@example.com,919850044631,INR
+pay_10261,2026-04-16T09:55:00Z,failed,netbanking,34928.56,CUSTOMER_CANCELLED,Customer cancelled the payment,nandini.gupta@example.com,919894695784,INR
+pay_10262,2026-02-15T18:40:00Z,failed,card,560.64,ACCOUNT_BLOCKED,Bank account or card is blocked,shreya.khan@example.com,919874075580,INR
+pay_10263,2026-04-09T08:02:00Z,captured,upi,783.53,,Payment captured successfully,pooja.joshi@example.com,919856217844,INR
+pay_10264,2026-03-21T12:06:00Z,captured,card,79082.78,,Payment captured successfully,aditi.khan@example.com,919827956913,INR
+pay_10265,2026-03-29T23:22:00Z,failed,upi,4626.67,INSUFFICIENT_FUNDS,Insufficient funds in account,rahul.iyer@example.com,919859203071,INR
+pay_10266,2026-07-02T09:24:00Z,failed,netbanking,403.63,AUTH_FAILURE,Authentication required by bank,harsh.iyer@example.com,919883454998,INR
+pay_10267,2026-03-06T23:44:00Z,captured,card,8010.86,,Payment captured successfully,aditya.khan@example.com,919824081350,INR
+pay_10268,2026-05-11T11:18:00Z,captured,card,1794.39,,Payment captured successfully,akash.deshmukh@example.com,919831524980,INR
+pay_10269,2026-01-11T23:58:00Z,captured,card,140688.0,,Payment captured successfully,ishita.mehta@example.com,919878679929,INR
+pay_10270,2026-01-20T11:57:00Z,captured,card,4953.68,,Payment captured successfully,varun.verma@example.com,919851970837,INR
+pay_10271,2026-04-20T11:06:00Z,captured,netbanking,37651.3,,Payment captured successfully,riya.naik@example.com,919822475714,INR
+pay_10272,2026-04-06T18:11:00Z,captured,card,39145.9,,Payment captured successfully,rahul.iyer@example.com,919827785402,INR
+pay_10273,2026-06-28T09:54:00Z,captured,card,38743.08,,Payment captured successfully,anushka.shah@example.com,919827536261,INR
+pay_10274,2026-05-04T23:07:00Z,captured,netbanking,136833.23,,Payment captured successfully,rajat.naik@example.com,919885834657,INR
+pay_10275,2026-02-27T18:33:00Z,failed,upi,23699.95,UPI_COLLECT_EXPIRED,UPI collect request expired,abhishek.bhosale@example.com,919876549837,INR
+pay_10276,2026-08-11T13:04:00Z,captured,upi,32742.02,,Payment captured successfully,pooja.mehta@example.com,919871618633,INR
+pay_10277,2026-04-24T22:05:00Z,failed,netbanking,37867.4,INSUFFICIENT_FUNDS,Insufficient funds in account,mohit.saxena@example.com,919895568918,INR
+pay_10278,2026-03-19T14:41:00Z,captured,upi,95446.0,,Payment captured successfully,mohit.bhosale@example.com,919898203489,INR
+pay_10279,2026-04-04T22:07:00Z,captured,card,129991.27,,Payment captured successfully,vikram.rao@example.com,919832032560,INR
+pay_10280,2026-05-07T12:52:00Z,failed,upi,21563.83,REPEATED_FAILURE,Repeated consecutive failure on this instrument,vikram.khan@example.com,919816241172,INR
+pay_10281,2026-08-26T11:49:00Z,captured,netbanking,564.91,,Payment captured successfully,diya.mishra@example.com,919874818030,INR
+pay_10282,2026-08-25T13:44:00Z,captured,upi,138269.59,,Payment captured successfully,akash.saxena@example.com,919843318046,INR
+pay_10283,2026-03-12T20:21:00Z,captured,netbanking,9127.04,,Payment captured successfully,isha.gupta@example.com,919884300459,INR
+pay_10284,2026-06-11T14:12:00Z,captured,card,3745.76,,Payment captured successfully,yash.reddy@example.com,919825489430,INR
+pay_10285,2026-07-14T19:35:00Z,captured,upi,9174.36,,Payment captured successfully,diya.shah@example.com,919880159631,INR
+pay_10286,2026-01-28T08:24:00Z,failed,card,12501.1,CARD_EXPIRED,Card has expired,varun.singh@example.com,919882634888,INR
+pay_10287,2026-01-09T19:52:00Z,failed,card,22850.53,BANK_DECLINED,Bank declined the transaction,sneha.malhotra@example.com,919862016704,INR
+pay_10288,2026-04-17T18:35:00Z,captured,card,1812.15,,Payment captured successfully,tanvi.mishra@example.com,919883365441,INR
+pay_10289,2026-07-09T14:49:00Z,failed,upi,146247.52,CARD_EXPIRED,Card has expired,isha.kulkarni@example.com,919827457234,INR
+pay_10290,2026-02-11T16:00:00Z,captured,card,55085.54,,Payment captured successfully,simran.bhosale@example.com,919886863404,INR
+pay_10291,2026-05-21T19:04:00Z,captured,upi,17386.11,,Payment captured successfully,shreya.mehta@example.com,919856896070,INR
+pay_10292,2026-02-26T14:42:00Z,failed,card,487.64,FRAUD_SUSPECTED,Transaction flagged for risk review,anushka.saxena@example.com,919842725927,INR
+pay_10293,2026-01-11T18:24:00Z,captured,netbanking,10401.83,,Payment captured successfully,abhishek.jain@example.com,919875337822,INR
+pay_10294,2026-01-12T17:57:00Z,failed,upi,127331.85,BANK_DECLINED,Issuer bank declined the transaction,kavya.sharma@example.com,919866936428,INR
+pay_10295,2026-08-02T11:13:00Z,failed,upi,4903.92,UPI_COLLECT_EXPIRED,UPI collect request expired,sneha.nair@example.com,919843810519,INR
+pay_10296,2026-05-23T10:36:00Z,captured,upi,29155.28,,Payment captured successfully,dev.shah@example.com,919896090303,INR
+pay_10297,2026-07-04T10:48:00Z,captured,upi,8576.64,,Payment captured successfully,varun.jain@example.com,919861192463,INR
+pay_10298,2026-04-12T08:30:00Z,captured,card,3986.27,,Payment captured successfully,tanvi.shah@example.com,919884292758,INR
+pay_10299,2026-08-12T12:07:00Z,failed,card,10474.71,CARD_EXPIRED,Card has expired,anushka.kulkarni@example.com,919836082023,INR
+pay_10300,2026-01-30T13:42:00Z,failed,upi,96126.52,UPI_COLLECT_EXPIRED,UPI collect request expired,avni.bhosale@example.com,919854406060,INR
+pay_10301,2026-04-02T12:42:00Z,captured,upi,95064.6,,Payment captured successfully,avni.patel@example.com,919885907105,INR
+pay_10302,2026-05-26T19:51:00Z,captured,card,22753.18,,Payment captured successfully,tanvi.patel@example.com,919854501625,INR
+pay_10303,2026-08-13T23:29:00Z,captured,card,6088.22,,Payment captured successfully,aditya.pawar@example.com,919836364647,INR
+pay_10304,2026-03-09T10:46:00Z,failed,card,90513.45,CARD_EXPIRED,Card has expired,dev.pawar@example.com,919873364719,INR
+pay_10305,2026-06-17T12:23:00Z,captured,card,912.15,,Payment captured successfully,abhishek.shah@example.com,919898943201,INR
+pay_10306,2026-03-03T13:48:00Z,captured,upi,38078.81,,Payment captured successfully,rohan.joshi@example.com,919875450221,INR
+pay_10307,2026-03-01T10:16:00Z,captured,card,27643.44,,Payment captured successfully,rohan.agarwal@example.com,919853496088,INR
+pay_10308,2026-01-27T16:53:00Z,captured,upi,661.91,,Payment captured successfully,harsh.joshi@example.com,919879306247,INR
+pay_10309,2026-04-14T19:52:00Z,failed,netbanking,2927.96,AUTH_FAILURE,Authentication required by bank,rahul.verma@example.com,919890801793,INR
+pay_10310,2026-07-03T11:42:00Z,captured,card,3880.3,,Payment captured successfully,akash.shah@example.com,919842704875,INR
+pay_10311,2026-01-12T12:36:00Z,captured,upi,3050.06,,Payment captured successfully,shreya.saxena@example.com,919885645742,INR
+pay_10312,2026-06-13T08:56:00Z,failed,upi,30721.67,ACCOUNT_BLOCKED,Bank account or card is blocked,avni.nair@example.com,919893646063,INR
+pay_10313,2026-06-18T16:10:00Z,failed,upi,473.14,ACCOUNT_BLOCKED,Bank account or card is blocked,mohit.iyer@example.com,919833813202,INR
+pay_10314,2026-05-02T09:56:00Z,captured,upi,601.66,,Payment captured successfully,diya.chavan@example.com,919866463253,INR
+pay_10315,2026-04-05T09:44:00Z,failed,upi,108904.81,UPI_COLLECT_EXPIRED,UPI collect request expired,ananya.deshmukh@example.com,919890301439,INR
+pay_10316,2026-08-13T21:16:00Z,captured,card,4156.9,,Payment captured successfully,yash.khan@example.com,919858623028,INR
+pay_10317,2026-01-28T12:27:00Z,captured,upi,27797.18,,Payment captured successfully,akash.pawar@example.com,919884834795,INR
+pay_10318,2026-05-04T13:23:00Z,captured,upi,4953.04,,Payment captured successfully,meera.naik@example.com,919840839382,INR
+pay_10319,2026-04-25T13:06:00Z,captured,card,2353.41,,Payment captured successfully,aarav.mehta@example.com,919829505652,INR
+pay_10320,2026-05-01T21:05:00Z,captured,card,148444.81,,Payment captured successfully,varun.reddy@example.com,919890191410,INR
+pay_10321,2026-01-15T13:40:00Z,captured,upi,69474.65,,Payment captured successfully,siddharth.saxena@example.com,919832747608,INR
+pay_10322,2026-06-22T09:23:00Z,captured,card,42287.77,,Payment captured successfully,arjun.chavan@example.com,919812062459,INR
+pay_10323,2026-07-08T10:58:00Z,failed,card,14149.17,REPEATED_FAILURE,Repeated consecutive failure on this instrument,shreya.mishra@example.com,919810624307,INR
+pay_10324,2026-03-08T13:26:00Z,captured,upi,8399.32,,Payment captured successfully,rajat.kulkarni@example.com,919869427400,INR
+pay_10325,2026-04-07T23:49:00Z,failed,card,46377.44,GATEWAY_ERROR,Issuer bank declined the transaction,siddharth.sharma@example.com,919840860700,INR
+pay_10326,2026-07-24T18:26:00Z,failed,netbanking,13320.94,CUSTOMER_CANCELLED,Customer cancelled the payment,manav.singh@example.com,919887002404,INR
+pay_10327,2026-03-10T13:47:00Z,failed,upi,2995.5,INVALID_CVV,Card verification failed,manav.patel@example.com,919824319594,INR
+pay_10328,2026-01-31T10:43:00Z,captured,netbanking,13570.04,,Payment captured successfully,nandini.mishra@example.com,919846874043,INR
+pay_10329,2026-05-06T13:48:00Z,captured,netbanking,16895.13,,Payment captured successfully,rohan.chavan@example.com,919856612335,INR
+pay_10330,2026-04-11T13:29:00Z,failed,netbanking,71075.24,FRAUD_SUSPECTED,Transaction flagged for risk review,nikhil.nair@example.com,919883626933,INR
+pay_10331,2026-03-09T15:17:00Z,captured,card,9987.2,,Payment captured successfully,shreya.kulkarni@example.com,919870495821,INR
+pay_10332,2026-02-16T12:36:00Z,failed,upi,3882.54,NETWORK_TIMEOUT,Payment network timed out,aarav.nair@example.com,919866575546,INR
+pay_10333,2026-05-08T12:57:00Z,failed,upi,106213.85,AUTH_FAILURE,Authentication required by bank,sneha.singh@example.com,919844130183,INR
+pay_10334,2026-05-02T11:28:00Z,failed,upi,43349.75,REPEATED_FAILURE,Repeated consecutive failure on this instrument,dev.nair@example.com,919848199537,INR
+pay_10335,2026-04-01T18:43:00Z,captured,upi,2787.27,,Payment captured successfully,aditi.khan@example.com,919894728082,INR
+pay_10336,2026-06-06T20:54:00Z,captured,netbanking,121043.35,,Payment captured successfully,riya.jain@example.com,919858743159,INR
+pay_10337,2026-07-11T22:26:00Z,failed,card,882.37,INSUFFICIENT_FUNDS,Insufficient funds in account,raj.pawar@example.com,919817224328,INR
+pay_10338,2026-01-07T20:33:00Z,failed,upi,6552.59,BANK_DECLINED,Bank declined the transaction,aditya.patel@example.com,919880698159,INR
+pay_10339,2026-08-03T13:01:00Z,captured,card,13641.55,,Payment captured successfully,aditya.reddy@example.com,919882381952,INR
+pay_10340,2026-02-15T22:40:00Z,captured,upi,33681.91,,Payment captured successfully,ananya.jain@example.com,919851321368,INR
+pay_10341,2026-04-04T21:16:00Z,failed,card,78676.22,SERVICE_UNAVAILABLE,Payment service temporarily unavailable,raj.deshmukh@example.com,919811225756,INR
+pay_10342,2026-07-16T21:51:00Z,failed,card,29410.34,UPI_COLLECT_EXPIRED,UPI collect request expired,siddharth.kulkarni@example.com,919820631350,INR
+pay_10343,2026-04-19T15:33:00Z,captured,upi,11845.72,,Payment captured successfully,karan.nair@example.com,919828337367,INR
+pay_10344,2026-03-16T11:40:00Z,failed,card,65214.93,CARD_EXPIRED,Card has expired,om.naik@example.com,919811101134,INR
+pay_10345,2026-03-01T10:09:00Z,captured,card,372.75,,Payment captured successfully,ishita.rao@example.com,919845769504,INR
+pay_10346,2026-07-18T20:04:00Z,captured,upi,4581.9,,Payment captured successfully,om.joshi@example.com,919814497675,INR
+pay_10347,2026-02-20T22:47:00Z,failed,upi,9727.78,CARD_EXPIRED,Card has expired,isha.chavan@example.com,919826393556,INR
+pay_10348,2026-03-06T23:40:00Z,captured,card,49063.62,,Payment captured successfully,rahul.kulkarni@example.com,919888476684,INR
+pay_10349,2026-01-31T20:50:00Z,failed,card,974.07,INVALID_CVV,Card verification failed,sneha.rao@example.com,919857716774,INR
+pay_10350,2026-06-15T12:44:00Z,captured,upi,8167.08,,Payment captured successfully,om.naik@example.com,919835899364,INR
+pay_10351,2026-01-06T20:22:00Z,failed,upi,34565.31,CUSTOMER_CANCELLED,Customer cancelled the payment,yash.naik@example.com,919872866875,INR
+pay_10352,2026-03-12T13:04:00Z,captured,upi,127591.79,,Payment captured successfully,neha.shah@example.com,919893179370,INR
+pay_10353,2026-08-08T19:49:00Z,captured,upi,43665.92,,Payment captured successfully,ishita.saxena@example.com,919848000942,INR
+pay_10354,2026-03-24T21:41:00Z,failed,card,276.01,INSUFFICIENT_FUNDS,Insufficient funds in account,rajat.agarwal@example.com,919862156850,INR
+pay_10355,2026-06-18T23:33:00Z,captured,upi,1196.29,,Payment captured successfully,ananya.jain@example.com,919895753950,INR
+pay_10356,2026-01-16T19:35:00Z,failed,upi,111693.33,GATEWAY_ERROR,Issuer bank declined the transaction,karan.singh@example.com,919879724133,INR
+pay_10357,2026-01-25T11:46:00Z,captured,card,144750.33,,Payment captured successfully,akash.naik@example.com,919824161873,INR
+pay_10358,2026-07-16T19:43:00Z,captured,card,6667.93,,Payment captured successfully,dev.saxena@example.com,919869460086,INR
+pay_10359,2026-04-01T18:35:00Z,failed,netbanking,122586.77,REPEATED_FAILURE,Repeated consecutive failure on this instrument,isha.naik@example.com,919844103265,INR
+pay_10360,2026-04-03T22:28:00Z,failed,netbanking,7844.54,BANK_DECLINED,Bank declined the transaction,priya.reddy@example.com,919847038339,INR
+pay_10361,2026-08-24T12:06:00Z,failed,card,8670.46,UPI_COLLECT_EXPIRED,UPI collect request expired,kavya.naik@example.com,919820361818,INR
+pay_10362,2026-07-05T18:50:00Z,failed,upi,12027.78,UPI_COLLECT_EXPIRED,UPI collect request expired,aditi.verma@example.com,919868291349,INR
+pay_10363,2026-04-17T11:55:00Z,captured,upi,797.14,,Payment captured successfully,rohan.gupta@example.com,919882468141,INR
+pay_10364,2026-05-25T12:20:00Z,captured,upi,94561.62,,Payment captured successfully,ananya.joshi@example.com,919867973424,INR
+pay_10365,2026-03-16T20:09:00Z,captured,card,58507.9,,Payment captured successfully,aditya.patel@example.com,919874548325,INR
+pay_10366,2026-05-24T14:31:00Z,captured,card,14969.79,,Payment captured successfully,yash.sharma@example.com,919887311859,INR
+pay_10367,2026-01-23T11:42:00Z,captured,card,1761.77,,Payment captured successfully,anushka.jain@example.com,919893642093,INR
+pay_10368,2026-02-07T22:02:00Z,failed,netbanking,385.79,NETWORK_TIMEOUT,Payment network timed out,varun.shah@example.com,919856073103,INR
+pay_10369,2026-06-27T11:19:00Z,captured,card,10379.52,,Payment captured successfully,anushka.naik@example.com,919828971329,INR
+pay_10370,2026-06-27T08:24:00Z,captured,upi,128918.85,,Payment captured successfully,mihika.agarwal@example.com,919811118594,INR
+pay_10371,2026-01-18T20:42:00Z,failed,card,15667.72,UPI_COLLECT_EXPIRED,UPI collect request expired,vikram.gupta@example.com,919875050252,INR
+pay_10372,2026-08-10T10:11:00Z,captured,card,12123.98,,Payment captured successfully,shreya.naik@example.com,919831072888,INR
+pay_10373,2026-01-05T19:43:00Z,captured,card,14781.46,,Payment captured successfully,priya.pawar@example.com,919847606981,INR
+pay_10374,2026-02-27T12:21:00Z,captured,netbanking,1351.09,,Payment captured successfully,rajat.patel@example.com,919867239162,INR
+pay_10375,2026-03-21T18:28:00Z,captured,upi,10413.0,,Payment captured successfully,sakshi.patel@example.com,919867722252,INR
+pay_10376,2026-08-21T12:41:00Z,captured,netbanking,10572.85,,Payment captured successfully,ishita.naik@example.com,919813957187,INR
+pay_10377,2026-07-15T18:56:00Z,failed,netbanking,12455.35,AUTH_FAILURE,Authentication required by bank,priya.saxena@example.com,919892805158,INR
+pay_10378,2026-03-10T15:38:00Z,captured,card,100232.46,,Payment captured successfully,tanvi.nair@example.com,919862004039,INR
+pay_10379,2026-05-06T23:08:00Z,captured,card,2633.95,,Payment captured successfully,arjun.singh@example.com,919818876667,INR
+pay_10380,2026-02-15T22:55:00Z,captured,upi,127621.47,,Payment captured successfully,harsh.naik@example.com,919851996390,INR
+pay_10381,2026-04-11T09:33:00Z,captured,card,564.52,,Payment captured successfully,sakshi.agarwal@example.com,919816616323,INR
+pay_10382,2026-02-18T17:28:00Z,captured,card,442.64,,Payment captured successfully,ishita.jain@example.com,919896718276,INR
+pay_10383,2026-04-26T10:46:00Z,captured,upi,13942.39,,Payment captured successfully,neha.jain@example.com,919889230801,INR
+pay_10384,2026-08-18T14:56:00Z,failed,card,399.07,INVALID_DETAILS,Payment details were invalid,ananya.chavan@example.com,919861551334,INR
+pay_10385,2026-07-06T13:24:00Z,captured,upi,1683.37,,Payment captured successfully,neha.reddy@example.com,919816886777,INR
+pay_10386,2026-04-18T17:19:00Z,captured,upi,967.77,,Payment captured successfully,nikhil.shah@example.com,919871557975,INR
+pay_10387,2026-05-08T23:34:00Z,failed,upi,38080.81,BANK_DECLINED,Issuer bank declined the transaction,riya.saxena@example.com,919894374018,INR
+pay_10388,2026-05-23T14:03:00Z,captured,card,107809.27,,Payment captured successfully,ananya.rao@example.com,919824614652,INR
+pay_10389,2026-04-17T13:10:00Z,captured,upi,42554.98,,Payment captured successfully,tanvi.rao@example.com,919822499198,INR
+pay_10390,2026-07-16T17:20:00Z,failed,card,1270.6,LIMIT_EXCEEDED,Transaction limit exceeded,akash.chavan@example.com,919838164968,INR
+pay_10391,2026-06-28T14:39:00Z,captured,card,122407.41,,Payment captured successfully,varun.khan@example.com,919891717739,INR
+pay_10392,2026-08-06T18:16:00Z,captured,upi,34691.64,,Payment captured successfully,neha.saxena@example.com,919841235369,INR
+pay_10393,2026-07-01T17:12:00Z,captured,card,44681.59,,Payment captured successfully,aditi.verma@example.com,919885217695,INR
+pay_10394,2026-07-26T14:00:00Z,failed,upi,751.01,DUPLICATE_PAYMENT,Duplicate payment detected,rajat.saxena@example.com,919813908068,INR
+pay_10395,2026-08-02T13:12:00Z,failed,card,42903.11,INVALID_DETAILS,Payment details were invalid,dev.gupta@example.com,919872071682,INR
+pay_10396,2026-07-20T21:59:00Z,captured,upi,2197.08,,Payment captured successfully,aditi.verma@example.com,919818886963,INR
+pay_10397,2026-02-08T16:53:00Z,failed,card,88956.63,BANK_DECLINED,Bank declined the transaction,yash.reddy@example.com,919814245067,INR
+pay_10398,2026-03-11T21:05:00Z,captured,upi,389.11,,Payment captured successfully,rohan.singh@example.com,919822429114,INR
+pay_10399,2026-04-24T08:51:00Z,failed,upi,14235.44,AUTH_FAILURE,Authentication required by bank,sakshi.sharma@example.com,919827812995,INR
+pay_10400,2026-02-22T09:29:00Z,captured,card,890.85,,Payment captured successfully,rohan.iyer@example.com,919879870757,INR
+pay_10401,2026-07-16T17:01:00Z,captured,upi,8208.48,,Payment captured successfully,meera.kulkarni@example.com,919830041488,INR
+pay_10402,2026-02-10T16:07:00Z,captured,card,3055.73,,Payment captured successfully,varun.mishra@example.com,919842859865,INR
+pay_10403,2026-02-13T10:19:00Z,captured,upi,469.99,,Payment captured successfully,ananya.khan@example.com,919862602177,INR
+pay_10404,2026-02-15T22:39:00Z,captured,card,43324.68,,Payment captured successfully,ananya.reddy@example.com,919872850928,INR
+pay_10405,2026-01-25T22:19:00Z,captured,upi,136109.63,,Payment captured successfully,tanvi.malhotra@example.com,919834609232,INR
+pay_10406,2026-06-29T18:50:00Z,captured,netbanking,2949.54,,Payment captured successfully,manav.saxena@example.com,919887132010,INR
+pay_10407,2026-02-02T11:25:00Z,captured,upi,42734.29,,Payment captured successfully,pooja.saxena@example.com,919842707660,INR
+pay_10408,2026-05-21T13:30:00Z,captured,card,10909.11,,Payment captured successfully,pooja.nair@example.com,919898934311,INR
+pay_10409,2026-06-21T10:47:00Z,failed,netbanking,31201.33,AUTH_FAILURE,Authentication required by bank,mohit.malhotra@example.com,919853943990,INR
+pay_10410,2026-05-07T09:05:00Z,captured,card,3322.49,,Payment captured successfully,varun.malhotra@example.com,919892620697,INR
+pay_10411,2026-05-28T22:12:00Z,captured,card,38783.88,,Payment captured successfully,manav.mehta@example.com,919888212291,INR
+pay_10412,2026-01-03T20:54:00Z,failed,card,10488.3,BANK_DECLINED,Bank declined the transaction,pooja.khan@example.com,919889210454,INR
+pay_10413,2026-04-11T18:45:00Z,captured,card,31620.02,,Payment captured successfully,tanvi.khan@example.com,919830705405,INR
+pay_10414,2026-03-15T12:08:00Z,failed,card,1575.84,ACCOUNT_BLOCKED,Bank account or card is blocked,mohit.khan@example.com,919893650995,INR
+pay_10415,2026-02-16T22:32:00Z,captured,card,29866.59,,Payment captured successfully,pooja.reddy@example.com,919877340900,INR
+pay_10416,2026-03-10T21:59:00Z,captured,upi,39670.18,,Payment captured successfully,ananya.patel@example.com,919880653292,INR
+pay_10417,2026-08-08T16:29:00Z,captured,upi,617.69,,Payment captured successfully,dev.mishra@example.com,919851943002,INR
+pay_10418,2026-06-06T09:57:00Z,captured,card,31422.66,,Payment captured successfully,varun.deshmukh@example.com,919832482565,INR
+pay_10419,2026-01-10T17:46:00Z,captured,upi,10780.83,,Payment captured successfully,anushka.shah@example.com,919848495745,INR
+pay_10420,2026-05-05T10:08:00Z,captured,upi,880.16,,Payment captured successfully,mohit.nair@example.com,919889426041,INR
+pay_10421,2026-07-09T12:42:00Z,captured,card,845.27,,Payment captured successfully,ananya.patel@example.com,919889932574,INR
+pay_10422,2026-07-30T12:53:00Z,captured,upi,4080.7,,Payment captured successfully,manav.rao@example.com,919896202825,INR
+pay_10423,2026-03-09T11:03:00Z,captured,card,41334.22,,Payment captured successfully,harsh.bhosale@example.com,919845248951,INR
+pay_10424,2026-02-07T21:00:00Z,captured,card,836.85,,Payment captured successfully,manav.khan@example.com,919891937985,INR
+pay_10425,2026-08-24T16:21:00Z,captured,card,2021.12,,Payment captured successfully,avni.singh@example.com,919879786819,INR
+pay_10426,2026-03-28T13:20:00Z,captured,upi,18419.36,,Payment captured successfully,varun.kulkarni@example.com,919835914696,INR
+pay_10427,2026-01-09T08:39:00Z,failed,card,949.8,NETWORK_TIMEOUT,Payment network timed out,rajat.nair@example.com,919824877375,INR
+pay_10428,2026-06-28T13:16:00Z,captured,card,9533.98,,Payment captured successfully,karan.kulkarni@example.com,919818373492,INR
+pay_10429,2026-04-08T20:21:00Z,captured,netbanking,4250.39,,Payment captured successfully,neha.agarwal@example.com,919876042812,INR
+pay_10430,2026-01-28T12:34:00Z,failed,upi,373.71,LIMIT_EXCEEDED,Transaction limit exceeded,priya.bhosale@example.com,919829978882,INR
+pay_10431,2026-06-17T08:59:00Z,captured,card,28696.17,,Payment captured successfully,shreya.naik@example.com,919819408620,INR
+pay_10432,2026-05-19T15:00:00Z,captured,card,6211.92,,Payment captured successfully,shreya.rao@example.com,919894862181,INR
+pay_10433,2026-06-15T10:23:00Z,captured,upi,1321.75,,Payment captured successfully,harsh.sharma@example.com,919835636010,INR
+pay_10434,2026-03-18T20:57:00Z,failed,card,750.07,INVALID_CVV,Card verification failed,karan.pawar@example.com,919896356711,INR
+pay_10435,2026-03-20T23:34:00Z,captured,netbanking,848.42,,Payment captured successfully,kavya.agarwal@example.com,919899565693,INR
+pay_10436,2026-05-14T22:43:00Z,captured,netbanking,17521.1,,Payment captured successfully,raj.saxena@example.com,919816147399,INR
+pay_10437,2026-03-04T12:00:00Z,failed,card,67068.94,CARD_EXPIRED,Card has expired,karan.singh@example.com,919867205134,INR
+pay_10438,2026-03-28T20:20:00Z,captured,card,746.27,,Payment captured successfully,aditi.mehta@example.com,919826206185,INR
+pay_10439,2026-03-12T12:48:00Z,captured,card,756.04,,Payment captured successfully,anushka.malhotra@example.com,919831173338,INR
+pay_10440,2026-01-05T23:05:00Z,captured,card,46041.14,,Payment captured successfully,kavya.patel@example.com,919895875952,INR
+pay_10441,2026-03-11T22:26:00Z,captured,card,338.64,,Payment captured successfully,simran.verma@example.com,919866208488,INR
+pay_10442,2026-01-02T15:12:00Z,captured,card,1382.64,,Payment captured successfully,kavya.kulkarni@example.com,919817122803,INR
+pay_10443,2026-02-19T11:50:00Z,captured,card,874.03,,Payment captured successfully,varun.singh@example.com,919868340640,INR
+pay_10444,2026-03-06T18:39:00Z,captured,upi,805.73,,Payment captured successfully,meera.mehta@example.com,919841581408,INR
+pay_10445,2026-07-04T22:37:00Z,failed,upi,3987.6,ACCOUNT_BLOCKED,Bank account or card is blocked,harsh.joshi@example.com,919819868991,INR
+pay_10446,2026-05-01T23:03:00Z,captured,netbanking,4710.62,,Payment captured successfully,riya.singh@example.com,919855082572,INR
+pay_10447,2026-02-02T09:44:00Z,captured,upi,1444.33,,Payment captured successfully,mohit.nair@example.com,919895630804,INR
+pay_10448,2026-06-06T13:36:00Z,captured,netbanking,149566.43,,Payment captured successfully,mihika.kulkarni@example.com,919811946674,INR
+pay_10449,2026-07-06T21:47:00Z,captured,netbanking,144625.24,,Payment captured successfully,akash.rao@example.com,919815376584,INR
+pay_10450,2026-05-01T09:27:00Z,captured,upi,74051.15,,Payment captured successfully,akash.singh@example.com,919827812303,INR
+pay_10451,2026-04-02T17:15:00Z,failed,upi,135792.21,INVALID_DETAILS,Payment details were invalid,aditya.reddy@example.com,919864406548,INR
+pay_10452,2026-02-17T19:40:00Z,captured,card,705.72,,Payment captured successfully,riya.reddy@example.com,919892208524,INR
+pay_10453,2026-05-19T14:50:00Z,captured,upi,14321.5,,Payment captured successfully,meera.malhotra@example.com,919859068774,INR
+pay_10454,2026-04-30T09:23:00Z,failed,card,10607.02,AUTH_FAILURE,Authentication required by bank,avni.reddy@example.com,919838158070,INR
+pay_10455,2026-07-12T15:20:00Z,captured,card,17217.86,,Payment captured successfully,meera.bhosale@example.com,919881391010,INR
+pay_10456,2026-06-23T17:28:00Z,failed,upi,47929.72,UPI_COLLECT_EXPIRED,UPI collect request expired,varun.mehta@example.com,919824678711,INR
+pay_10457,2026-02-12T16:07:00Z,captured,upi,79316.94,,Payment captured successfully,raj.verma@example.com,919866388890,INR
+pay_10458,2026-04-24T08:18:00Z,captured,card,83587.74,,Payment captured successfully,yash.bhosale@example.com,919889639062,INR
+pay_10459,2026-06-20T22:29:00Z,captured,card,6717.2,,Payment captured successfully,sneha.patel@example.com,919857395084,INR
+pay_10460,2026-03-14T22:10:00Z,failed,upi,3140.73,NETWORK_TIMEOUT,Payment network timed out,rajat.patel@example.com,919869175071,INR
+pay_10461,2026-03-08T19:11:00Z,captured,card,3661.55,,Payment captured successfully,meera.shah@example.com,919864299436,INR
+pay_10462,2026-05-08T12:29:00Z,captured,netbanking,10460.91,,Payment captured successfully,varun.mishra@example.com,919899508156,INR
+pay_10463,2026-02-07T22:21:00Z,captured,upi,34283.05,,Payment captured successfully,siddharth.jain@example.com,919857968550,INR
+pay_10464,2026-01-24T18:03:00Z,captured,upi,355.12,,Payment captured successfully,om.sharma@example.com,919821727533,INR
+pay_10465,2026-05-12T20:12:00Z,captured,upi,38336.16,,Payment captured successfully,tanvi.shah@example.com,919848205125,INR
+pay_10466,2026-03-30T19:19:00Z,captured,netbanking,30547.27,,Payment captured successfully,diya.naik@example.com,919865592149,INR
+pay_10467,2026-02-05T10:09:00Z,failed,card,17313.99,ACCOUNT_BLOCKED,Bank account or card is blocked,riya.khan@example.com,919833473742,INR
+pay_10468,2026-05-23T22:45:00Z,captured,upi,13322.0,,Payment captured successfully,simran.bhosale@example.com,919885065432,INR
+pay_10469,2026-07-09T22:14:00Z,captured,card,14559.31,,Payment captured successfully,nandini.reddy@example.com,919896541691,INR
+pay_10470,2026-03-04T08:07:00Z,captured,upi,27661.22,,Payment captured successfully,raj.reddy@example.com,919826050250,INR
+pay_10471,2026-04-06T08:54:00Z,captured,card,664.32,,Payment captured successfully,akash.agarwal@example.com,919857779407,INR
+pay_10472,2026-01-13T17:18:00Z,captured,upi,3054.95,,Payment captured successfully,yash.sharma@example.com,919850409241,INR
+pay_10473,2026-03-11T19:06:00Z,captured,upi,24849.34,,Payment captured successfully,rahul.iyer@example.com,919839242850,INR
+pay_10474,2026-02-09T15:53:00Z,captured,card,103209.57,,Payment captured successfully,meera.khan@example.com,919871806103,INR
+pay_10475,2026-08-23T10:07:00Z,captured,upi,131703.87,,Payment captured successfully,aditi.nair@example.com,919850894029,INR
+pay_10476,2026-01-08T11:14:00Z,captured,card,22344.23,,Payment captured successfully,meera.mehta@example.com,919812524153,INR
+pay_10477,2026-07-18T23:48:00Z,failed,card,11597.23,BANK_DECLINED,Bank declined the transaction,vikram.iyer@example.com,919890771151,INR
+pay_10478,2026-02-22T14:11:00Z,failed,upi,12461.23,INVALID_CVV,Card verification failed,karan.iyer@example.com,919887595788,INR
+pay_10479,2026-07-15T08:33:00Z,captured,card,352.24,,Payment captured successfully,abhishek.reddy@example.com,919873715236,INR
+pay_10480,2026-04-04T13:28:00Z,failed,upi,29842.79,UPI_COLLECT_EXPIRED,UPI collect request expired,sakshi.patel@example.com,919876547299,INR
+pay_10481,2026-07-15T19:45:00Z,captured,card,9936.63,,Payment captured successfully,om.joshi@example.com,919884345332,INR
+pay_10482,2026-04-15T17:54:00Z,captured,card,884.42,,Payment captured successfully,nandini.sharma@example.com,919824115931,INR
+pay_10483,2026-04-12T22:33:00Z,failed,upi,1573.33,REPEATED_FAILURE,Repeated consecutive failure on this instrument,mohit.malhotra@example.com,919826476859,INR
+pay_10484,2026-03-01T21:46:00Z,captured,upi,41469.85,,Payment captured successfully,mohit.malhotra@example.com,919875032899,INR
+pay_10485,2026-05-11T16:09:00Z,captured,upi,285.43,,Payment captured successfully,karan.bhosale@example.com,919813590174,INR
+pay_10486,2026-02-15T20:38:00Z,captured,upi,17678.03,,Payment captured successfully,arjun.deshmukh@example.com,919898864649,INR
+pay_10487,2026-05-08T23:32:00Z,captured,card,48339.36,,Payment captured successfully,meera.malhotra@example.com,919870413482,INR
+pay_10488,2026-03-22T20:28:00Z,captured,card,25606.26,,Payment captured successfully,simran.reddy@example.com,919862221499,INR
+pay_10489,2026-05-05T11:36:00Z,failed,upi,135435.15,LIMIT_EXCEEDED,Transaction limit exceeded,harsh.saxena@example.com,919857347151,INR
+pay_10490,2026-07-16T17:20:00Z,captured,card,8663.73,,Payment captured successfully,diya.verma@example.com,919857964863,INR
+pay_10491,2026-04-16T19:03:00Z,failed,upi,10924.72,NETWORK_TIMEOUT,Payment network timed out,rohan.jain@example.com,919898284097,INR
+pay_10492,2026-08-10T21:36:00Z,captured,upi,81651.43,,Payment captured successfully,rajat.iyer@example.com,919875546384,INR
+pay_10493,2026-01-26T14:21:00Z,captured,upi,3668.88,,Payment captured successfully,karan.pawar@example.com,919838733345,INR
+pay_10494,2026-03-15T16:03:00Z,failed,card,121770.68,LIMIT_EXCEEDED,Transaction limit exceeded,diya.singh@example.com,919856616029,INR
+pay_10495,2026-07-23T10:41:00Z,captured,upi,11633.9,,Payment captured successfully,mihika.sharma@example.com,919883492593,INR
+pay_10496,2026-02-16T08:40:00Z,captured,upi,48673.14,,Payment captured successfully,dev.saxena@example.com,919868213514,INR
+pay_10497,2026-05-25T09:33:00Z,captured,card,41792.79,,Payment captured successfully,karan.agarwal@example.com,919837321097,INR
+pay_10498,2026-08-05T21:17:00Z,failed,upi,2025.53,BANK_DECLINED,Bank declined the transaction,isha.khan@example.com,919866642448,INR
+pay_10499,2026-06-15T09:12:00Z,captured,card,308.14,,Payment captured successfully,nandini.shah@example.com,919817425900,INR
+pay_10500,2026-08-09T10:20:00Z,captured,upi,892.74,,Payment captured successfully,aditya.joshi@example.com,919825023307,INR

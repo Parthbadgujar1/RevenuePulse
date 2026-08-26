@@ -11,6 +11,8 @@ import { prisma } from '@rp/database';
 import { DEFAULT_MERCHANT_POLICY } from '@rp/policies';
 import type { MerchantPolicy } from '@rp/policies';
 import { requireMerchantContext, apiErrorStatus } from '../../../../lib/merchant-context';
+import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
+import { csrfGuard } from '../../../../lib/csrf';
 
 const VALID_INTERVENTIONS = [
   'retry_later',
@@ -132,7 +134,14 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
+  const csrf = csrfGuard(req);
+  if (csrf) return csrf;
+
   try {
+    const { merchantId } = await requireMerchantContext();
+    const rl = checkRateLimit(req, 'policy', { limit: 30, windowMs: 60_000 }, merchantId);
+    if (!rl.allowed) return rateLimitResponse(rl);
+
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== 'object') {
       return NextResponse.json({ error: 'Expected a JSON policy object' }, { status: 400 });
@@ -142,7 +151,6 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid policy', details: errors }, { status: 422 });
     }
 
-    const { merchantId } = await requireMerchantContext();
     const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
     const settings = ((merchant?.settings as Record<string, unknown>) ?? {}) as Record<string, unknown>;
     const updatedSettings = { ...settings, recoveryPolicy: policy };

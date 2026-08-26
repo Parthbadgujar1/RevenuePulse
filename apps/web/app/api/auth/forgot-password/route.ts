@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPasswordResetToken } from '@rp/auth';
 import { logger, newRequestId } from '@rp/observability';
 import { parseJsonBody } from '../../../../lib/validate';
+import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -20,6 +21,9 @@ const ForgotPasswordSchema = z.object({
 
 export async function POST(req: NextRequest) {
   const log = logger.child({ requestId: req.headers.get('x-request-id') ?? newRequestId(), route: 'auth/forgot-password' });
+  const rl = checkRateLimit(req, 'auth', { limit: 5, windowMs: 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl);
+
   try {
     const parsed = await parseJsonBody(req, ForgotPasswordSchema);
     if (!parsed.ok) return parsed.response;

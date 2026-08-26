@@ -1,23 +1,56 @@
-// Case detail - the AI investigation of a single failed payment
+// Case detail — plain-language view of a single failed payment
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@rp/database';
 import { requireMerchantContext } from '../../../lib/merchant-context';
-import { inr, humanizeAction, categoryLabel, statusTone, timeAgo, SOURCE_LABELS } from '../../../lib/ui';
+import { inr, humanizeAction, statusTone, timeAgo, SOURCE_LABELS } from '../../../lib/ui';
+import {
+  plainFailureExplanation,
+  plainActionExplanation,
+  plainOutcomeExplanation,
+  suggestedAdminActions,
+} from '../../../lib/case-explain';
 import ApproveButton from '../../../components/approve-button';
+import AdminActions from '../../../components/admin-actions';
 import VerifyOutcomeButton from '../../../components/verify-outcome-button';
 
 export const dynamic = 'force-dynamic';
 
 const ACTION_LABELS: Record<string, { label: string; icon: string }> = {
-  failure_diagnosed: { label: 'Failure diagnosed', icon: '🔍' },
-  recovery_predicted: { label: 'ML model scored', icon: '🧠' },
-  recovery_decision_made: { label: 'Decision engine selected', icon: '⚖️' },
-  action_approved: { label: 'Human approval granted', icon: '👤' },
-  recovery_action_executed: { label: 'Action executed', icon: '⚡' },
-  recovery_outcome_verified: { label: 'Outcome verified', icon: '✅' },
-  transaction_event_processed: { label: 'Webhook received', icon: '📩' },
+  failure_diagnosed: { label: 'Diagnosed the failure', icon: '🔍' },
+  recovery_predicted: { label: 'AI estimated recovery chance', icon: '🧠' },
+  recovery_decision_made: { label: 'AI chose next step', icon: '⚖️' },
+  action_approved: { label: 'You approved the action', icon: '👤' },
+  recovery_action_executed: { label: 'Recovery action ran', icon: '⚡' },
+  recovery_outcome_verified: { label: 'Result confirmed', icon: '✅' },
+  transaction_event_processed: { label: 'Payment failure recorded', icon: '📩' },
+  admin_accept: { label: 'You accepted the result', icon: '✅' },
+  admin_retry: { label: 'You requested a retry', icon: '🔄' },
+  admin_mark_recovered: { label: 'You confirmed recovery', icon: '💰' },
+  admin_mark_failed: { label: 'You confirmed it failed', icon: '❌' },
+  refund_requested: { label: 'Refund requested', icon: '💸' },
+  outcome_verification_timeout: { label: 'Provider did not respond in time', icon: '⏳' },
 };
+
+const MAX_ATTEMPTS = 3;
+
+function StatusBadge({ status }: { status: string }) {
+  const labels: Record<string, string> = {
+    DETECTED: 'New',
+    EVALUATED: 'Analyzed',
+    ACTION_PENDING: 'Waiting for approval',
+    RECOVERY_IN_PROGRESS: 'Recovery in progress',
+    OUTCOME_PENDING: 'Waiting for bank result',
+    RECOVERED: 'Recovered',
+    FAILED: 'Not recovered',
+    STOPPED: 'Closed',
+  };
+  return (
+    <span className={`rounded-full border px-3 py-1 text-sm font-semibold ${statusTone(status)}`}>
+      {labels[status] ?? status.replace(/_/g, ' ')}
+    </span>
+  );
+}
 
 export default async function CaseDetailPage({
   params,
@@ -27,7 +60,6 @@ export default async function CaseDetailPage({
   const { id } = await params;
   const ctx = await requireMerchantContext();
 
-  // Merchant-scoped: another tenant's case id must 404, not leak.
   const revenueCase = await prisma.revenueCase.findFirst({
     where: { id, merchantId: ctx.merchantId },
     include: { transaction: true },
@@ -40,7 +72,7 @@ export default async function CaseDetailPage({
     prisma.recoveryAction.findMany({ where: { caseId: id }, orderBy: { id: 'asc' as const } }),
   ]);
   const actionIds = actions.map((a) => a.id);
-  const [outcomeRows, auditLogs] = await Promise.all([
+  const [outcomeRows, auditLogs, refunds] = await Promise.all([
     prisma.outcome.findMany({
       where: { actionId: { in: actionIds } },
       orderBy: { createdAt: 'asc' as const },
@@ -55,17 +87,37 @@ export default async function CaseDetailPage({
       },
       orderBy: { createdAt: 'asc' as const },
     }),
+    prisma.refund.findMany({
+      where: { caseId: id },
+      orderBy: { createdAt: 'desc' as const },
+    }),
   ]);
 
   const tx = (revenueCase as any).transaction;
   const diag = (revenueCase.diagnosis ?? {}) as Record<string, unknown>;
   const latestAction = actions[actions.length - 1] ?? null;
-  const snapshot = (latestAction?.policySnapshot ?? {}) as Record<string, unknown>;
-  const violations = (snapshot.violations as string[]) || [];
-  const blocked = (snapshot.blockedAlternatives as Array<{ action: string; reason: string }>) || [];
   const latestOutcome = outcomeRows[outcomeRows.length - 1] ?? null;
   const pendingApproval =
     latestAction && latestAction.approvalStatus === 'pending' && latestAction.executionStatus !== 'EXECUTED';
+
+  // Plain-language content
+  const whatHappened = plainFailureExplanation(diag, tx ? { paymentMethod: tx.paymentMethod } : null);
+  const whatAiSuggests = prediction
+    ? plainActionExplanation(
+        latestAction?.actionType ?? null,
+        prediction.probability,
+        revenueCase.amountAtRisk,
+        revenueCase.attemptCount,
+        MAX_ATTEMPTS,
+      )
+    : null;
+  const adminActions = suggestedAdminActions(
+    revenueCase.status,
+    latestAction?.actionType ?? null,
+    prediction?.probability ?? 0,
+    revenueCase.attemptCount,
+    MAX_ATTEMPTS,
+  );
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
@@ -73,33 +125,31 @@ export default async function CaseDetailPage({
         ← All cases
       </Link>
 
-      {/* Header */}
+      {/* Header — plain language */}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-            <span className="font-mono">{revenueCase.ref || 'CASE'}</span>
-            {' · '}
-            {inr(revenueCase.amountAtRisk)} at risk
+            {inr(revenueCase.amountAtRisk)} payment from{' '}
+            {tx?.customerName || 'customer'}
           </h1>
-          <p className="mt-1 text-sm capitalize text-gray-500">
-            {categoryLabel(String(diag.primaryCategory || 'unknown'))}
-            {diag.failureCode ? (
-              <span className="ml-2 font-mono text-xs text-gray-400">
-                code {String(diag.failureCode)}
-              </span>
-            ) : null}
-            {' · '}priority score {revenueCase.priority}
+          <p className="mt-1 text-sm text-gray-500">
+            Case {revenueCase.ref || 'new'} · {tx?.paymentMethod ? `paid via ${tx.paymentMethod}` : 'payment'}{' '}
+            {tx?.occurredAt ? `${timeAgo(tx.occurredAt)}` : ''}
           </p>
         </div>
-        <span className={`rounded-full border px-3 py-1 text-sm font-semibold ${statusTone(revenueCase.status)}`}>
-          {revenueCase.status.replace(/_/g, ' ')}
-        </span>
+        <StatusBadge status={revenueCase.status} />
       </div>
 
-      {/* Outcome banner */}
+      {/* What happened — plain English */}
+      <div className="mt-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">What happened</p>
+        <p className="mt-1 text-sm text-gray-800">{whatHappened}</p>
+      </div>
+
+      {/* Outcome banner — simplified */}
       {latestOutcome && (
         <div
-          className={`mt-4 rounded-lg border p-4 ${
+          className={`mt-3 rounded-lg border p-4 ${
             latestOutcome.result === 'RECOVERED'
               ? 'border-green-300 bg-green-50'
               : 'border-gray-300 bg-gray-50'
@@ -107,42 +157,86 @@ export default async function CaseDetailPage({
         >
           {latestOutcome.result === 'RECOVERED' ? (
             <>
-              <p className="font-semibold text-green-800">✓ Recovered — {inr(latestOutcome.recoveredAmount)}</p>
-              <p className="mt-0.5 text-sm text-green-700">
-                Action cost {inr(latestOutcome.measuredCost)} · Net recovered{' '}
-                {inr(latestOutcome.recoveredAmount - latestOutcome.measuredCost)}
-                {latestOutcome.verifiedAt ? ` · verified ${timeAgo(latestOutcome.verifiedAt)}` : ''}
-                {latestOutcome.verificationRef ? ` · provider ref ${latestOutcome.verificationRef}` : ''}
+              <p className="font-semibold text-green-800">
+                {plainOutcomeExplanation(
+                  'RECOVERED',
+                  latestOutcome.recoveredAmount,
+                  latestOutcome.measuredCost,
+                  latestOutcome.notes,
+                )}
               </p>
+              {latestOutcome.verifiedAt && (
+                <p className="mt-0.5 text-xs text-green-600">
+                  Confirmed {timeAgo(latestOutcome.verifiedAt)}
+                  {latestOutcome.verificationRef ? ` · ref ${latestOutcome.verificationRef}` : ''}
+                </p>
+              )}
             </>
           ) : (
-            <p className="text-sm text-gray-700">
-              Recovery attempt did not succeed{latestOutcome.notes ? ` — ${latestOutcome.notes}` : ''}. The
-              policy engine may schedule another bounded attempt.
-            </p>
+            <>
+              <p className="text-sm text-gray-700">
+                {plainOutcomeExplanation(
+                  'NOT_RECOVERED',
+                  0,
+                  0,
+                  latestOutcome.notes,
+                )}
+              </p>
+              {adminActions.length > 0 && (
+                <div className="mt-3">
+                  <AdminActions caseId={id} actions={adminActions} />
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
 
-      {/* Awaiting real-world outcome (live mode) */}
-      {revenueCase.status === 'OUTCOME_PENDING' && (
-        <div className="mt-4 rounded-lg border border-orange-300 bg-orange-50 p-4">
-          <p className="text-sm font-semibold text-orange-900">
-            ⏳ Awaiting provider outcome — action submitted in LIVE mode
+      {/* Outcomes banner for FAILED/STOPPED without explicit outcome */}
+      {['FAILED', 'STOPPED'].includes(revenueCase.status) && !latestOutcome && (
+        <div className="mt-3 rounded-lg border border-gray-300 bg-gray-50 p-4">
+          <p className="text-sm text-gray-700">
+            {revenueCase.status === 'FAILED'
+              ? 'This payment was not recovered. The system tried but the bank or provider did not complete the transfer.'
+              : `This case was closed${revenueCase.stoppedReason ? ` — ${revenueCase.stoppedReason.replace(/_/g, ' ')}` : ''}.`}
           </p>
-          <p className="mt-0.5 text-sm text-orange-800">
-            No outcome is fabricated for live executions. This case resolves automatically when a
-            real payment.captured / payment.failed event arrives for this payment — or check the
-            provider directly:
-          </p>
-          <VerifyOutcomeButton />
+          {adminActions.length > 0 && (
+            <div className="mt-3">
+              <AdminActions caseId={id} actions={adminActions} />
+            </div>
+          )}
         </div>
       )}
 
+      {/* OUTCOME_PENDING — waiting for bank */}
+      {revenueCase.status === 'OUTCOME_PENDING' && !latestOutcome && (
+        <div className="mt-3 rounded-lg border border-orange-300 bg-orange-50 p-4">
+          <p className="text-sm font-semibold text-orange-900">
+            Waiting for the bank to confirm the result
+          </p>
+          <p className="mt-0.5 text-sm text-orange-800">
+            A recovery action was sent to Razorpay. We're waiting for the bank to say whether
+            the payment went through. This usually takes a few hours but can take up to 3 days.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <VerifyOutcomeButton />
+          </div>
+          {adminActions.length > 0 && (
+            <div className="mt-3">
+              <AdminActions caseId={id} actions={adminActions} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pending approval */}
       {pendingApproval && (
-        <div className="mt-4 rounded-lg border border-yellow-300 bg-yellow-50 p-4">
+        <div className="mt-3 rounded-lg border border-yellow-300 bg-yellow-50 p-4">
           <p className="text-sm font-semibold text-yellow-900">
-            This action needs human approval before it can execute.
+            This action needs your approval before it can run.
+          </p>
+          <p className="mt-0.5 text-sm text-yellow-800">
+            The AI has proposed a recovery plan. Review the details below and approve when ready.
           </p>
           <div className="mt-2">
             <ApproveButton caseId={id} />
@@ -150,110 +244,132 @@ export default async function CaseDetailPage({
         </div>
       )}
 
+      {/* Refund status */}
+      {refunds.length > 0 && (
+        <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <p className="text-sm font-semibold text-blue-900">Refund Status</p>
+          {refunds.map((refund) => (
+            <div key={refund.id} className="mt-2 flex items-center gap-3 text-sm text-blue-800">
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                refund.status === 'processed'
+                  ? 'bg-green-100 text-green-700'
+                  : refund.status === 'initiated'
+                    ? 'bg-blue-100 text-blue-700'
+                    : refund.status === 'failed'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-yellow-100 text-yellow-800'
+              }`}>
+                {refund.status}
+              </span>
+              <span>{inr(refund.amount)} refund</span>
+              {refund.providerRefundId && (
+                <span className="font-mono text-xs text-blue-600">{refund.providerRefundId}</span>
+              )}
+              <span className="text-xs text-blue-500">
+                {refund.status === 'pending' && 'Waiting to be processed'}
+                {refund.status === 'initiated' && 'Refund sent to payment provider'}
+                {refund.status === 'processed' && `Completed ${timeAgo(refund.completedAt ?? refund.createdAt)}`}
+                {refund.status === 'failed' && `Failed — ${refund.failureReason ?? 'unknown reason'}`}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-5">
-        {/* AI investigation panel */}
+        {/* Left column: AI insight */}
         <section className="lg:col-span-3">
-          <h2 className="mb-3 text-lg font-medium text-gray-900">AI Investigation</h2>
+          {/* AI suggestion — plain language */}
+          {whatAiSuggests && (
+            <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">AI recommendation</p>
+              <p className="mt-1 text-sm text-emerald-900">{whatAiSuggests}</p>
+              <p className="mt-1 text-xs text-emerald-600">
+                Based on model {prediction?.modelVersion ?? 'v3'} · scored{' '}
+                {new Date(actions.find((a) => a.actionType)?.createdAt ?? revenueCase.createdAt).toLocaleTimeString()}
+              </p>
+            </div>
+          )}
+
+          {/* Simple stats */}
           <div className="grid grid-cols-2 gap-3">
             <Stat
-              label="AI Recovery Probability"
+              label="Recovery chance"
               value={prediction ? `${(prediction.probability * 100).toFixed(0)}%` : '—'}
-              hint={prediction?.modelVersion}
+              hint="AI confidence"
             />
             <Stat
-              label="Recommended Action"
-              value={humanizeAction(latestAction?.actionType)}
+              label="Recommended next step"
+              value={latestAction ? humanizeAction(latestAction.actionType) : 'None'}
               hint={
-                latestAction
-                  ? `expected net ${inr(latestAction.expectedNetRecovery)}`
+                latestAction?.expectedNetRecovery
+                  ? `would recover ${inr(latestAction.expectedNetRecovery)}`
                   : undefined
               }
             />
             <Stat
-              label="Expected Cost"
-              value={latestAction ? inr(latestAction.expectedCost) : '—'}
+              label="Tries so far"
+              value={`${revenueCase.attemptCount} of ${MAX_ATTEMPTS}`}
+              hint={revenueCase.lastAttemptAt ? `last try ${timeAgo(revenueCase.lastAttemptAt)}` : undefined}
             />
             <Stat
-              label="Attempts"
-              value={`${revenueCase.attemptCount} / 3`}
-              hint={revenueCase.lastAttemptAt ? `last ${timeAgo(revenueCase.lastAttemptAt)}` : undefined}
+              label="Recovery cost"
+              value={latestAction?.expectedCost ? inr(latestAction.expectedCost) : 'Free'}
+              hint={latestAction?.expectedCost ? 'estimated' : 'no cost for this action'}
             />
           </div>
 
-          {/* Policy status */}
-          <div className="mt-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm font-semibold text-gray-900">Policy Status</p>
-            {!latestAction ? (
-              <p className="mt-1 text-sm text-gray-600">
-                No intervention recommended — the decision engine found no positive expected value
-                or a stopping rule applied.
-                {revenueCase.stoppedReason ? ` (${revenueCase.stoppedReason})` : ''}
-              </p>
-            ) : violations.length === 0 ? (
-              <p className="mt-1 text-sm text-green-700">
-                ✓ Allowed — within retry limits, spend ceilings and approval thresholds.
-              </p>
-            ) : (
-              <ul className="mt-1 list-inside list-disc text-sm text-yellow-700">
-                {violations.map((v, i) => (
-                  <li key={i}>{v}</li>
-                ))}
-              </ul>
-            )}
-            {blocked.length > 0 && (
-              <div className="mt-2 border-t border-gray-100 pt-2">
+          {/* AI alternatives considered — simplified */}
+          {(() => {
+            const snapshot = (latestAction?.policySnapshot ?? {}) as Record<string, unknown>;
+            const blocked = (snapshot.blockedAlternatives as Array<{ action: string; reason: string }>) || [];
+            if (blocked.length === 0) return null;
+            return (
+              <div className="mt-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                  Alternatives considered & blocked
+                  Other options the AI considered
                 </p>
-                <ul className="mt-1 space-y-0.5 text-xs text-gray-500">
+                <ul className="mt-2 space-y-1.5">
                   {blocked.map((b, i) => (
-                    <li key={i}>
-                      <span className="font-medium capitalize">{humanizeAction(b.action)}</span> —{' '}
-                      {b.reason}
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                      <span className="mt-0.5 text-gray-300">•</span>
+                      <span>
+                        <span className="font-medium">{humanizeAction(b.action)}</span>{' '}
+                        — {b.reason}
+                      </span>
                     </li>
                   ))}
                 </ul>
               </div>
-            )}
-          </div>
+            );
+          })()}
 
-          {/* Decision explanation */}
-          {snapshot.rationale ? (
-            <div className="mt-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-sm font-semibold text-gray-900">Why this decision?</p>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-gray-600">
-                <li>{String(snapshot.rationale)}</li>
-                {prediction && (
-                  <li>
-                    Model score {(prediction.probability * 100).toFixed(0)}% × amount{' '}
-                    {inr(revenueCase.amountAtRisk)} minus intervention cost exceeds the merchant's
-                    minimum expected net recovery.
-                  </li>
-                )}
-                {tx?.paymentMethod && (
-                  <li>
-                    Failed via {categoryLabel(tx.paymentMethod)}
-                    {tx.failureMessage ? `: "${tx.failureMessage}"` : ''}
-                    .
-                  </li>
-                )}
-                <li>Current retry limit not reached ({revenueCase.attemptCount}/3 attempts used).</li>
-              </ul>
-            </div>
-          ) : null}
-
-          {/* Transaction facts */}
+          {/* Transaction details — simplified */}
           <div className="mt-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm font-semibold text-gray-900">Transaction</p>
-            <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-              <dt className="text-gray-500">Provider ref</dt>
-              <dd className="truncate font-mono text-xs text-gray-800">{tx?.providerTransactionId}</dd>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Payment details</p>
+            <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
               <dt className="text-gray-500">Amount</dt>
               <dd className="text-gray-800">{inr(tx?.amount ?? revenueCase.amountAtRisk)}</dd>
               <dt className="text-gray-500">Method</dt>
               <dd className="capitalize text-gray-800">{tx?.paymentMethod ?? '—'}</dd>
-              <dt className="text-gray-500">Occurred</dt>
-              <dd className="text-gray-800">{tx?.occurredAt ? timeAgo(tx.occurredAt) : '—'}</dd>
+              {tx?.providerTransactionId && (
+                <>
+                  <dt className="text-gray-500">Razorpay ID</dt>
+                  <dd className="truncate font-mono text-xs text-gray-600">{tx.providerTransactionId}</dd>
+                </>
+              )}
+              {tx?.customerName && (
+                <>
+                  <dt className="text-gray-500">Customer</dt>
+                  <dd className="text-gray-800">{tx.customerName}</dd>
+                </>
+              )}
+              {tx?.customerEmail && (
+                <>
+                  <dt className="text-gray-500">Email</dt>
+                  <dd className="truncate text-gray-800">{tx.customerEmail}</dd>
+                </>
+              )}
               <dt className="text-gray-500">Source</dt>
               <dd className="text-gray-800">
                 {SOURCE_LABELS[String((tx?.paymentMethodDetails as any)?.source ?? 'webhook')] ??
@@ -263,12 +379,12 @@ export default async function CaseDetailPage({
           </div>
         </section>
 
-        {/* Timeline */}
+        {/* Right column: timeline */}
         <section className="lg:col-span-2">
-          <h2 className="mb-3 text-lg font-medium text-gray-900">Audit Timeline</h2>
+          <h2 className="mb-3 text-lg font-medium text-gray-900">What we did</h2>
           <ol className="relative space-y-4 border-l-2 border-gray-200 pl-5">
             {auditLogs.length === 0 && (
-              <li className="text-sm text-gray-500">No audit entries recorded.</li>
+              <li className="text-sm text-gray-500">No actions recorded yet.</li>
             )}
             {auditLogs.map((log) => {
               const meta = ACTION_LABELS[log.action] || {
@@ -283,7 +399,8 @@ export default async function CaseDetailPage({
                   <p className="text-sm font-medium text-gray-900">{meta.label}</p>
                   <p className="text-xs text-gray-600">{log.reason}</p>
                   <p className="mt-0.5 text-xs text-gray-400">
-                    {new Date(log.createdAt).toLocaleTimeString()} · {log.actorType}/{log.actorId}
+                    {new Date(log.createdAt).toLocaleTimeString()} ·{' '}
+                    {log.actorType === 'system' || log.actorType === 'agent' ? 'AI' : log.actorId}
                   </p>
                 </li>
               );
@@ -299,7 +416,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="mt-1 text-lg font-semibold capitalize text-gray-900">{value}</p>
+      <p className="mt-1 text-lg font-semibold text-gray-900">{value}</p>
       {hint && <p className="truncate text-xs text-gray-400">{hint}</p>}
     </div>
   );

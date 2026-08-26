@@ -13,6 +13,8 @@ import {
   type AmountUnit,
 } from '../../../lib/ingest/map';
 import { requireMerchantContext } from '../../../lib/merchant-context';
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit';
+import { csrfGuard } from '../../../lib/csrf';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -28,7 +30,6 @@ function tableFromBuffer(name: string, buf: Buffer): Promise<ReturnType<typeof p
   return Promise.reject(new Error(`Unsupported file type ".${ext}" — use CSV, XLSX or PDF`));
 }
 
-/** Stable per-row identity for idempotency keys. */
 function normalizedId(raw: Record<string, unknown>): string {
   const d = raw.data as Record<string, unknown> | undefined;
   const id = String(d?.id ?? '');
@@ -36,6 +37,9 @@ function normalizedId(raw: Record<string, unknown>): string {
 }
 
 export async function POST(req: NextRequest) {
+  const csrf = csrfGuard(req);
+  if (csrf) return csrf;
+
   let form: FormData;
   try {
     form = await req.formData();
@@ -142,6 +146,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { merchantId } = await requireMerchantContext();
+  const rl = checkRateLimit(req, 'ingest', { limit: 20, windowMs: 60_000 }, merchantId);
+  if (!rl.allowed) return rateLimitResponse(rl);
   const cohortStart = new Date();
   let processed = 0;
   let pipelineErrors = 0;

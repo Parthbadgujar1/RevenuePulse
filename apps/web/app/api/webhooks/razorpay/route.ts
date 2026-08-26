@@ -8,6 +8,7 @@ import {
 } from '@rp/database';
 import { normalizeRazorpayEvent } from '@rp/razorpay';
 import { enqueueProcessingJob, JobType, incWebhookEvent } from '@rp/observability';
+import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
 import type { NextRequest } from 'next/server';
 
 /**
@@ -23,6 +24,10 @@ import type { NextRequest } from 'next/server';
  *    only after the workflow succeeds.
  */
 export async function POST(request: NextRequest) {
+  // Flood control: generous ceiling for legitimate provider retries.
+  const rl = checkRateLimit(request, 'webhook', { limit: 100, windowMs: 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl);
+
   try {
     const body = await request.text();
     const signature = request.headers.get('x-razorpay-signature') || '';

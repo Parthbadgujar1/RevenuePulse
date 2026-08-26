@@ -6,13 +6,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@rp/database';
 import { processJob, JobType } from '@rp/observability';
 import { requireMerchantContext } from '../../../../../lib/merchant-context';
+import { checkRateLimit, rateLimitResponse } from '../../../../../lib/rate-limit';
+import { csrfGuard } from '../../../../../lib/csrf';
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const csrf = csrfGuard(req);
+  if (csrf) return csrf;
+
   const { id: caseId } = await params;
   const ctx = await requireMerchantContext();
+
+  const rl = checkRateLimit(req, 'approve', { limit: 30, windowMs: 60_000 }, ctx.merchantId);
+  if (!rl.allowed) return rateLimitResponse(rl);
 
   // Ownership check: the case must belong to the caller's merchant.
   const kase = await prisma.revenueCase.findFirst({

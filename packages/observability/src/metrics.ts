@@ -50,6 +50,36 @@ function createRegistry(): typeof client {
     buckets: [0.05, 0.1, 0.25, 0.5, 1, 2, 5],
   });
 
+  new client.Counter({
+    name: 'rp_ml_circuit_breaker_total',
+    help: 'ML circuit breaker state transitions',
+    labelNames: ['state'] as const,
+  });
+
+  new client.Gauge({
+    name: 'rp_ml_drift_psi',
+    help: 'Population Stability Index per feature (drift detection)',
+    labelNames: ['feature'] as const,
+  });
+
+  new client.Gauge({
+    name: 'rp_ml_training_rows',
+    help: 'Total training data rows in production dataset',
+    labelNames: ['source'] as const,
+  });
+
+  new client.Counter({
+    name: 'rp_ml_retrain_total',
+    help: 'Model retraining attempts',
+    labelNames: ['status'] as const,
+  });
+
+  new client.Gauge({
+    name: 'rp_ml_model_roc_auc',
+    help: 'Current model ROC-AUC on held-out test set',
+    labelNames: [] as const,
+  });
+
   return client;
 }
 
@@ -106,6 +136,74 @@ export function observeHttpDuration(
       { route, method, status: String(status) },
       seconds
     );
+  } catch {
+    // metrics must never break the request path
+  }
+}
+
+export function observeMlPrediction(seconds: number, outcome: string): void {
+  try {
+    getHistogram('rp_ml_prediction_seconds')?.observe({ outcome }, seconds);
+  } catch {
+    // metrics must never break the request path
+  }
+}
+
+export function incMlCircuitBreaker(state: string): void {
+  try {
+    getCounter('rp_ml_circuit_breaker_total')?.inc({ state });
+  } catch {
+    // metrics must never break the request path
+  }
+}
+
+export function setQueueDepth(queue: string, depth: number): void {
+  try {
+    const g = metrics.register.getSingleMetric('rp_queue_depth') as
+      | client.Gauge<string>
+      | undefined;
+    g?.set({ queue }, depth);
+  } catch {
+    // metrics must never break the request path
+  }
+}
+
+export function setDriftPsi(feature: string, psi: number): void {
+  try {
+    const g = metrics.register.getSingleMetric('rp_ml_drift_psi') as
+      | client.Gauge<string>
+      | undefined;
+    g?.set({ feature }, psi);
+  } catch {
+    // metrics must never break the request path
+  }
+}
+
+export function setTrainingRows(source: string, count: number): void {
+  try {
+    const g = metrics.register.getSingleMetric('rp_ml_training_rows') as
+      | client.Gauge<string>
+      | undefined;
+    g?.set({ source }, count);
+  } catch {
+    // metrics must never break the request path
+  }
+}
+
+export function incRetrain(status: string): void {
+  try {
+    getCounter('rp_ml_retrain_total')?.inc({ status });
+  } catch {
+    // metrics must never break the request path
+  }
+}
+
+export function setModelRocAuc(value: number): void {
+  try {
+    const g = metrics.register.getSingleMetric('rp_ml_model_roc_auc') as
+      | client.Gauge<string>
+      | undefined;
+    g?.set(value);
   } catch {
     // metrics must never break the request path
   }

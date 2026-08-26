@@ -12,7 +12,8 @@ import { prisma } from '../../database';
 import { DecisionEngine, DEFAULT_MERCHANT_POLICY } from '../../policies/src';
 import type { MerchantPolicy } from '../../policies/src';
 import { getInterventionLift } from '../../policies/src/intervention-lifts';
-import { predictRecoveryProbability } from './ml-client';
+import { predictRecoveryProbability, logTrainingData, triggerRetrain, observeDriftMetrics } from './ml-client';
+import { setQueueDepth } from './metrics';
 
 /** Load the merchant's persisted recovery policy (falls back to defaults). */
 export async function getMerchantPolicy(merchantId: string): Promise<MerchantPolicy> {
@@ -119,6 +120,24 @@ async function getProducerBoss(): Promise<any> {
     );
     bossStarting = boss.start().then(() => {
       sharedBoss = boss;
+      // Periodically observe queue depths for Prometheus metrics (via direct DB count)
+      const depthInterval = setInterval(async () => {
+        try {
+          const rows = await prisma.$queryRawUnsafe<{ name: string; pending: bigint }[]>(
+            `SELECT name, COUNT(*) AS pending FROM pgboss.job WHERE completedOn IS NULL AND name IN ('process-transaction-event','verify-outcome') GROUP BY name`
+          );
+          for (const r of rows) setQueueDepth(r.name, Number(r.pending));
+        } catch {
+          // depth observation must never break the queue
+        }
+        // Also observe ML drift metrics (best-effort, every 60s)
+        try {
+          await observeDriftMetrics();
+        } catch {
+          // drift observation must never break the queue
+        }
+      }, 30_000);
+      if (typeof depthInterval.unref === 'function') depthInterval.unref();
       return boss;
     });
   }
@@ -265,46 +284,54 @@ async function processTransactionEvent(payload: any): Promise<JobResult> {
         Math.min(30, Math.floor(meta.amount / 100000)) +
         (categoryPriority[category] ?? 0);
 
-      // Human-friendly case reference, e.g. RP-1042
+      // Human-friendly case reference, e.g. RP-1042.
+      // Generated inside a retry loop: the ref has a unique DB constraint, so
+      // if two concurrent jobs pick the same candidate, the loser retries with
+      // the next number. Max 3 attempts — if that fails something is wrong.
       let caseRef: string | undefined;
-      const caseCount = await prisma.revenueCase.count();
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const candidate = `RP-${1001 + caseCount + attempt}`;
-        const taken = await prisma.revenueCase.findUnique({ where: { ref: candidate } });
-        if (!taken) {
+      let revenueCase: { id: string; merchantId: string; amountAtRisk: number; ref: string | null } | null = null;
+      const baseCount = await prisma.revenueCase.count();
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const candidate = `RP-${1001 + baseCount + attempt}`;
+        try {
+          revenueCase = await prisma.revenueCase.upsert({
+            where: { transactionId: transaction.id },
+            update: {
+              diagnosis: {
+                primaryCategory: category,
+                failureCode: meta.failureCode ?? null,
+                failureMessage: meta.failureMessage ?? null,
+                diagnosedAt: new Date().toISOString(),
+              },
+              priority,
+            },
+            create: {
+              transactionId: transaction.id,
+              caseType: 'payment_degradation',
+              amountAtRisk: meta.amount,
+              diagnosis: {
+                primaryCategory: category,
+                failureCode: meta.failureCode ?? null,
+                failureMessage: meta.failureMessage ?? null,
+                diagnosedAt: new Date().toISOString(),
+              },
+              priority,
+              status: 'DETECTED',
+              merchantId,
+              ref: candidate,
+              createdAt: new Date(),
+            },
+          });
           caseRef = candidate;
           break;
+        } catch (err: any) {
+          if (err?.code === 'P2002' && err?.meta?.target?.includes('ref')) {
+            // Candidate ref was taken by a concurrent job — retry.
+            continue;
+          }
+          throw err;
         }
       }
-
-      const revenueCase = await prisma.revenueCase.upsert({
-        where: { transactionId: transaction.id },
-        update: {
-          diagnosis: {
-            primaryCategory: category,
-            failureCode: meta.failureCode ?? null,
-            failureMessage: meta.failureMessage ?? null,
-            diagnosedAt: new Date().toISOString(),
-          },
-          priority,
-        },
-        create: {
-          transactionId: transaction.id,
-          caseType: 'payment_degradation',
-          amountAtRisk: meta.amount,
-          diagnosis: {
-            primaryCategory: category,
-            failureCode: meta.failureCode ?? null,
-            failureMessage: meta.failureMessage ?? null,
-            diagnosedAt: new Date().toISOString(),
-          },
-          priority,
-          status: 'DETECTED',
-          merchantId,
-          ref: caseRef,
-          createdAt: new Date(),
-        },
-      });
       caseId = revenueCase.id;
 
       await prisma.auditLog.create({
@@ -477,6 +504,7 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
 
     let actionId: string | null = null;
     if (!doNothing) {
+      const skipExecution = (payload as any).skipExecution === true;
       const idempotencyKey = `action:${revenueCase.id}:${decision.decision.action}:${revenueCase.attemptCount}`;
       const action = await prisma.recoveryAction.upsert({
         where: { idempotencyKey },
@@ -494,7 +522,8 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
           } as any,
           expectedCost: decision.decision.expectedCost,
           expectedNetRecovery: decision.decision.expectedNetRecovery,
-          approvalStatus: decision.decision.requiresApproval ? 'pending' : 'not_required',
+          // Admin-initiated retries always require approval
+          approvalStatus: skipExecution || decision.decision.requiresApproval ? 'pending' : 'not_required',
           executionStatus: 'PENDING',
           idempotencyKey,
         },
@@ -504,7 +533,7 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
       await prisma.revenueCase.update({
         where: { id: revenueCase.id },
         data: {
-          status: decision.decision.requiresApproval ? 'ACTION_PENDING' : 'EVALUATED',
+          status: skipExecution || decision.decision.requiresApproval ? 'ACTION_PENDING' : 'EVALUATED',
           currentActionId: action.id,
         },
       });
@@ -517,7 +546,20 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
       const isLiveSource =
         txMeta.simulated === false || txMeta.source === 'razorpay-api';
       const merchantPolicy = await getMerchantPolicy(revenueCase.merchantId);
-      if (
+      // Admin-initiated retries use skipExecution=true to produce a proposal
+      // without auto-executing — the admin reviews and approves first.
+      if (skipExecution) {
+        // Force the action into approval-required state so the admin sees a
+        // proposal they can review before anything runs.
+        await prisma.revenueCase.update({
+          where: { id: revenueCase.id },
+          data: { status: 'ACTION_PENDING' },
+        });
+        await prisma.recoveryAction.update({
+          where: { id: actionId },
+          data: { approvalStatus: 'pending' },
+        });
+      } else if (
         !decision.decision.requiresApproval &&
         merchantPolicy.autoActionEnable
       ) {
@@ -977,6 +1019,45 @@ async function verifyOutcome(payload: any): Promise<JobResult> {  const { action
         createdAt: new Date(),
       },
     });
+
+    // ── Log production training data for continuous retraining ────────────────
+    // After each verified outcome, record the features + label so the model
+    // can be retrained on real production data.
+    try {
+      const diagnosis = (revenueCase.diagnosis ?? {}) as Record<string, unknown>;
+      const category = String(diagnosis.primaryCategory || 'unknown');
+      const tx = await prisma.transaction.findUnique({ where: { id: revenueCase.transactionId } });
+      const occurredAt = tx?.occurredAt ? new Date(tx.occurredAt) : new Date();
+      const hoursSince = Math.max(0, (Date.now() - occurredAt.getTime()) / 3600000);
+
+      const trainingFeatures: any = {
+        amount: revenueCase.amountAtRisk,
+        failureCategory: category,
+        paymentMethod: tx?.paymentMethod || 'unknown',
+        historicalSuccessRate: 0.5,
+        numberOfPreviousFailures: revenueCase.attemptCount,
+        timeSinceFailureHours: hoursSince,
+        transactionHour: occurredAt.getHours(),
+        retryCount: revenueCase.attemptCount,
+        isSubscription: revenueCase.caseType === 'subscription_recovery',
+        merchantHistoricalRate: 0.5,
+        failureCategoryHistoricalRate: 0.4,
+        amountPercentile: Math.min(1, revenueCase.amountAtRisk / 500000),
+      };
+
+      const actionType = action.actionType || 'unknown';
+      await logTrainingData(trainingFeatures, willRecover, actionType);
+    } catch {
+      // Training data logging must never block outcome verification
+    }
+
+    // ── Periodic retrain trigger ──────────────────────────────────────────────
+    // After every 25 verified outcomes, trigger a background retrain check.
+    const g = globalThis as unknown as { __rpOutcomeCounter?: number };
+    g.__rpOutcomeCounter = (g.__rpOutcomeCounter ?? 0) + 1;
+    if (g.__rpOutcomeCounter % 25 === 0) {
+      triggerRetrain().catch(() => {});
+    }
 
     return {
       success: true,

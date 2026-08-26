@@ -1,0 +1,179 @@
+{
+  "_comment": "RevenuePulse Grafana alerting rules — provision via grafana.provisioning.alerting or API POST /api/v1/provisioning/alert-rules",
+  "groups": [
+    {
+      "name": "revenuepulse-availability",
+      "folder": "RevenuePulse",
+      "interval": "1m",
+      "rules": [
+        {
+          "title": "ML service circuit breaker open",
+          "condition": "A",
+          "data": [
+            {
+              "refId": "A",
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "increase(rp_ml_circuit_breaker_total{state=\"open\"}[5m]) > 0",
+                "legendFormat": "circuit breaker opened"
+              }
+            }
+          ],
+          "for": "0m",
+          "annotations": {
+            "summary": "ML service circuit breaker has tripped",
+            "description": "More than 5 consecutive ML prediction failures in 5 minutes. Predictions falling back to heuristic if RP_ML_FALLBACK=heuristic, otherwise pipeline jobs are failing."
+          },
+          "labels": { "severity": "critical", "team": "platform" }
+        },
+        {
+          "title": "ML prediction error rate high",
+          "condition": "A",
+          "data": [
+            {
+              "refId": "A",
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "rate(rp_ml_prediction_seconds_count{outcome=~\"error|timeout\"}[5m]) / rate(rp_ml_prediction_seconds_count[5m]) > 0.1",
+                "legendFormat": "ML error ratio"
+              }
+            }
+          ],
+          "for": "3m",
+          "annotations": {
+            "summary": "ML prediction error rate exceeds 10%",
+            "description": "More than 10% of ML predictions are failing or timing out over the last 5 minutes."
+          },
+          "labels": { "severity": "warning", "team": "platform" }
+        },
+        {
+          "title": "ML prediction p99 latency > 3s",
+          "condition": "A",
+          "data": [
+            {
+              "refId": "A",
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "histogram_quantile(0.99, rate(rp_ml_prediction_seconds_bucket[5m])) > 3",
+                "legendFormat": "ML p99 latency"
+              }
+            }
+          ],
+          "for": "5m",
+          "annotations": {
+            "summary": "ML prediction p99 latency exceeds 3 seconds",
+            "description": "The 99th percentile ML prediction latency has been above 3s for 5 minutes. Investigate ML service load or model complexity."
+          },
+          "labels": { "severity": "warning", "team": "platform" }
+        }
+      ]
+    },
+    {
+      "name": "revenuepulse-reliability",
+      "folder": "RevenuePulse",
+      "interval": "1m",
+      "rules": [
+        {
+          "title": "Webhook error rate high",
+          "condition": "A",
+          "data": [
+            {
+              "refId": "A",
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "sum(rate(rp_webhook_events_total{status=~\"error|failed\"}[5m])) / sum(rate(rp_webhook_events_total[5m])) > 0.05",
+                "legendFormat": "webhook error ratio"
+              }
+            }
+          ],
+          "for": "3m",
+          "annotations": {
+            "summary": "Webhook processing error rate exceeds 5%",
+            "description": "More than 5% of incoming webhook events are ending in error/failed state. Check logs and DB for root cause."
+          },
+          "labels": { "severity": "warning", "team": "platform" }
+        },
+        {
+          "title": "Queue depth backlog > 50 jobs",
+          "condition": "A",
+          "data": [
+            {
+              "refId": "A",
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "rp_queue_depth > 50",
+                "legendFormat": "{{ queue }}"
+              }
+            }
+          ],
+          "for": "5m",
+          "annotations": {
+            "summary": "Job queue backlog exceeds 50 pending jobs",
+            "description": "A queue has more than 50 pending jobs for 5 minutes. The worker may be down or under-provisioned."
+          },
+          "labels": { "severity": "warning", "team": "platform" }
+        },
+        {
+          "title": "Recovery pipeline p99 latency > 10s",
+          "condition": "A",
+          "data": [
+            {
+              "refId": "A",
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "histogram_quantile(0.99, rate(rp_http_request_duration_seconds_bucket{route=~\"/api/webhooks/.*|/api/ingest\"}[5m])) > 10",
+                "legendFormat": "pipeline p99 ({{ route }})"
+              }
+            }
+          ],
+          "for": "5m",
+          "annotations": {
+            "summary": "Webhook/ingest processing p99 latency exceeds 10s",
+            "description": "The 99th percentile request duration for webhook or ingest routes has been above 10s for 5 minutes."
+          },
+          "labels": { "severity": "warning", "team": "platform" }
+        },
+        {
+          "title": "Outcome timeout sweep running",
+          "condition": "A",
+          "data": [
+            {
+              "refId": "A",
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "increase(rp_webhook_events_total{status=\"timeout\"}[24h]) > 0",
+                "legendFormat": "cases timed out"
+              }
+            }
+          ],
+          "for": "0m",
+          "annotations": {
+            "summary": "Outcome verification timeout sweep triggered",
+            "description": "Cases are being swept to verification_timeout — check if provider webhooks are arriving. If this fires frequently, investigate Razorpay webhook delivery."
+          },
+          "labels": { "severity": "info", "team": "platform" }
+        },
+        {
+          "title": "Model data drift detected",
+          "condition": "A",
+          "data": [
+            {
+              "refId": "A",
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "max(rp_ml_drift_psi) > 0.20",
+                "legendFormat": "max PSI = {{ __name__ }}"
+              }
+            }
+          ],
+          "for": "10m",
+          "annotations": {
+            "summary": "Model feature drift exceeds PSI 0.20 threshold",
+            "description": "One or more model features have a Population Stability Index > 0.20, indicating significant distribution shift from training data. The model may be making predictions on out-of-distribution inputs. Consider triggering a retrain via POST /retrain on the ML service."
+          },
+          "labels": { "severity": "warning", "team": "platform" }
+        }
+      ]
+    }
+  ]
+}

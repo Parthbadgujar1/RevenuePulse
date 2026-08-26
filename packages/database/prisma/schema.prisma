@@ -27,6 +27,7 @@ model Merchant {
   auditLogs       AuditLog[]
   notifications   Notification[]
   webhookEvents   WebhookEvent[]
+  refunds         Refund[]
 }
 
 model User {
@@ -133,6 +134,7 @@ model RevenueCase {
   updatedAt       DateTime @updatedAt
   transaction     Transaction @relation(fields: [transactionId], references: [id])
   merchant        Merchant     @relation(fields: [merchantId], references: [id])
+  refunds         Refund[]
 }
 
 model Prediction {
@@ -182,6 +184,27 @@ model Outcome {
   verifiedAt        DateTime?
   verificationRef   String?  // Webhook/event reference
   createdAt         DateTime @default(now())
+}
+
+model Refund {
+  id                String   @id @default(cuid())
+  caseId            String
+  transactionId     String
+  merchantId        String
+  amount            Int      // In paise — refund amount requested
+  status            String   // "pending" | "initiated" | "processed" | "failed"
+  providerRefundId  String?  // Razorpay refund ID, if initiated
+  reason            String?  // Why refund is being requested
+  initiatedBy       String?  // userId or "system"
+  initiatedAt       DateTime?
+  completedAt       DateTime?
+  failureReason     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  case              RevenueCase @relation(fields: [caseId], references: [id])
+  merchant          Merchant    @relation(fields: [merchantId], references: [id])
+  @@index([caseId])
+  @@index([transactionId])
 }
 
 model AuditLog {

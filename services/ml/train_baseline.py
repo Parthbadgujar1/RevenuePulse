@@ -1,16 +1,23 @@
 """
-Train the recovery-probability model (v3).
+Train the recovery-probability model (v3.1 — multi-source).
 
 Target: P(recovered | failed transaction, intervention applied)
 - positive class = intervention eventually recovered the money
-- training data: 60k industry-calibrated synthetic intervention outcomes
-  (see data/generate_synthetic.py header for benchmark provenance)
+- training data: multi-source — synthetic (60k industry-calibrated) blended
+  with real-world production outcomes (accumulated in data/production_training.jsonl)
 - model selection is HONEST: logistic regression (transparent) competes
   against histogram gradient boosting; the winner on held-out ROC-AUC is
   served, and BOTH scores are published in metrics.json
 - artifact: services/ml/model/model.joblib (loaded verbatim by the API)
+
+CLI:
+  python train_baseline.py                          # default: synthetic + production
+  python train_baseline.py --data path/to/data.jsonl  # custom data source
+  python train_baseline.py --real-world-only       # only real-world data
+  python train_baseline.py --version 4.0.0         # custom version string
 """
 
+import argparse
 import json
 import os
 import joblib
@@ -32,12 +39,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from features import FEATURE_NAMES, build_feature_vector  # noqa: E402
 
 RANDOM_STATE = 42
-DATA_PATH = "services/ml/data/recovery_outcomes.jsonl"
+SYNTHETIC_PATH = "services/ml/data/recovery_outcomes.jsonl"
+PRODUCTION_PATH = "services/ml/data/production_training.jsonl"
 MODEL_DIR = "services/ml/model"
 MODEL_PATH = os.path.join(MODEL_DIR, "model.joblib")
 METRICS_PATH = "services/ml/metrics.json"
-
-MODEL_VERSION = "baseline-recovery-v3.0.0"
 
 BENCHMARK_SOURCES = [
     "Recurly Research - subscription payment decline & recovery benchmarks "
@@ -51,7 +57,8 @@ BENCHMARK_SOURCES = [
 ]
 
 
-def load_data(path=DATA_PATH):
+def load_data_from(path: str):
+    """Load training data from a single JSONL file."""
     X, y = [], []
     with open(path) as f:
         for line in f:
@@ -59,6 +66,39 @@ def load_data(path=DATA_PATH):
             X.append(build_feature_vector(rec))
             y.append(int(rec["recovered"]))
     return np.array(X), np.array(y)
+
+
+def load_multi_source(synthetic: bool = True, production: bool = True, custom: str | None = None):
+    """Load and merge training data from multiple sources."""
+    X_all, y_all = [], []
+    sources = []
+
+    if synthetic and os.path.exists(SYNTHETIC_PATH):
+        X, y = load_data_from(SYNTHETIC_PATH)
+        X_all.append(X)
+        y_all.append(y)
+        sources.append(f"synthetic({len(y)})")
+
+    if production and os.path.exists(PRODUCTION_PATH):
+        X, y = load_data_from(PRODUCTION_PATH)
+        X_all.append(X)
+        y_all.append(y)
+        sources.append(f"production({len(y)})")
+
+    if custom and os.path.exists(custom):
+        X, y = load_data_from(custom)
+        X_all.append(X)
+        y_all.append(y)
+        sources.append(f"custom({len(y)})")
+
+    if not X_all:
+        raise FileNotFoundError("No training data found. Run generate_synthetic.py or provide --data path.")
+
+    X = np.vstack(X_all)
+    y = np.concatenate(y_all)
+    print(f"Multi-source dataset: {', '.join(sources)} -> {X.shape[0]} total rows, "
+          f"{y.mean()*100:.1f}% positive")
+    return X, y
 
 
 def evaluate(name: str, model, X_tr, y_tr, X_te, y_te) -> dict:
@@ -80,7 +120,19 @@ def evaluate(name: str, model, X_tr, y_tr, X_te, y_te) -> dict:
 
 
 def main():
-    X, y = load_data()
+    parser = argparse.ArgumentParser(description="Train recovery probability model")
+    parser.add_argument("--data", type=str, default=None, help="Custom training data JSONL path")
+    parser.add_argument("--real-world-only", action="store_true", help="Use only real-world data")
+    parser.add_argument("--version", type=str, default=None, help="Custom model version string")
+    args = parser.parse_args()
+
+    model_version = args.version or "baseline-recovery-v3.1.0"
+
+    if args.real_world_only:
+        X, y = load_multi_source(synthetic=False, production=True, custom=args.data)
+    else:
+        X, y = load_multi_source(synthetic=True, production=True, custom=args.data)
+
     print(f"Dataset: {X.shape[0]} rows x {X.shape[1]} features "
           f"({y.mean()*100:.1f}% recovered)")
 
@@ -136,7 +188,7 @@ def main():
     metrics = {
         "task": "recovery_probability_prediction",
         "label_definition": "recovered=1 if intervention recovered money else 0",
-        "model_version": MODEL_VERSION,
+        "model_version": model_version,
         "selected_model": pick,
         "dataset_rows": int(X.shape[0]),
         "train_rows": int(len(y_tr)),
@@ -153,7 +205,7 @@ def main():
     }
 
     artifact = {
-        "model_version": MODEL_VERSION,
+        "model_version": model_version,
         "trained_at": datetime.now(timezone.utc).isoformat(),
         "model_type": f"{pick}_isotonic_calibrated",
         "feature_names": FEATURE_NAMES,
@@ -169,6 +221,9 @@ def main():
 
     print(json.dumps(metrics["test_metrics"], indent=2))
     print(f"Model saved to {MODEL_PATH}")
+
+    # Return metrics for programmatic callers (retrain.py)
+    return metrics
 
 
 if __name__ == "__main__":

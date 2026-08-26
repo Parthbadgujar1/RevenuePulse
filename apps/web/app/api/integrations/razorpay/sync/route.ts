@@ -9,16 +9,26 @@ import { processJob, JobType } from '@rp/observability';
 import { normalizeRazorpayEvent } from '@rp/razorpay';
 import { resolveRazorpayCredentials } from '../../../../../lib/razorpay-creds';
 import { requireMerchantContext } from '../../../../../lib/merchant-context';
+import { checkRateLimit, rateLimitResponse } from '../../../../../lib/rate-limit';
+import { csrfGuard } from '../../../../../lib/csrf';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}) as any);
-  const limit = Math.min(Math.max(parseInt(String(body?.limit ?? 100), 10) || 100, 1), 400);
+  const csrf = csrfGuard(req);
+  if (csrf) return csrf;
 
-  const { merchantId } = await requireMerchantContext();
-  const creds = await resolveRazorpayCredentials(merchantId);
+  try {
+    const { merchantId } = await requireMerchantContext();
+    // Razorpay API quota is shared across the merchant's integration.
+    const rl = checkRateLimit(req, 'sync', { limit: 10, windowMs: 60_000 }, merchantId);
+    if (!rl.allowed) return rateLimitResponse(rl);
+
+    const body = await req.json().catch(() => ({}) as any);
+    const limit = Math.min(Math.max(parseInt(String(body?.limit ?? 100), 10) || 100, 1), 400);
+
+    const creds = await resolveRazorpayCredentials(merchantId);
   if ('error' in creds) {
     return NextResponse.json({ error: creds.error }, { status: 400 });
   }
@@ -134,4 +144,10 @@ export async function POST(req: NextRequest) {
     casesCreated,
     actionsCreated,
   });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message ?? 'Sync failed' },
+      { status: 500 }
+    );
+  }
 }

@@ -4,21 +4,31 @@ RevenuePulse Recovery Prediction API.
 Serves the EXACT artifact produced by train_baseline.py
 (services/ml/model/model.joblib). No hand-tuned weights - if the model
 file is missing the service refuses to predict.
+
+Endpoints:
+  POST /predict          — recovery probability prediction
+  GET  /health           — model load status
+  GET  /model-info       — model metadata, metrics, limitations
+  GET  /drift            — data drift report (PSI per feature)
+  POST /retrain          — trigger incremental retrain (background)
+  POST /log-training-data — record a training example from production outcome
+  GET  /retrain-status   — retraining pipeline status
 """
 
 import os
 import uuid
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import joblib
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
-from features import FEATURE_NAMES, FAILURE_CATEGORIES, PAYMENT_METHODS, build_feature_vector
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from features import FEATURE_NAMES, FAILURE_CATEGORIES, PAYMENT_METHODS, build_feature_vector  # noqa: E402
 
 warnings.filterwarnings("ignore")
 
@@ -30,7 +40,7 @@ MODEL_PATH = os.environ.get(
 app = FastAPI(
     title="RevenuePulse Recovery Prediction API",
     description="Recovery probability for failed payments (calibrated logistic regression)",
-    version="2.0.0",
+    version="3.1.0",
 )
 
 
@@ -113,6 +123,13 @@ async def predict(request: PredictionRequest):
     except Exception:
         contributions = {}
 
+    # Record features for drift monitoring
+    try:
+        from drift import record_feature_vector
+        record_feature_vector(f)
+    except ImportError:
+        pass
+
     # Confidence = calibrated model's own margin: max(p, 1-p) in [0.5, 1].
     # (The old formula peaked AT p=0.5, which rewarded maximum uncertainty.)
     confidence = max(proba, 1.0 - proba)
@@ -162,7 +179,136 @@ async def model_info():
         "held_out_test_metrics": m,
         "limitations": [
             "Linear baseline - no feature interactions",
-            "Trained on synthetic recovery outcomes - validate on production data",
+            "Trained on synthetic + production data",
             "Calibration valid within training distribution",
         ],
     }
+
+
+# ── Drift detection ──────────────────────────────────────────────────────────
+
+@app.get("/drift")
+async def drift_report():
+    """Data drift report: PSI per feature, overall status."""
+    try:
+        from drift import compute_drift
+        return compute_drift()
+    except ImportError:
+        return {"status": "drift_module_unavailable"}
+
+
+# ── Incremental retraining ───────────────────────────────────────────────────
+
+_retrain_lock = False
+
+
+def _run_retrain_background(force: bool = False):
+    """Background retraining task — runs in a thread."""
+    global _retrain_lock
+    try:
+        from retrain import retrain as do_retrain
+        result = do_retrain(force=force)
+        print(f"[retrain] Completed: {result.get('status')} — {result.get('version', result.get('message', ''))}")
+        # Reload the model if a new version was deployed
+        if result.get("status") == "deployed":
+            global _model, _meta
+            _model = None
+            _meta = None
+            load_model()
+            print(f"[retrain] Reloaded model: {_meta.get('model_version')}")
+    except Exception as e:
+        print(f"[retrain] Error: {e}")
+    finally:
+        _retrain_lock = False
+
+
+@app.post("/retrain")
+async def trigger_retrain(force: bool = False, background_tasks: BackgroundTasks = BackgroundTasks()):
+    """Trigger incremental model retraining in the background."""
+    global _retrain_lock
+    if _retrain_lock:
+        return {"status": "already_running", "message": "A retrain is already in progress"}
+    _retrain_lock = True
+    background_tasks.add_task(_run_retrain_background, force=force)
+    return {"status": "started", "force": force}
+
+
+@app.get("/retrain-status")
+async def retrain_status():
+    """Current retraining pipeline status."""
+    try:
+        from retrain import load_retrain_state
+        state = load_retrain_state()
+        return {
+            "current_version": state.get("current_version"),
+            "last_retrain_at": state.get("last_retrain_at"),
+            "retrain_count": state.get("retrain_count", 0),
+            "retrain_in_progress": _retrain_lock,
+        }
+    except ImportError:
+        return {"status": "retrain_module_unavailable"}
+
+
+# ── Production training data logging ──────────────────────────────────────────
+
+PRODUCTION_DATA_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "production_training.jsonl"
+)
+
+
+class TrainingDataPoint(BaseModel):
+    features: RecoveryFeatures
+    recovered: bool = Field(..., description="Whether the recovery intervention succeeded")
+    intervention: str = Field(default="unknown", description="Intervention type applied")
+    source: str = Field(default="production", description="Data source identifier")
+
+
+@app.post("/log-training-data")
+async def log_training_data(point: TrainingDataPoint):
+    """Record a production training data point for future retraining."""
+    import json as _json
+
+    f = point.features.model_dump()
+    record = {
+        "case_id": f"prod_{uuid.uuid4().hex[:8]}",
+        "amount": f["amount"],
+        "failure_category": f["failure_category"],
+        "payment_method": f["payment_method"],
+        "historical_success_rate": f["historical_success_rate"],
+        "number_of_previous_failures": f["number_of_previous_failures"],
+        "time_since_failure_hours": f["time_since_failure_hours"],
+        "transaction_hour": f["transaction_hour"],
+        "retry_count": f["retry_count"],
+        "is_subscription": f["is_subscription"],
+        "merchant_historical_rate": f["merchant_historical_rate"],
+        "failure_category_historical_rate": f["failure_category_historical_rate"],
+        "amount_percentile": f["amount_percentile"],
+        "intervention": point.intervention,
+        "recovered": 1 if point.recovered else 0,
+        "source": point.source,
+        "logged_at": uuid.uuid4().hex,  # placeholder timestamp
+    }
+
+    os.makedirs(os.path.dirname(PRODUCTION_DATA_PATH), exist_ok=True)
+    with open(PRODUCTION_DATA_PATH, "a") as fh:
+        fh.write(_json.dumps(record) + "\n")
+
+    # Also record for drift monitoring
+    try:
+        from drift import record_feature_vector
+        record_feature_vector(f)
+    except ImportError:
+        pass
+
+    return {"status": "logged", "path": PRODUCTION_DATA_PATH}
+
+
+@app.post("/log-prediction")
+async def log_prediction(features: RecoveryFeatures):
+    """Record a prediction's features for drift monitoring (no label needed)."""
+    try:
+        from drift import record_feature_vector
+        record_feature_vector(features.model_dump())
+    except ImportError:
+        pass
+    return {"status": "recorded"}
