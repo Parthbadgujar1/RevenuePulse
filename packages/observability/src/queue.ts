@@ -14,6 +14,7 @@ import type { MerchantPolicy } from '../../policies/src';
 import { getInterventionLift } from '../../policies/src/intervention-lifts';
 import { predictRecoveryProbability, logTrainingData, triggerRetrain, observeDriftMetrics } from './ml-client';
 import { setQueueDepth } from './metrics';
+import { RETRY_WINDOWS, calculateNextRetryTime } from '../../domain/src/services/retry-sequencer';
 
 /** Load the merchant's persisted recovery policy (falls back to defaults). */
 export async function getMerchantPolicy(merchantId: string): Promise<MerchantPolicy> {
@@ -62,6 +63,9 @@ export enum JobType {
   VERIFY_OUTCOME = 'verify-outcome',
   RETRY_SCHEDULED = 'retry-scheduled',
   RETENTION_CLEANUP = 'retention-cleanup',
+  CHECKOUT_RECOVERY = 'checkout-recovery',
+  RECEIVABLES_CHASE = 'receivables-chase',
+  PROMISE_CHECK = 'promise-check',
 }
 
 // Job payload interfaces
@@ -138,6 +142,16 @@ async function getProducerBoss(): Promise<any> {
         }
       }, 30_000);
       if (typeof depthInterval.unref === 'function') depthInterval.unref();
+
+      const promiseCheckInterval = setInterval(async () => {
+        try {
+          await processPromiseCheck({});
+        } catch {
+          // promise check must never break the queue
+        }
+      }, 300_000);
+      if (typeof promiseCheckInterval.unref === 'function') promiseCheckInterval.unref();
+
       return boss;
     });
   }
@@ -215,6 +229,12 @@ export async function processJob(
       return await scheduleRetry(payload);
     case JobType.RETENTION_CLEANUP:
       return await retentionCleanup(payload);
+    case JobType.CHECKOUT_RECOVERY:
+      return await processCheckoutRecovery(payload);
+    case JobType.RECEIVABLES_CHASE:
+      return await processReceivablesChase(payload);
+    case JobType.PROMISE_CHECK:
+      return await processPromiseCheck(payload);
     default:
       console.warn(`Unknown job type: ${jobType}`);
       return { success: false, error: `Unknown job type: ${jobType}` };
@@ -817,6 +837,47 @@ async function executeAction(payload: any): Promise<JobResult> {
       },
     });
 
+    if (!willRecover) {
+      const category =
+        ((revenueCase.diagnosis as Record<string, unknown>)?.primaryCategory as string) || 'unknown';
+      const retryWindow = RETRY_WINDOWS[category];
+      if (retryWindow) {
+        const schedule = calculateNextRetryTime(retryWindow, revenueCase.attemptCount);
+        await prisma.retrySchedule.create({
+          data: {
+            caseId: revenueCase.id,
+            merchantId: revenueCase.merchantId,
+            failureCategory: category,
+            retryWindow: retryWindow as any,
+            currentRetry: schedule.attempt,
+            maxRetries: retryWindow.maxRetries,
+            nextRetryAt: new Date(schedule.retryAt),
+            status: 'scheduled',
+            createdAt: new Date(),
+          },
+        });
+        await prisma.auditLog.create({
+          data: {
+            merchantId: revenueCase.merchantId,
+            actorType: 'system',
+            actorId: 'retry-sequencer',
+            action: 'retry_scheduled',
+            entityType: 'revenue_case',
+            entityId: revenueCase.id,
+            reason: `Retry ${schedule.attempt}/${retryWindow.maxRetries} scheduled for ${schedule.retryAt} (${category})`,
+            evidence: {
+              category,
+              attempt: schedule.attempt,
+              maxRetries: retryWindow.maxRetries,
+              nextRetryAt: schedule.retryAt,
+              delayHours: schedule.delayHours,
+            } as any,
+            createdAt: new Date(),
+          },
+        });
+      }
+    }
+
     // Chain outcome verification
     setImmediate(() => {
       void processJob({} as Boss, JobType.VERIFY_OUTCOME, {
@@ -1107,6 +1168,216 @@ async function retentionCleanup(payload: any): Promise<JobResult> {
     };
   } catch (error) {
     console.error('Error in retention cleanup:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function processCheckoutRecovery(payload: any): Promise<JobResult> {
+  const { sessionId } = payload;
+
+  try {
+    const session = await prisma.checkoutSession.findFirst({
+      where: sessionId ? { sessionId } : undefined,
+    });
+    if (!session) {
+      return { success: false, error: 'Checkout session not found' };
+    }
+
+    if (session.status === 'expired' || (session.expiresAt && session.expiresAt < new Date())) {
+      if (session.status !== 'expired') {
+        await prisma.checkoutSession.update({
+          where: { id: session.id },
+          data: { status: 'expired' },
+        });
+        await prisma.auditLog.create({
+          data: {
+            merchantId: session.merchantId,
+            actorType: 'system',
+            actorId: 'checkout-recovery',
+            action: 'checkout_session_expired',
+            entityType: 'checkout_session',
+            entityId: session.id,
+            reason: 'Checkout session expired before recovery could be initiated',
+            evidence: { expiresAt: session.expiresAt?.toISOString(), status: session.status } as any,
+            createdAt: new Date(),
+          },
+        });
+      }
+      return { success: true, result: { sessionId: session.id, expired: true } };
+    }
+
+    if (session.status === 'recovered') {
+      return { success: true, result: { sessionId: session.id, alreadyRecovered: true } };
+    }
+
+    return {
+      success: true,
+      result: {
+        sessionId: session.id,
+        status: session.status,
+        amount: session.amount,
+        customerEmail: session.customerEmail,
+        customerPhone: session.customerPhone,
+        recoveryChannel: session.recoveryChannel,
+        incentiveType: session.incentiveType,
+        incentiveValue: session.incentiveValue,
+        abandonmentReason: session.abandonmentReason,
+      },
+    };
+  } catch (error) {
+    console.error('Error processing checkout recovery:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function processReceivablesChase(payload: any): Promise<JobResult> {
+  const { invoiceId, channel, message } = payload;
+
+  try {
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+    if (!invoice) {
+      return { success: false, error: 'Invoice not found' };
+    }
+
+    const now = new Date();
+    await prisma.invoice.update({
+      where: { id: invoice.id },
+      data: { lastChasedAt: now, chaseCount: { increment: 1 } },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        merchantId: invoice.merchantId,
+        actorType: 'system',
+        actorId: 'receivables-chaser',
+        action: 'invoice_chased',
+        entityType: 'invoice',
+        entityId: invoice.id,
+        reason: `Chase sent via ${channel || 'default'} for invoice ${invoice.invoiceNumber}`,
+        evidence: {
+          invoiceNumber: invoice.invoiceNumber,
+          channel,
+          message: message ?? null,
+          amount: invoice.amount,
+          overdueDays: invoice.overdueDays,
+          chaseCount: invoice.chaseCount + 1,
+        } as any,
+        createdAt: now,
+      },
+    });
+
+    return {
+      success: true,
+      result: {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        channel,
+        amount: invoice.amount,
+        overdueDays: invoice.overdueDays,
+      },
+    };
+  } catch (error) {
+    console.error('Error processing receivables chase:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function processPromiseCheck(payload: any): Promise<JobResult> {
+  const { promiseId } = payload;
+
+  try {
+    const now = new Date();
+
+    if (promiseId) {
+      const promise = await prisma.promiseToPay.findUnique({ where: { id: promiseId } });
+      if (!promise) {
+        return { success: false, error: 'Promise not found' };
+      }
+
+      if (promise.status !== 'pending') {
+        return { success: true, result: { checked: 0 } };
+      }
+
+      if (promise.promisedDate < now) {
+        await prisma.promiseToPay.update({
+          where: { id: promise.id },
+          data: {
+            status: 'broken',
+            brokenAt: now,
+            escalationLevel: { increment: 1 },
+          },
+        });
+        await prisma.auditLog.create({
+          data: {
+            merchantId: promise.merchantId,
+            actorType: 'system',
+            actorId: 'promise-checker',
+            action: 'promise_violated',
+            entityType: 'promise_to_pay',
+            entityId: promise.id,
+            reason: `Promise broken: promised ${promise.promisedDate.toISOString()} for ${promise.promisedAmount} paise`,
+            evidence: {
+              promisedAmount: promise.promisedAmount,
+              promisedDate: promise.promisedDate.toISOString(),
+              channel: promise.channel,
+              escalationLevel: promise.escalationLevel + 1,
+            } as any,
+            createdAt: now,
+          },
+        });
+        return {
+          success: true,
+          result: { checked: 1, violated: 1, brokenId: promise.id },
+        };
+      }
+
+      return { success: true, result: { checked: 1, violated: 0 } };
+    }
+
+    const overduePromises = await prisma.promiseToPay.findMany({
+      where: {
+        status: 'pending',
+        promisedDate: { lt: now },
+      },
+    });
+
+    const brokenIds: string[] = [];
+    for (const p of overduePromises) {
+      await prisma.promiseToPay.update({
+        where: { id: p.id },
+        data: {
+          status: 'broken',
+          brokenAt: now,
+          escalationLevel: { increment: 1 },
+        },
+      });
+      await prisma.auditLog.create({
+        data: {
+          merchantId: p.merchantId,
+          actorType: 'system',
+          actorId: 'promise-checker',
+          action: 'promise_violated',
+          entityType: 'promise_to_pay',
+          entityId: p.id,
+          reason: `Promise broken: promised ${p.promisedDate.toISOString()} for ${p.promisedAmount} paise`,
+          evidence: {
+            promisedAmount: p.promisedAmount,
+            promisedDate: p.promisedDate.toISOString(),
+            channel: p.channel,
+            escalationLevel: p.escalationLevel + 1,
+          } as any,
+          createdAt: now,
+        },
+      });
+      brokenIds.push(p.id);
+    }
+
+    return {
+      success: true,
+      result: { checked: overduePromises.length, violated: brokenIds.length, brokenIds },
+    };
+  } catch (error) {
+    console.error('Error checking promises:', error);
     return { success: false, error: (error as Error).message };
   }
 }

@@ -5,3 +5,7 @@
 export * from './constants/failure-taxonomy';
 export * from './constants/recovery-models';
 export * from './services/domain-services';
+export * from './services/checkout-recovery';
+export * from './services/receivables-chaser';
+export * from './services/retry-sequencer';
+export * from './services/promise-tracker';
