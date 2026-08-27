@@ -22,47 +22,55 @@ function calcAgingBucket(overdueDays: number): string {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({} as any));
-  const count = Math.min(100, Math.max(5, Number(body?.count) || 20));
-  const seed = Number(body?.seed) > 0 ? Math.floor(Number(body?.seed)) : 20260826;
+  try {
+    const body = await req.json().catch(() => ({} as any));
+    const count = Math.min(100, Math.max(5, Number(body?.count) || 20));
+    const seed = Number(body?.seed) > 0 ? Math.floor(Number(body?.seed)) : 20260826;
 
-  const { merchantId } = await requireMerchantContext();
-  const rng = mulberry32(seed);
-  const created = [];
+    const { merchantId } = await requireMerchantContext();
+    const rng = mulberry32(seed);
+    const created = [];
 
-  for (let i = 0; i < count; i++) {
-    const amount = Math.floor(rng() * 9500000) + 500000;
-    const overdueDays = Math.floor(rng() * 120);
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() - overdueDays);
-    const status = overdueDays > 60 ? 'overdue' : overdueDays > 0 ? 'pending' : 'paid';
-    const amountPaid = status === 'paid' ? amount : Math.floor(amount * rng() * 0.3);
-    const issuedAt = new Date();
-    issuedAt.setDate(issuedAt.getDate() - overdueDays - 30);
+    for (let i = 0; i < count; i++) {
+      const amount = Math.floor(rng() * 9500000) + 500000;
+      const overdueDays = Math.floor(rng() * 120);
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() - overdueDays);
+      const status = overdueDays > 60 ? 'overdue' : overdueDays > 0 ? 'pending' : 'paid';
+      const amountPaid = status === 'paid' ? amount : Math.floor(amount * rng() * 0.3);
+      const issuedAt = new Date();
+      issuedAt.setDate(issuedAt.getDate() - overdueDays - 30);
+      const now = new Date();
 
-    const inv = await prisma.invoice.create({
-      data: {
-        merchantId,
-        invoiceNumber: `INV-${seed}-${String(i).padStart(4, '0')}`,
-        customerName: CUSTOMER_NAMES[Math.floor(rng() * CUSTOMER_NAMES.length)],
-        customerEmail: `accounts${i}@example.com`,
-        amount,
-        amountPaid,
-        currency: 'INR',
-        status,
-        dueDate,
-        issuedAt,
-        overdueDays,
-        agingBucket: calcAgingBucket(overdueDays),
-      },
+      const inv = await prisma.invoice.create({
+        data: {
+          merchantId,
+          invoiceNumber: `INV-${seed}-${String(i).padStart(4, '0')}`,
+          customerName: CUSTOMER_NAMES[Math.floor(rng() * CUSTOMER_NAMES.length)],
+          customerEmail: `accounts${i}@example.com`,
+          amount,
+          amountPaid,
+          currency: 'INR',
+          status,
+          dueDate,
+          issuedAt,
+          overdueDays,
+          agingBucket: calcAgingBucket(overdueDays),
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+      created.push({ id: inv.id, invoiceNumber: inv.invoiceNumber, amount, status, overdueDays });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      created: created.length,
+      invoices: created,
+      note: `Generated ${created.length} invoices.`,
     });
-    created.push({ id: inv.id, invoiceNumber: inv.invoiceNumber, amount, status, overdueDays });
+  } catch (err: any) {
+    console.error('[demo-generate-receivables]', err);
+    return NextResponse.json({ ok: false, error: err?.message ?? 'Internal error' }, { status: 500 });
   }
-
-  return NextResponse.json({
-    ok: true,
-    created: created.length,
-    invoices: created,
-    note: `Generated ${created.length} invoices.`,
-  });
 }

@@ -14,47 +14,55 @@ function mulberry32(seed: number) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({} as any));
-  const count = Math.min(100, Math.max(5, Number(body?.count) || 20));
-  const seed = Number(body?.seed) > 0 ? Math.floor(Number(body?.seed)) : 20260826;
+  try {
+    const body = await req.json().catch(() => ({} as any));
+    const count = Math.min(100, Math.max(5, Number(body?.count) || 20));
+    const seed = Number(body?.seed) > 0 ? Math.floor(Number(body?.seed)) : 20260826;
 
-  const { merchantId } = await requireMerchantContext();
-  const rng = mulberry32(seed);
-  const created = [];
+    const { merchantId } = await requireMerchantContext();
+    const rng = mulberry32(seed);
+    const created = [];
 
-  for (let i = 0; i < count; i++) {
-    const amount = Math.floor(rng() * 490000) + 10000;
-    const promisedDate = new Date();
-    const daysOffset = Math.floor(rng() * 30) - 15;
-    promisedDate.setDate(promisedDate.getDate() + daysOffset);
-    const channel = CHANNELS[Math.floor(rng() * CHANNELS.length)];
+    for (let i = 0; i < count; i++) {
+      const amount = Math.floor(rng() * 490000) + 10000;
+      const promisedDate = new Date();
+      const daysOffset = Math.floor(rng() * 30) - 15;
+      promisedDate.setDate(promisedDate.getDate() + daysOffset);
+      const channel = CHANNELS[Math.floor(rng() * CHANNELS.length)];
+      const now = new Date();
 
-    let status: string;
-    if (daysOffset > 5) status = 'pending';
-    else if (daysOffset > 0) status = rng() < 0.6 ? 'pending' : 'kept';
-    else status = rng() < 0.4 ? 'kept' : rng() < 0.7 ? 'broken' : 'extended';
+      let status: string;
+      if (daysOffset > 5) status = 'pending';
+      else if (daysOffset > 0) status = rng() < 0.6 ? 'pending' : 'kept';
+      else status = rng() < 0.4 ? 'kept' : rng() < 0.7 ? 'broken' : 'extended';
 
-    const promise = await prisma.promiseToPay.create({
-      data: {
-        merchantId,
-        customerEmail: `customer${i}@example.com`,
-        promisedAmount: amount,
-        promisedDate,
-        channel,
-        status,
-        escalationLevel: status === 'broken' ? 1 : status === 'extended' ? 2 : 0,
-        keptAt: status === 'kept' ? new Date() : null,
-        brokenAt: status === 'broken' ? new Date() : null,
-        agentNotes: `Demo promise via ${channel}`,
-      },
+      const promise = await prisma.promiseToPay.create({
+        data: {
+          merchantId,
+          customerEmail: `customer${i}@example.com`,
+          promisedAmount: amount,
+          promisedDate,
+          channel,
+          status,
+          escalationLevel: status === 'broken' ? 1 : status === 'extended' ? 2 : 0,
+          keptAt: status === 'kept' ? now : null,
+          brokenAt: status === 'broken' ? now : null,
+          agentNotes: `Demo promise via ${channel}`,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+      created.push({ id: promise.id, amount, status, channel, dueDate: promisedDate.toISOString().slice(0, 10) });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      created: created.length,
+      promises: created,
+      note: `Generated ${created.length} promises.`,
     });
-    created.push({ id: promise.id, amount, status, channel, dueDate: promisedDate.toISOString().slice(0, 10) });
+  } catch (err: any) {
+    console.error('[demo-generate-promises]', err);
+    return NextResponse.json({ ok: false, error: err?.message ?? 'Internal error' }, { status: 500 });
   }
-
-  return NextResponse.json({
-    ok: true,
-    created: created.length,
-    promises: created,
-    note: `Generated ${created.length} promises.`,
-  });
 }

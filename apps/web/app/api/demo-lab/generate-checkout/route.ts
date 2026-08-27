@@ -15,46 +15,51 @@ function mulberry32(seed: number) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({} as any));
-  const count = Math.min(100, Math.max(5, Number(body?.count) || 20));
-  const seed = Number(body?.seed) > 0 ? Math.floor(Number(body?.seed)) : 20260826;
+  try {
+    const body = await req.json().catch(() => ({} as any));
+    const count = Math.min(100, Math.max(5, Number(body?.count) || 20));
+    const seed = Number(body?.seed) > 0 ? Math.floor(Number(body?.seed)) : 20260826;
 
-  const { merchantId } = await requireMerchantContext();
-  const rng = mulberry32(seed);
-  const created = [];
+    const { merchantId } = await requireMerchantContext();
+    const rng = mulberry32(seed);
+    const created = [];
 
-  for (let i = 0; i < count; i++) {
-    const sessionId = `cs_demo_${seed}_${i}`;
-    const amount = Math.floor(rng() * 490000) + 10000;
-    const reason = REASONS[Math.floor(rng() * REASONS.length)];
-    const status = rng() < 0.3 ? 'recovered' : rng() < 0.6 ? 'recovery_sent' : 'abandoned';
+    for (let i = 0; i < count; i++) {
+      const sessionId = `cs_demo_${seed}_${i}`;
+      const amount = Math.floor(rng() * 490000) + 10000;
+      const reason = REASONS[Math.floor(rng() * REASONS.length)];
+      const status = rng() < 0.3 ? 'recovered' : rng() < 0.6 ? 'recovery_sent' : 'abandoned';
 
-    const existing = await prisma.checkoutSession.findFirst({ where: { sessionId } });
-    if (existing) continue;
+      const existing = await prisma.checkoutSession.findFirst({ where: { sessionId } });
+      if (existing) continue;
 
-    const session = await prisma.checkoutSession.create({
-      data: {
-        merchantId,
-        sessionId,
-        amount,
-        currency: 'INR',
-        abandonmentReason: reason,
-        status,
-        customerEmail: `customer${i}@example.com`,
-        recoveryChannel: status !== 'abandoned' ? CHANNELS[Math.floor(rng() * CHANNELS.length)] : null,
-        incentiveType: status !== 'abandoned' ? (rng() < 0.5 ? 'flat_discount' : 'discount_pct') : null,
-        incentiveValue: status !== 'abandoned' ? { flatDiscount: 200 } : undefined,
-        recoveredAt: status === 'recovered' ? new Date() : null,
-        createdAt: new Date(),
-      },
+      const session = await prisma.checkoutSession.create({
+        data: {
+          merchantId,
+          sessionId,
+          amount,
+          currency: 'INR',
+          abandonmentReason: reason,
+          status,
+          customerEmail: `customer${i}@example.com`,
+          recoveryChannel: status !== 'abandoned' ? CHANNELS[Math.floor(rng() * CHANNELS.length)] : null,
+          incentiveType: status !== 'abandoned' ? (rng() < 0.5 ? 'flat_discount' : 'discount_pct') : null,
+          incentiveValue: status !== 'abandoned' ? { flatDiscount: 200 } : undefined,
+          recoveredAt: status === 'recovered' ? new Date() : null,
+          createdAt: new Date(),
+        },
+      });
+      created.push({ id: session.id, sessionId, amount, status });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      created: created.length,
+      sessions: created,
+      note: `Generated ${created.length} checkout sessions.`,
     });
-    created.push({ id: session.id, sessionId, amount, status });
+  } catch (err: any) {
+    console.error('[demo-generate-checkout]', err);
+    return NextResponse.json({ ok: false, error: err?.message ?? 'Internal error' }, { status: 500 });
   }
-
-  return NextResponse.json({
-    ok: true,
-    created: created.length,
-    sessions: created,
-    note: `Generated ${created.length} checkout sessions.`,
-  });
 }
