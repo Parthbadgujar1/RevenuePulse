@@ -9,6 +9,8 @@ interface Policy {
   stopOnRepeatedFailure: boolean;
   stopOnPolicyViolation: boolean;
   maximumIncentivePercentage: number;
+  maximumIncentiveAmount: number;
+  maximumRecoveryValue: number;
   maximumRetryCount: number;
   maximumContactCount: number;
   minimumRecoveryProbability: number;
@@ -198,6 +200,18 @@ export default function PolicyForm() {
             hint={`${policy.maximumIncentivePercentage}% of amount`}
             note="0–100"
             {...num('maximumIncentivePercentage')}
+          />
+          <NumberField
+            label="Max incentive amount (paise)"
+            hint={inr(policy.maximumIncentiveAmount)}
+            note="Paise"
+            {...num('maximumIncentiveAmount')}
+          />
+          <NumberField
+            label="Max recovery value (paise)"
+            hint={inr(policy.maximumRecoveryValue)}
+            note="Paise"
+            {...num('maximumRecoveryValue')}
           />
         </div>
       </div>

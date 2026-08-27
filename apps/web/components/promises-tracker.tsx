@@ -21,6 +21,9 @@ export default function PromisesTracker() {
   const [busy, setBusy] = useState<string | null>(null);
   const [extendId, setExtendId] = useState<string | null>(null);
   const [extendDate, setExtendDate] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({ customerEmail: '', promisedAmount: '', promisedDate: '', channel: 'phone', agentNotes: '' });
 
   useEffect(() => {
     fetch('/api/promises')
@@ -32,6 +35,63 @@ export default function PromisesTracker() {
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
   }, []);
+
+  function refreshData() {
+    setError(null);
+    fetch('/api/promises')
+      .then((r) => {
+        if (!r.ok) throw new Error(`Failed to load (${r.status})`);
+        return r.json();
+      })
+      .then((d) => setPromises(d.promises))
+      .catch((e) => setError((e as Error).message));
+  }
+
+  async function createPromise() {
+    setCreating(true);
+    try {
+      const res = await fetch('/api/promises', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerEmail: createForm.customerEmail,
+          promisedAmount: Number(createForm.promisedAmount) * 100,
+          promisedDate: createForm.promisedDate,
+          channel: createForm.channel,
+          agentNotes: createForm.agentNotes || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Request failed (${res.status})`);
+      }
+      const { promise } = await res.json();
+      setPromises((ps) => [promise, ...ps]);
+      setShowCreate(false);
+      setCreateForm({ customerEmail: '', promisedAmount: '', promisedDate: '', channel: 'phone', agentNotes: '' });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function deletePromise(id: string) {
+    if (!confirm('Delete this promise?')) return;
+    setBusy(id + 'DELETE');
+    try {
+      const res = await fetch(`/api/promises?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Request failed (${res.status})`);
+      }
+      setPromises((ps) => ps.filter((p) => p.id !== id));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
 
   const filtered = filter === 'all' ? promises : promises.filter((p) => p.status === filter);
 
@@ -108,7 +168,15 @@ export default function PromisesTracker() {
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold text-gray-900">Promise-to-Pay Tracker</p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-gray-900">Promise-to-Pay Tracker</p>
+          <button
+            onClick={() => setShowCreate(!showCreate)}
+            className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 border border-emerald-300 hover:bg-emerald-400 transition"
+          >
+            {showCreate ? 'Close' : 'Create Promise'}
+          </button>
+        </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
           {(['pending', 'kept', 'broken', 'extended'] as const).map((f) => (
@@ -125,6 +193,85 @@ export default function PromisesTracker() {
             </button>
           ))}
         </div>
+
+        {showCreate && (
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Customer Email</label>
+                <input
+                  type="email"
+                  required
+                  value={createForm.customerEmail}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, customerEmail: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-xs"
+                  placeholder="user@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Amount (₹)</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={createForm.promisedAmount}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, promisedAmount: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-xs"
+                  placeholder="5000"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Promised Date</label>
+                <input
+                  type="date"
+                  required
+                  value={createForm.promisedDate}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, promisedDate: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Channel</label>
+                <select
+                  required
+                  value={createForm.channel}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, channel: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-xs"
+                >
+                  <option value="phone">Phone</option>
+                  <option value="email">Email</option>
+                  <option value="sms">SMS</option>
+                  <option value="whatsapp">WhatsApp</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Agent Notes (optional)</label>
+              <textarea
+                value={createForm.agentNotes}
+                onChange={(e) => setCreateForm((f) => ({ ...f, agentNotes: e.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-xs"
+                rows={2}
+                placeholder="Internal notes…"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={createPromise}
+                disabled={creating || !createForm.customerEmail || !createForm.promisedAmount || !createForm.promisedDate}
+                className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 border border-emerald-300 hover:bg-emerald-400 disabled:opacity-60 transition"
+              >
+                {creating ? 'Creating…' : 'Create'}
+              </button>
+              <button
+                onClick={() => setShowCreate(false)}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -144,9 +291,21 @@ export default function PromisesTracker() {
                     {p.escalationLevel > 0 && ` · Level ${p.escalationLevel}`}
                   </p>
                 </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone[p.status]}`}>
-                  {p.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone[p.status]}`}>
+                    {p.status}
+                  </span>
+                  <button
+                    onClick={() => deletePromise(p.id)}
+                    disabled={busy !== null}
+                    title="Delete promise"
+                    className="rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-60 transition"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">

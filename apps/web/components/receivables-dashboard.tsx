@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import InvoiceChaseForm from './invoice-chase-form';
 
 interface AgingBucket {
   label: string;
@@ -31,20 +32,82 @@ export default function ReceivablesDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [chaseInvoiceId, setChaseInvoiceId] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    customerName: '',
+    amount: '',
+    dueDate: '',
+    customerEmail: '',
+  });
+
+  async function fetchSummary() {
+    const r = await fetch('/api/receivables/summary');
+    if (!r.ok) throw new Error(`Failed to load (${r.status})`);
+    const d = await r.json();
+    setSummary(d.summary);
+  }
 
   useEffect(() => {
-    fetch('/api/receivables/summary')
-      .then((r) => {
-        if (!r.ok) throw new Error(`Failed to load (${r.status})`);
-        return r.json();
-      })
-      .then((d) => setSummary(d.summary))
+    fetchSummary()
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
   }, []);
 
   function formatCurrency(amount: number) {
     return `₹${(amount / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
+  }
+
+  async function handleCreateInvoice(e: React.FormEvent) {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      const res = await fetch('/api/receivables/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: createForm.customerName,
+          amount: Number(createForm.amount) * 100,
+          dueDate: createForm.dueDate || undefined,
+          customerEmail: createForm.customerEmail || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json();
+        throw new Error(j.error || `Create failed (${res.status})`);
+      }
+      const { invoice } = await res.json();
+      setSummary((prev) =>
+        prev
+          ? { ...prev, recentInvoices: [invoice, ...prev.recentInvoices] }
+          : prev,
+      );
+      setShowCreateForm(false);
+      setCreateForm({ customerName: '', amount: '', dueDate: '', customerEmail: '' });
+      await fetchSummary();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleDeleteInvoice(id: string) {
+    try {
+      const res = await fetch(`/api/receivables/invoices/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const j = await res.json();
+        throw new Error(j.error || `Delete failed (${res.status})`);
+      }
+      setSummary((prev) =>
+        prev
+          ? { ...prev, recentInvoices: prev.recentInvoices.filter((inv) => inv.id !== id) }
+          : prev,
+      );
+      await fetchSummary();
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }
 
   const maxBucketAmount = summary
@@ -114,10 +177,77 @@ export default function ReceivablesDashboard() {
       <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-gray-900">Recent Invoices</p>
-          <button className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 border border-emerald-300 hover:bg-emerald-400 transition">
-            Create Invoice
+          <button
+            onClick={() => setShowCreateForm((v) => !v)}
+            className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 border border-emerald-300 hover:bg-emerald-400 transition"
+          >
+            {showCreateForm ? 'Cancel' : 'Create Invoice'}
           </button>
         </div>
+
+        {showCreateForm && (
+          <form onSubmit={handleCreateInvoice} className="mt-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div>
+              <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Customer Name</label>
+              <input
+                type="text"
+                required
+                value={createForm.customerName}
+                onChange={(e) => setCreateForm((f) => ({ ...f, customerName: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400"
+                placeholder="Acme Corp"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Amount (₹)</label>
+              <input
+                type="number"
+                required
+                min="0"
+                step="0.01"
+                value={createForm.amount}
+                onChange={(e) => setCreateForm((f) => ({ ...f, amount: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400"
+                placeholder="1000"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Due Date</label>
+              <input
+                type="date"
+                value={createForm.dueDate}
+                onChange={(e) => setCreateForm((f) => ({ ...f, dueDate: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Customer Email</label>
+              <input
+                type="email"
+                value={createForm.customerEmail}
+                onChange={(e) => setCreateForm((f) => ({ ...f, customerEmail: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400"
+                placeholder="billing@example.com"
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="submit"
+                disabled={creating}
+                className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 border border-emerald-300 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {creating ? 'Creating…' : 'Create'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCreateForm(false)}
+                className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
 
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -152,14 +282,24 @@ export default function ReceivablesDashboard() {
                     {inv.overdueDays > 0 ? inv.overdueDays : '—'}
                   </td>
                   <td className="py-2.5 text-right">
-                    {inv.status !== 'PAID' && (
-                      <button
-                        onClick={() => setChaseInvoiceId(chaseInvoiceId === inv.id ? null : inv.id)}
-                        className="text-xs font-medium text-emerald-600 hover:underline"
-                      >
-                        Chase
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      {inv.status !== 'PAID' && (
+                        <>
+                          <button
+                            onClick={() => setChaseInvoiceId(chaseInvoiceId === inv.id ? null : inv.id)}
+                            className="text-xs font-medium text-emerald-600 hover:underline"
+                          >
+                            Chase
+                          </button>
+                          <button
+                            onClick={() => handleDeleteInvoice(inv.id)}
+                            className="text-xs font-medium text-red-600 hover:underline"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -171,6 +311,23 @@ export default function ReceivablesDashboard() {
             </tbody>
           </table>
         </div>
+
+        {chaseInvoiceId && (
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-700">Send Payment Reminder</p>
+              <button
+                onClick={() => setChaseInvoiceId(null)}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mt-3">
+              <InvoiceChaseForm invoiceId={chaseInvoiceId} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
