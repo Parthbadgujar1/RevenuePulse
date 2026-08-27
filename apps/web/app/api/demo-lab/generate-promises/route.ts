@@ -39,7 +39,6 @@ export async function POST(req: NextRequest) {
         merchantId,
         customerEmail: `customer${i}@example.com`,
         promisedAmount: amount,
-        currency: 'INR',
         promisedDate,
         channel,
         status,
