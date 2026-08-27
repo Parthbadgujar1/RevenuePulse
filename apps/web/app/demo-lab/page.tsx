@@ -1,6 +1,7 @@
 // Demo Lab - generate synthetic failures and watch the AI recovery pipeline run
 import AppNav from '../../components/app-nav';
 import RunDemoForm from '../../components/run-demo-form';
+import DemoGeneratePanel from '../../components/demo-generate-panel';
 
 export const metadata = { title: 'Demo Lab — RevenuePulse' };
 
@@ -15,7 +16,10 @@ export default function DemoLabPage() {
           the agent diagnose, score, decide under policy, act within bounds and verify every rupee
           recovered.
         </p>
-        <RunDemoForm />
+        <div className="space-y-6">
+          <RunDemoForm />
+          <DemoGeneratePanel />
+        </div>
       </div>
     </div>
   );

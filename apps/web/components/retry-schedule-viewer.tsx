@@ -53,14 +53,20 @@ export default function RetryScheduleViewer({ caseId }: { caseId: string }) {
     );
   }
 
-  if (!schedule) return null;
+  if (!schedule) return (
+    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <p className="text-sm font-semibold text-gray-900">Retry Schedule</p>
+      <p className="mt-3 text-sm text-gray-500">No retry schedule configured for this case.</p>
+    </div>
+  );
 
   const statusTone: Record<string, string> = {
-    PENDING: 'bg-amber-100 text-amber-800',
-    EXECUTED: 'bg-green-100 text-green-800',
-    FAILED: 'bg-red-100 text-red-800',
-    SCHEDULED: 'bg-blue-100 text-blue-800',
-    COMPLETED: 'bg-gray-100 text-gray-600',
+    pending: 'bg-amber-100 text-amber-800',
+    executed: 'bg-green-100 text-green-800',
+    failed: 'bg-red-100 text-red-800',
+    scheduled: 'bg-blue-100 text-blue-800',
+    completed: 'bg-gray-100 text-gray-600',
+    active: 'bg-blue-100 text-blue-800',
   };
 
   const categoryLabels: Record<string, string> = {
@@ -124,9 +130,9 @@ export default function RetryScheduleViewer({ caseId }: { caseId: string }) {
             {schedule.attempts.map((attempt) => (
               <div key={attempt.attemptNumber} className="relative flex gap-4">
                 <div className={`z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2 ${
-                  attempt.status === 'EXECUTED'
+                  attempt.status === 'executed'
                     ? 'bg-green-100 text-green-700 ring-green-200'
-                    : attempt.status === 'FAILED'
+                    : attempt.status === 'failed'
                       ? 'bg-red-100 text-red-700 ring-red-200'
                       : 'bg-amber-100 text-amber-700 ring-amber-200'
                 }`}>

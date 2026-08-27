@@ -18,16 +18,18 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    id: session.id,
-    sessionId: session.sessionId,
-    status: session.status,
-    amount: session.amount,
-    currency: session.currency,
-    recoveryChannel: session.recoveryChannel,
-    incentiveType: session.incentiveType,
-    incentiveValue: session.incentiveValue,
-    recoveredAt: session.recoveredAt,
-    createdAt: session.createdAt,
-    updatedAt: session.updatedAt,
+    session: {
+      id: session.id,
+      sessionId: session.sessionId,
+      status: session.status,
+      amount: session.amount,
+      currency: session.currency,
+      recoveryChannel: session.recoveryChannel,
+      incentiveType: session.incentiveType,
+      incentiveValue: session.incentiveValue,
+      recoveredAt: session.recoveredAt,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    },
   });
 }

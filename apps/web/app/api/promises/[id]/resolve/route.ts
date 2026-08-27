@@ -31,10 +31,12 @@ export async function POST(
     return NextResponse.json({ error: 'Missing or invalid "status" (kept|broken|extended)' }, { status: 400 });
   }
 
-  const { status: resolution, extendedDate } = body as {
+  const { status: resolution, extendedDate, newDueDate } = body as {
     status: string;
     extendedDate?: string;
+    newDueDate?: string;
   };
+  const effectiveDate = extendedDate || newDueDate;
 
   const now = new Date();
   const updateData: Record<string, unknown> = { status: resolution };
@@ -45,8 +47,8 @@ export async function POST(
     updateData.brokenAt = now;
     updateData.escalationLevel = { increment: 1 };
   } else if (resolution === 'extended') {
-    updateData.extendedDate = extendedDate ? new Date(extendedDate) : now;
-    updateData.promisedDate = extendedDate ? new Date(extendedDate) : now;
+    updateData.extendedDate = effectiveDate ? new Date(effectiveDate) : now;
+    updateData.promisedDate = effectiveDate ? new Date(effectiveDate) : now;
     updateData.escalationLevel = { increment: 1 };
   }
 

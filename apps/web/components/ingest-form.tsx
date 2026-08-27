@@ -160,6 +160,20 @@ export default function IngestForm() {
         </div>
       </div>
 
+      {/* Sample Templates */}
+      <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+        <p className="text-sm font-semibold text-indigo-900">Sample CSV Templates</p>
+        <p className="mt-1 text-xs text-indigo-700">
+          Download a template to see the expected column format for each data type.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <TemplateDownload name="payments" headers="payment_id,amount,status,method,error_code,error_description,created_at,currency,email,phone" sample="pay_001,50000,failed,card,INSUFFICIENT_FUNDS,Insufficient funds,2026-08-20T10:00:00Z,INR,user@example.com,9876543210" />
+          <TemplateDownload name="checkout-sessions" headers="session_id,amount,currency,abandonment_reason,customer_email,status" sample="cs_001,75000,INR,payment_failed,cust@example.com,abandoned" />
+          <TemplateDownload name="invoices" headers="reference,customer_name,customer_email,amount,currency,due_date,status" sample="INV-001,Acme Corp,acme@example.com,500000,INR,2026-09-01,pending" />
+          <TemplateDownload name="promises" headers="customer_email,amount,currency,promised_date,channel,status" sample="cust@example.com,25000,INR,2026-09-05,phone,pending" />
+        </div>
+      </div>
+
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
       )}
@@ -292,5 +306,26 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: 'gre
       <p className={`text-lg font-bold ${color}`}>{value}</p>
       <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
     </div>
+  );
+}
+
+function TemplateDownload({ name, headers, sample }: { name: string; headers: string; sample: string }) {
+  function download() {
+    const csv = `${headers}\n${sample}\n${sample.replace(/pay_|cs_|INV-|cust@/g, (m) => m + '2')}`;
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `revenuepulse-${name}-template.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  return (
+    <button
+      onClick={download}
+      className="rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100"
+    >
+      Download {name} template
+    </button>
   );
 }

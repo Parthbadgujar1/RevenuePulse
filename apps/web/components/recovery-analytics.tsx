@@ -4,22 +4,28 @@ import { useEffect, useState } from 'react';
 
 interface MethodBreakdown {
   method: string;
-  total: number;
-  recovered: number;
-  rate: number;
+  totalCases: number;
+  recoveredCases: number;
+  totalAmountAtRisk: number;
+  totalRecovered: number;
+  recoveryRate: number;
 }
 
 interface CategoryBreakdown {
   category: string;
-  total: number;
-  recovered: number;
-  rate: number;
+  totalCases: number;
+  recoveredCases: number;
+  totalAmountAtRisk: number;
+  totalRecovered: number;
+  recoveryRate: number;
 }
 
 interface RecoveryAnalyticsData {
   overallRate: number;
   totalCases: number;
   totalRecovered: number;
+  totalAmountAtRisk: number;
+  totalRecoveredAmount: number;
   byPaymentMethod: MethodBreakdown[];
   byFailureCategory: CategoryBreakdown[];
 }
@@ -85,6 +91,12 @@ export default function RecoveryAnalytics() {
 
   if (!data) return null;
 
+  function inr(paise: number): string {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency', currency: 'INR', maximumFractionDigits: 0,
+    }).format(paise / 100);
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
@@ -110,15 +122,15 @@ export default function RecoveryAnalytics() {
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Overall Recovery Rate</p>
-            <p className="mt-1 text-2xl font-bold text-emerald-700">{(data.overallRate * 100).toFixed(1)}%</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-700">{data.overallRate.toFixed(1)}%</p>
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Total Cases</p>
             <p className="mt-1 text-2xl font-bold text-gray-900">{data.totalCases.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Recovered</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{data.totalRecovered.toLocaleString()}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Amount Recovered</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">{inr(data.totalRecoveredAmount)}</p>
           </div>
         </div>
       </div>
@@ -131,12 +143,12 @@ export default function RecoveryAnalytics() {
               <div key={m.method}>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-700">{methodLabels[m.method] ?? m.method}</span>
-                  <span className="text-gray-500">{(m.rate * 100).toFixed(1)}% ({m.recovered}/{m.total})</span>
+                  <span className="text-gray-500">{m.recoveryRate.toFixed(1)}% ({m.recoveredCases}/{m.totalCases})</span>
                 </div>
                 <div className="mt-1 h-2.5 w-full rounded-full bg-gray-100">
                   <div
                     className="h-2.5 rounded-full bg-emerald-500 transition-all"
-                    style={{ width: `${m.rate * 100}%` }}
+                    style={{ width: `${Math.min(m.recoveryRate, 100)}%` }}
                   />
                 </div>
               </div>
@@ -154,12 +166,12 @@ export default function RecoveryAnalytics() {
               <div key={c.category}>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-700">{categoryLabels[c.category] ?? c.category}</span>
-                  <span className="text-gray-500">{(c.rate * 100).toFixed(1)}% ({c.recovered}/{c.total})</span>
+                  <span className="text-gray-500">{c.recoveryRate.toFixed(1)}% ({c.recoveredCases}/{c.totalCases})</span>
                 </div>
                 <div className="mt-1 h-2.5 w-full rounded-full bg-gray-100">
                   <div
-                    className={`h-2.5 rounded-full transition-all ${c.rate >= 0.7 ? 'bg-emerald-500' : c.rate >= 0.4 ? 'bg-amber-400' : 'bg-red-400'}`}
-                    style={{ width: `${c.rate * 100}%` }}
+                    className={`h-2.5 rounded-full transition-all ${c.recoveryRate >= 70 ? 'bg-emerald-500' : c.recoveryRate >= 40 ? 'bg-amber-400' : 'bg-red-400'}`}
+                    style={{ width: `${Math.min(c.recoveryRate, 100)}%` }}
                   />
                 </div>
               </div>

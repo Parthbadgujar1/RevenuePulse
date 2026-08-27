@@ -35,8 +35,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing "sessionId"' }, { status: 400 });
   }
 
-  const { sessionId, incentiveType, incentiveValue } = body as {
+  const { sessionId, action, incentiveType, incentiveValue } = body as {
     sessionId: string;
+    action?: string;
     incentiveType?: string;
     incentiveValue?: unknown;
   };
@@ -47,6 +48,25 @@ export async function POST(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: 'Checkout session not found' }, { status: 404 });
   }
+
+  if (action === 'mark_recovered') {
+    const updated = await prisma.checkoutSession.update({
+      where: { id: session.id },
+      data: { status: 'recovered', recoveredAt: new Date() },
+    });
+    await prisma.auditLog.create({
+      data: {
+        merchantId: ctx.merchantId, actorType: 'user', actorId: ctx.userId,
+        action: 'checkout_marked_recovered', entityType: 'checkout_session',
+        entityId: session.id, reason: 'Manually marked as recovered',
+        beforeState: { status: session.status } as any,
+        afterState: { status: 'recovered' } as any,
+        createdAt: new Date(),
+      },
+    });
+    return NextResponse.json({ ok: true, sessionId: updated.id, status: updated.status });
+  }
+
   if (session.status !== 'abandoned') {
     return NextResponse.json({ error: `Cannot recover session with status "${session.status}"` }, { status: 400 });
   }

@@ -85,7 +85,7 @@ export default function ReceivablesDashboard() {
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Collection Rate</p>
-            <p className="mt-1 text-lg font-semibold text-emerald-700">{(summary.collectionRate * 100).toFixed(1)}%</p>
+            <p className="mt-1 text-lg font-semibold text-emerald-700">{summary.collectionRate.toFixed(1)}%</p>
           </div>
         </div>
       </div>

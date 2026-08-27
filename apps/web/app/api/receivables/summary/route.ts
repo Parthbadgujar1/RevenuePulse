@@ -57,11 +57,25 @@ export async function GET(req: NextRequest) {
   });
 
   return NextResponse.json({
-    totalPending,
-    totalOverdue,
-    byAgingBucket,
-    averageOverdueDays: overdueCount > 0 ? Math.round(overdueDaysSum / overdueCount) : 0,
-    collectionRate: Math.round(collectionRate * 10000) / 100,
-    recentChases,
+    summary: {
+      totalPending,
+      totalOverdue,
+      collectionRate: Math.round(collectionRate * 10000) / 100,
+      agingBuckets: Object.entries(byAgingBucket).map(([label, data]) => ({
+        label,
+        count: data.count,
+        amount: data.totalAmount,
+      })),
+      recentInvoices: invoices.slice(0, 10).map((inv) => ({
+        id: inv.id,
+        reference: inv.invoiceNumber,
+        customerName: inv.customerName,
+        amount: inv.amount,
+        status: inv.status,
+        overdueDays: inv.overdueDays,
+        dueDate: inv.dueDate.toISOString(),
+      })),
+      recentChases,
+    },
   });
 }

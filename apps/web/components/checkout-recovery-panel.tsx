@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 
 interface CheckoutSession {
   id: string;
+  sessionId: string;
   amount: number;
   currency: string;
   abandonmentReason: string;
-  recoveryStatus: string;
-  incentiveApplied: string | null;
+  status: string;
+  incentiveType: string | null;
   customerEmail: string | null;
   createdAt: string;
 }
@@ -42,14 +43,14 @@ export default function CheckoutRecoveryPanel({ sessionId }: { sessionId?: strin
       const res = await fetch('/api/checkout/recover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session.id }),
+        body: JSON.stringify({ sessionId: session.sessionId }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `Request failed (${res.status})`);
       }
       setSuccess('Recovery email sent successfully.');
-      setSession((s) => (s ? { ...s, recoveryStatus: 'RECOVERY_SENT' } : s));
+      setSession((s) => (s ? { ...s, status: 'recovery_sent' } : s));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -66,14 +67,14 @@ export default function CheckoutRecoveryPanel({ sessionId }: { sessionId?: strin
       const res = await fetch('/api/checkout/recover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session.id, action: 'mark_recovered' }),
+        body: JSON.stringify({ sessionId: session.sessionId, action: 'mark_recovered' }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `Request failed (${res.status})`);
       }
       setSuccess('Checkout marked as recovered.');
-      setSession((s) => (s ? { ...s, recoveryStatus: 'RECOVERED' } : s));
+      setSession((s) => (s ? { ...s, status: 'recovered' } : s));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -98,18 +99,18 @@ export default function CheckoutRecoveryPanel({ sessionId }: { sessionId?: strin
   }
 
   const statusTone: Record<string, string> = {
-    ABANDONED: 'bg-amber-100 text-amber-800',
-    RECOVERY_SENT: 'bg-blue-100 text-blue-800',
-    RECOVERED: 'bg-green-100 text-green-800',
-    EXPIRED: 'bg-gray-100 text-gray-600',
+    abandoned: 'bg-amber-100 text-amber-800',
+    recovery_sent: 'bg-blue-100 text-blue-800',
+    recovered: 'bg-green-100 text-green-800',
+    expired: 'bg-gray-100 text-gray-600',
   };
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-gray-900">Checkout Recovery</p>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone[session.recoveryStatus] ?? 'bg-gray-100 text-gray-600'}`}>
-          {session.recoveryStatus.replace(/_/g, ' ')}
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone[session.status] ?? 'bg-gray-100 text-gray-600'}`}>
+          {session.status.replace(/_/g, ' ')}
         </span>
       </div>
 
@@ -122,12 +123,12 @@ export default function CheckoutRecoveryPanel({ sessionId }: { sessionId?: strin
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Abandonment Reason</p>
-          <p className="mt-1 text-sm text-gray-800">{session.abandonmentReason}</p>
+          <p className="mt-1 text-sm text-gray-800">{session.abandonmentReason ?? 'Unknown'}</p>
         </div>
-        {session.incentiveApplied && (
+        {session.incentiveType && (
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Incentive Applied</p>
-            <p className="mt-1 text-sm text-gray-800">{session.incentiveApplied}</p>
+            <p className="mt-1 text-sm text-gray-800">{session.incentiveType}</p>
           </div>
         )}
         {session.customerEmail && (
@@ -139,7 +140,7 @@ export default function CheckoutRecoveryPanel({ sessionId }: { sessionId?: strin
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {session.recoveryStatus !== 'RECOVERED' && (
+        {session.status !== 'recovered' && (
           <>
             <button
               onClick={sendRecovery}
