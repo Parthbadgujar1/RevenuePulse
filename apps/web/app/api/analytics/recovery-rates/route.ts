@@ -26,11 +26,32 @@ export async function GET(req: NextRequest) {
     take: 2000,
   });
 
-  const byMethod: Record<string, { totalCases: number; recoveredCases: number; totalAmountAtRisk: number; totalRecovered: number }> = {};
-  const byCategory: Record<string, { totalCases: number; recoveredCases: number; totalAmountAtRisk: number; totalRecovered: number }> = {};
+  // Distinguish provider-verified vs admin-confirmed recoveries.
+  const caseIds = cases.map((c) => c.id);
+  const actions = await prisma.recoveryAction.findMany({
+    where: { caseId: { in: caseIds } },
+    select: { id: true, caseId: true, createdAt: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  const actionIds = actions.map((a) => a.id);
+  const outcomes = await prisma.outcome.findMany({
+    where: { actionId: { in: actionIds } },
+    select: { actionId: true, result: true },
+  });
+  const verdictByAction = new Map(outcomes.map((o) => [o.actionId, o.result]));
+  const verdictByCase = new Map<string, string | undefined>();
+  for (const action of actions) {
+    if (!verdictByCase.has(action.caseId)) {
+      verdictByCase.set(action.caseId, verdictByAction.get(action.id));
+    }
+  }
+
+  const byMethod: Record<string, { totalCases: number; recoveredCases: number; adminConfirmedCases: number; totalAmountAtRisk: number; totalRecovered: number }> = {};
+  const byCategory: Record<string, { totalCases: number; recoveredCases: number; adminConfirmedCases: number; totalAmountAtRisk: number; totalRecovered: number }> = {};
 
   let totalCases = 0;
   let totalRecovered = 0;
+  let totalAdminConfirmed = 0;
   let totalAmountAtRisk = 0;
   let totalRecoveredAmount = 0;
 
@@ -41,6 +62,7 @@ export async function GET(req: NextRequest) {
     const method = tx.paymentMethod ?? 'unknown';
     const category = tx.failureCategory ?? 'unknown';
     const isRecovered = kase.status === 'RECOVERED';
+    const isAdminConfirmed = verdictByCase.get(kase.id) === 'ADMIN_CONFIRMED_RECOVERY';
     const recoveredAmount = isRecovered ? kase.amountAtRisk : 0;
 
     totalCases++;
@@ -49,24 +71,26 @@ export async function GET(req: NextRequest) {
       totalRecovered++;
       totalRecoveredAmount += recoveredAmount;
     }
+    if (isAdminConfirmed) totalAdminConfirmed++;
 
-    const init = (entry: { totalCases: number; recoveredCases: number; totalAmountAtRisk: number; totalRecovered: number }) => {
+    const init = (entry: { totalCases: number; recoveredCases: number; adminConfirmedCases: number; totalAmountAtRisk: number; totalRecovered: number }) => {
       entry.totalCases++;
       entry.totalAmountAtRisk += kase.amountAtRisk;
       if (isRecovered) {
         entry.recoveredCases++;
         entry.totalRecovered += recoveredAmount;
       }
+      if (isAdminConfirmed) entry.adminConfirmedCases++;
     };
 
-    if (!byMethod[method]) byMethod[method] = { totalCases: 0, recoveredCases: 0, totalAmountAtRisk: 0, totalRecovered: 0 };
+    if (!byMethod[method]) byMethod[method] = { totalCases: 0, recoveredCases: 0, adminConfirmedCases: 0, totalAmountAtRisk: 0, totalRecovered: 0 };
     init(byMethod[method]);
 
-    if (!byCategory[category]) byCategory[category] = { totalCases: 0, recoveredCases: 0, totalAmountAtRisk: 0, totalRecovered: 0 };
+    if (!byCategory[category]) byCategory[category] = { totalCases: 0, recoveredCases: 0, adminConfirmedCases: 0, totalAmountAtRisk: 0, totalRecovered: 0 };
     init(byCategory[category]);
   }
 
-  const toRate = (v: { totalCases: number; recoveredCases: number; totalAmountAtRisk: number; totalRecovered: number }) => ({
+  const toRate = (v: { totalCases: number; recoveredCases: number; adminConfirmedCases: number; totalAmountAtRisk: number; totalRecovered: number }) => ({
     ...v,
     recoveryRate: v.totalCases > 0 ? Math.round((v.recoveredCases / v.totalCases) * 10000) / 100 : 0,
   });
@@ -76,6 +100,7 @@ export async function GET(req: NextRequest) {
       overallRate: totalCases > 0 ? Math.round((totalRecovered / totalCases) * 10000) / 100 : 0,
       totalCases,
       totalRecovered,
+      totalAdminConfirmed,
       totalAmountAtRisk,
       totalRecoveredAmount,
       byPaymentMethod: Object.entries(byMethod).map(([method, data]) => ({

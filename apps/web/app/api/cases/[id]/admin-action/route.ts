@@ -16,6 +16,7 @@ import type { MerchantContext } from '../../../../../lib/merchant-context';
 import { inr } from '../../../../../lib/ui';
 import { checkRateLimit, rateLimitResponse } from '../../../../../lib/rate-limit';
 import { csrfGuard } from '../../../../../lib/csrf';
+import { OUTCOME_ADMIN_CONFIRMED } from '../../../../../lib/outcome-results';
 
 export async function POST(
   req: NextRequest,
@@ -172,22 +173,22 @@ export async function POST(
         prisma.outcome.upsert({
           where: { actionId: lastAction.id },
           update: {
-            result: 'RECOVERED',
+            result: OUTCOME_ADMIN_CONFIRMED,
             recoveredAmount: kase.amountAtRisk,
             measuredCost: 0,
             verifiedAt: new Date(),
             verificationRef: 'admin-manual-override',
-            notes: 'Manually marked as recovered by admin',
+            notes: 'Manually confirmed as recovered by admin',
           },
           create: {
             action: { connect: { id: lastAction.id } },
-            result: 'RECOVERED',
+            result: OUTCOME_ADMIN_CONFIRMED,
             recoveredAmount: kase.amountAtRisk,
             measuredCost: 0,
             recoveryTimestamp: new Date(),
             verifiedAt: new Date(),
             verificationRef: 'admin-manual-override',
-            notes: 'Manually marked as recovered by admin',
+            notes: 'Manually confirmed as recovered by admin',
             createdAt: new Date(),
           },
         }),

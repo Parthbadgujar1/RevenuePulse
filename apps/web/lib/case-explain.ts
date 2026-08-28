@@ -163,6 +163,10 @@ export function plainOutcomeExplanation(
     const net = recoveredAmount - measuredCost;
     return `Great news — ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(recoveredAmount / 100)} was recovered! After deducting the recovery cost, your net gain is ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(net / 100)}.`;
   }
+  if (result === 'ADMIN_CONFIRMED_RECOVERY') {
+    const net = recoveredAmount - measuredCost;
+    return `Confirmed as recovered by admin — ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(recoveredAmount / 100)} recovered, ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(net / 100)} net. This was manually confirmed, not auto-verified by a provider event.`;
+  }
   if (notes?.includes('verification_timeout')) {
     return `The payment provider did not send a result within the expected timeframe. This usually means the payment is unlikely to succeed. You can mark this as failed or check Razorpay directly.`;
   }

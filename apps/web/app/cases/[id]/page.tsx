@@ -155,16 +155,16 @@ export default async function CaseDetailPage({
       {latestOutcome && (
         <div
           className={`mt-3 rounded-lg border p-4 ${
-            latestOutcome.result === 'RECOVERED'
+            latestOutcome.result === 'RECOVERED' || latestOutcome.result === 'ADMIN_CONFIRMED_RECOVERY'
               ? 'border-green-300 bg-green-50'
               : 'border-gray-300 bg-gray-50'
           }`}
         >
-          {latestOutcome.result === 'RECOVERED' ? (
+          {latestOutcome.result === 'RECOVERED' || latestOutcome.result === 'ADMIN_CONFIRMED_RECOVERY' ? (
             <>
               <p className="font-semibold text-green-800">
                 {plainOutcomeExplanation(
-                  'RECOVERED',
+                  latestOutcome.result,
                   latestOutcome.recoveredAmount,
                   latestOutcome.measuredCost,
                   latestOutcome.notes,

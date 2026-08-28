@@ -135,6 +135,10 @@ export default async function ActionsPage() {
                         <span className="font-medium text-green-700">
                           ✓ Recovered {inr(outcome.recoveredAmount)}
                         </span>
+                      ) : outcome.result === 'ADMIN_CONFIRMED_RECOVERY' ? (
+                        <span className="font-medium text-green-700">
+                          ✓ Recovered (admin-confirmed) {inr(outcome.recoveredAmount)}
+                        </span>
                       ) : (
                         <span className="text-gray-500">Not recovered</span>
                       )

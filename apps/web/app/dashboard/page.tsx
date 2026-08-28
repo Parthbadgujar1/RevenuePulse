@@ -96,9 +96,13 @@ async function getDashboardData() {
     });
 
     const atRisk = cases.reduce((sum, c) => sum + c.amountAtRisk, 0);
-    const recovered = outcomes
+    const verifiedRecovered = outcomes
       .filter((o) => o.result === 'RECOVERED')
       .reduce((sum, o) => sum + o.recoveredAmount, 0);
+    const adminConfirmedRecovered = outcomes
+      .filter((o) => o.result === 'ADMIN_CONFIRMED_RECOVERY')
+      .reduce((sum, o) => sum + o.recoveredAmount, 0);
+    const recovered = verifiedRecovered + adminConfirmedRecovered;
     const actionCost = outcomes.reduce((sum, o) => sum + o.measuredCost, 0);
     const netRecovered = recovered - actionCost;
 
@@ -141,7 +145,9 @@ async function getDashboardData() {
     // Recovery funnel: every stage measured from real rows
     const executedActions = actions.filter((a) => a.executionStatus === 'EXECUTED');
     const verifiedOutcomes = outcomes.filter((o) => o.verifiedAt);
-    const recoveredOutcomes = outcomes.filter((o) => o.result === 'RECOVERED');
+    const recoveredOutcomes = outcomes.filter((o) =>
+      o.result === 'RECOVERED' || o.result === 'ADMIN_CONFIRMED_RECOVERY'
+    );
     const stoppedCases = cases.filter((c) => c.status === 'STOPPED');
     const approvalPendingActions = actions.filter(
       (a) => a.approvalStatus === 'pending' && a.executionStatus !== 'EXECUTED'
@@ -183,6 +189,9 @@ async function getDashboardData() {
       { label: 'Recovered', amount: recovered },
       { label: 'Action cost', amount: actionCost },
       { label: 'Net recovered', amount: netRecovered },
+      ...(adminConfirmedRecovered > 0
+        ? [{ label: 'Of which admin-confirmed', amount: adminConfirmedRecovered }]
+        : []),
     ];
 
     return {
