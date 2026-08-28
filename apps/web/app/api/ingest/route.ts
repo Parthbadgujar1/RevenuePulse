@@ -25,7 +25,8 @@ const MAX_ROWS = 5000;
 function tableFromBuffer(name: string, buf: Buffer): Promise<ReturnType<typeof parseCsv>> {
   const ext = name.toLowerCase().split('.').pop() ?? '';
   if (ext === 'csv' || ext === 'txt' || ext === 'tsv') return Promise.resolve(parseCsv(buf.toString('utf8')));
-  if (ext === 'xlsx' || ext === 'xls') return parseExcel(buf);
+  if (ext === 'xlsx') return parseExcel(buf);
+  if (ext === 'xls') return Promise.reject(new Error('Legacy .xls files are not supported — please re-save the sheet as .xlsx and retry'));
   if (ext === 'pdf') return parsePdf(buf);
   return Promise.reject(new Error(`Unsupported file type ".${ext}" — use CSV, XLSX or PDF`));
 }
