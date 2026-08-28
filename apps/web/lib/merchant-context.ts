@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@rp/auth';
+import { authOptions, hasPermission } from '@rp/auth';
 import { prisma, ensureDemoMerchant } from '@rp/database';
 
 export interface MerchantContext {
@@ -19,9 +19,30 @@ export class AuthRequiredError extends Error {
   }
 }
 
+/** Thrown when the authenticated role lacks the required permission (403). */
+export class ForbiddenError extends Error {
+  constructor(permission: string) {
+    super(`Missing permission: ${permission}`);
+    this.name = 'ForbiddenError';
+  }
+}
+
 /** HTTP status for an API catch-all: 401 for auth failures, else 500. */
 export function apiErrorStatus(err: unknown): number {
-  return err instanceof AuthRequiredError ? 401 : 500;
+  if (err instanceof AuthRequiredError) return 401;
+  if (err instanceof ForbiddenError) return 403;
+  return 500;
+}
+
+/**
+ * RBAC gate: require that the session role holds `permission`, else 403.
+ * In demo fallback mode the caller role defaults to MERCHANT_OWNER (the
+ * richest merchant role) so interactive demos are not blocked.
+ */
+export function requirePermission(ctx: Pick<MerchantContext, 'role'>, permission: string): void {
+  if (!hasPermission(ctx.role, permission)) {
+    throw new ForbiddenError(permission);
+  }
 }
 
 /**

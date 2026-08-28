@@ -6,6 +6,7 @@ import {
   registerWebhookEvent,
   hashPayload,
 } from '@rp/database';
+import { decryptSecret } from '../../../lib/crypto';
 import { normalizeRazorpayEvent } from '@rp/razorpay';
 import { enqueueProcessingJob, JobType, incWebhookEvent } from '@rp/observability';
 import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
@@ -41,16 +42,21 @@ export async function POST(request: NextRequest) {
     let conn: { merchantId: string; webhookSecret: string | null } | null = null;
     if (!verification.valid && verification.mode === 'live') {
       const connections = await prisma.providerConnection.findMany({
-        where: { provider: 'razorpay', status: 'active', webhookSecret: { not: null } },
-        select: { merchantId: true, webhookSecret: true },
+        where: { provider: 'razorpay', status: 'active' },
+        select: { merchantId: true, webhookSecret: true, webhookSecretEncrypted: true },
       });
       for (const candidate of connections) {
+        // Prefer the AES-256-GCM encrypted secret; fall back to the legacy
+        // plaintext column for connections created before encryption.
+        const secret = decryptSecret(candidate.webhookSecretEncrypted ?? '') ??
+          candidate.webhookSecret;
+        if (!secret) continue;
         const attempt = verifyRazorpaySignature(body, signature, {
-          secret: candidate.webhookSecret!,
+          secret,
         });
         if (attempt.valid) {
           verification = attempt;
-          conn = candidate;
+          conn = { merchantId: candidate.merchantId, webhookSecret: secret };
           break;
         }
       }
@@ -121,6 +127,7 @@ export async function POST(request: NextRequest) {
       {
         type: JobType.PROCESS_TRANSACTION_EVENT,
         payload: {
+          merchantId,
           event: normalizedEvent,
           eventRef: registration.id,
           webhookEventId: registration.id,

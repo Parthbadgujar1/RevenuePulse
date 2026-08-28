@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@rp/database';
+import { DEFAULT_MERCHANT_POLICY } from '@rp/policies';
+import type { MerchantPolicy } from '@rp/policies';
 import { requireMerchantContext } from '../../../../lib/merchant-context';
 import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
 import { csrfGuard } from '../../../../lib/csrf';
@@ -22,6 +24,50 @@ function selectIncentive(amount: number): IncentiveChoice {
   return INCENTIVE_TIERS[INCENTIVE_TIERS.length - 1].incentive;
 }
 
+/**
+ * Enforce the merchant's policy hard limits on any checkout-recovery incentive.
+ * The amount (in paise) a discount can grant is bounded by BOTH
+ * maximumIncentivePercentage and maximumIncentiveAmount — whichever is lower
+ * wins. Client-supplied incentives are never taken at face value: the chosen
+ * incentive is recomputed and clamped server-side, so a malicious request
+ * cannot grant itself a 100% discount.
+ */
+function clampIncentiveToPolicy(
+  amount: number,
+  chosen: IncentiveChoice,
+  policy: MerchantPolicy
+): IncentiveChoice {
+  const pctCap = (policy.maximumIncentivePercentage / 100) * amount;
+  const cap = Math.min(policy.maximumIncentiveAmount, pctCap);
+
+  if (chosen.type === 'flat_discount') {
+    const flat = Number((chosen.value as { flatDiscount?: number })?.flatDiscount ?? 0);
+    return { type: 'flat_discount', value: { flatDiscount: Math.max(0, Math.min(flat, cap)) } };
+  }
+
+  if (chosen.type === 'discount_pct') {
+    const pct = Number((chosen.value as { discountPct?: number })?.discountPct ?? 0);
+    // Bounded both by the raw percentage and by the derived rupee cap so a
+    // huge percentage never exceeds maximumIncentiveAmount.
+    const allowedPct = Math.min(Math.max(0, pct), policy.maximumIncentivePercentage);
+    const allowedByAmount = cap / amount; // maximum fraction the rupee cap allows
+    return {
+      type: 'discount_pct',
+      value: { discountPct: Math.round(Math.min(allowedPct, allowedByAmount) * 1000) / 1000 },
+    };
+  }
+
+  return chosen;
+}
+
+async function loadPolicy(merchantId: string): Promise<MerchantPolicy> {
+  const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+  const stored = ((merchant?.settings as Record<string, unknown>) ?? {}).recoveryPolicy as
+    | Partial<MerchantPolicy>
+    | undefined;
+  return { ...DEFAULT_MERCHANT_POLICY, ...(stored ?? {}) };
+}
+
 export async function POST(req: NextRequest) {
   const csrf = csrfGuard(req);
   if (csrf) return csrf;
@@ -35,7 +81,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing "sessionId"' }, { status: 400 });
   }
 
-  const { sessionId, action, incentiveType, incentiveValue } = body as {
+  const { sessionId, action } = body as {
     sessionId: string;
     action?: string;
     incentiveType?: string;
@@ -71,17 +117,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Cannot recover session with status "${session.status}"` }, { status: 400 });
   }
 
-  let chosenType: string;
-  let chosenValue: unknown;
-
-  if (incentiveType && incentiveValue !== undefined) {
-    chosenType = incentiveType;
-    chosenValue = incentiveValue;
-  } else {
-    const selected = selectIncentive(session.amount);
-    chosenType = selected.type;
-    chosenValue = selected.value;
-  }
+  // The incentive is ALWAYS chosen server-side and clamped to the merchant
+  // policy's hard limits (maximumIncentivePercentage / maximumIncentiveAmount).
+  // Client-supplied incentiveType/incentiveValue are intentionally ignored —
+  // trusting them would let a request grant arbitrary discounts.
+  const policy = await loadPolicy(ctx.merchantId);
+  const base = selectIncentive(session.amount);
+  const chosen = clampIncentiveToPolicy(session.amount, base, policy);
+  const chosenType = chosen.type;
+  const chosenValue = chosen.value;
 
   const beforeState = { status: session.status, incentiveType: session.incentiveType } as any;
 

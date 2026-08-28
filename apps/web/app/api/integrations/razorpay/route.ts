@@ -7,8 +7,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma, ensureDemoMerchant } from '@rp/database';
 import { getProviderMode } from '@rp/providers';
-import { requireMerchantContext } from '../../../../lib/merchant-context';
+import { requireMerchantContext, requirePermission, apiErrorStatus } from '../../../../lib/merchant-context';
 import { encryptSecret } from '../../../../lib/crypto';
+import { csrfGuard } from '../../../../lib/csrf';
 
 async function getConnection(merchantId: string) {
   return prisma.providerConnection.findFirst({
@@ -43,41 +44,55 @@ function masked(keyId?: string | null): string | null {
 }
 
 export async function GET() {
-  const { merchantId } = await requireMerchantContext();
-  const conn = await getConnection(merchantId);
-  const [lastEvents, eventCount] = await Promise.all([
-    prisma.webhookEvent.findMany({
-      where: { merchantId },
-      orderBy: { receivedAt: 'desc' as const },
-      take: 5,
-      select: { eventType: true, status: true, receivedAt: true },
-    }),
-    prisma.webhookEvent.count({ where: { merchantId } }),
-  ]);
+  try {
+    const { merchantId } = await requireMerchantContext();
+    const conn = await getConnection(merchantId);
+    const [lastEvents, eventCount] = await Promise.all([
+      prisma.webhookEvent.findMany({
+        where: { merchantId },
+        orderBy: { receivedAt: 'desc' as const },
+        take: 5,
+        select: { eventType: true, status: true, receivedAt: true },
+      }),
+      prisma.webhookEvent.count({ where: { merchantId } }),
+    ]);
 
-  return NextResponse.json({
-    connected: Boolean(conn && conn.status === 'active'),
-    mode: getProviderMode(),
-    connectionMode: (conn as any)?.mode ?? null,
-    displayName: (conn as any)?.displayName ?? null,
-    connectedAt: (conn as any)?.createdAt ?? null,
-    listeningTo: [
-      'payment.failed',
-      'payment.authorized',
-      'payment.captured',
-      'refund.processed',
-      'subscription.charged',
-    ],
-    lastEvent: lastEvents[0] ?? null,
-    recentEvents: lastEvents,
-    totalEvents: eventCount,
-  });
+    return NextResponse.json({
+      connected: Boolean(conn && conn.status === 'active'),
+      mode: getProviderMode(),
+      connectionMode: (conn as any)?.mode ?? null,
+      displayName: (conn as any)?.displayName ?? null,
+      connectedAt: (conn as any)?.createdAt ?? null,
+      listeningTo: [
+        'payment.failed',
+        'payment.authorized',
+        'payment.captured',
+        'refund.processed',
+        'subscription.charged',
+      ],
+      lastEvent: lastEvents[0] ?? null,
+      recentEvents: lastEvents,
+      totalEvents: eventCount,
+    });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? 'Failed' }, { status: apiErrorStatus(e) });
+  }
 }
 
 export async function POST(req: NextRequest) {
+  const csrf = csrfGuard(req);
+  if (csrf) return csrf;
+
   const body = await req.json().catch(() => ({} as any));
   const action = String(body?.action || '');
-  const { merchantId } = await requireMerchantContext();
+  let merchantId: string;
+  try {
+    const ctx = await requireMerchantContext();
+    requirePermission(ctx, 'integrations:manage');
+    merchantId = ctx.merchantId;
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? 'Failed' }, { status: apiErrorStatus(e) });
+  }
 
   if (action === 'disconnect') {
     await prisma.providerConnection.deleteMany({ where: { merchantId, provider: 'razorpay' } });
@@ -88,7 +103,10 @@ export async function POST(req: NextRequest) {
     const t0 = Date.now();
       const [conn, last] = await Promise.all([
         getConnection(merchantId),
-        prisma.webhookEvent.findFirst({ orderBy: { receivedAt: 'desc' as const } }),
+        prisma.webhookEvent.findFirst({
+          where: { merchantId },
+          orderBy: { receivedAt: 'desc' as const },
+        }),
       ]);
       return NextResponse.json({
         ok: true,
@@ -146,7 +164,7 @@ export async function POST(req: NextRequest) {
         keyId: keyId || null,
         credentialsRef: live ? `vault:${displayName}` : keySecret ? `vault:${displayName}` : null,
         keySecretEncrypted: keySecret ? encryptSecret(keySecret) : null,
-        webhookSecret,
+        webhookSecretEncrypted: encryptSecret(webhookSecret),
         createdAt: new Date(),
       },
     });

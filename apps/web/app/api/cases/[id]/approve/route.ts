@@ -5,7 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@rp/database';
 import { processJob, JobType } from '@rp/observability';
-import { requireMerchantContext } from '../../../../../lib/merchant-context';
+import { requireMerchantContext, requirePermission, apiErrorStatus } from '../../../../../lib/merchant-context';
+import type { MerchantContext } from '../../../../../lib/merchant-context';
 import { checkRateLimit, rateLimitResponse } from '../../../../../lib/rate-limit';
 import { csrfGuard } from '../../../../../lib/csrf';
 
@@ -17,7 +18,13 @@ export async function POST(
   if (csrf) return csrf;
 
   const { id: caseId } = await params;
-  const ctx = await requireMerchantContext();
+  let ctx: MerchantContext;
+  try {
+    ctx = await requireMerchantContext();
+    requirePermission(ctx, 'actions:approve');
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: apiErrorStatus(err) });
+  }
 
   const rl = checkRateLimit(req, 'approve', { limit: 30, windowMs: 60_000 }, ctx.merchantId);
   if (!rl.allowed) return rateLimitResponse(rl);

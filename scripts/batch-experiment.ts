@@ -79,6 +79,7 @@ async function main() {
     });
 
     const result = await processJob({} as any, JobType.PROCESS_TRANSACTION_EVENT, {
+      merchantId: MERCHANT_ID,
       event: normalized,
       eventRef: webhookRow.id,
       webhookEventId: webhookRow.id,

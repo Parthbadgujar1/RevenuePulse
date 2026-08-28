@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@rp/database';
-import { requireMerchantContext } from '../../../lib/merchant-context';
+import { requireMerchantContext, apiErrorStatus } from '../../../lib/merchant-context';
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit';
 import { csrfGuard } from '../../../lib/csrf';
 
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       total: promises.length,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message ?? 'Internal error' }, { status: 500 });
+    return NextResponse.json({ error: err?.message ?? 'Internal error' }, { status: apiErrorStatus(err) });
   }
 }
 
@@ -73,6 +73,18 @@ export async function POST(req: NextRequest) {
 
     if (promisedAmount <= 0) {
       return NextResponse.json({ error: '"promisedAmount" must be positive' }, { status: 400 });
+    }
+
+    // Ownership check: a linked invoice must belong to the same merchant,
+    // otherwise a caller could attach a promise to another tenant's invoice.
+    if (invoiceId) {
+      const invoice = await prisma.invoice.findFirst({
+        where: { id: invoiceId, merchantId: ctx.merchantId },
+        select: { id: true },
+      });
+      if (!invoice) {
+        return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+      }
     }
 
     const now = new Date();
@@ -110,12 +122,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, promise });
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message ?? 'Internal error' }, { status: 500 });
+    return NextResponse.json({ error: err?.message ?? 'Internal error' }, { status: apiErrorStatus(err) });
   }
 }
 
 export async function DELETE(req: NextRequest) {
   try {
+    const csrfGuardCheck = csrfGuard(req);
+    if (csrfGuardCheck) return csrfGuardCheck;
+
     const ctx = await requireMerchantContext();
     const id = req.nextUrl.searchParams.get('id');
     if (!id) {
@@ -139,6 +154,6 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message ?? 'Internal error' }, { status: 500 });
+    return NextResponse.json({ error: err?.message ?? 'Internal error' }, { status: apiErrorStatus(err) });
   }
 }

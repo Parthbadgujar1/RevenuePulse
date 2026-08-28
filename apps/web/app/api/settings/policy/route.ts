@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@rp/database';
 import { DEFAULT_MERCHANT_POLICY } from '@rp/policies';
 import type { MerchantPolicy } from '@rp/policies';
-import { requireMerchantContext, apiErrorStatus } from '../../../../lib/merchant-context';
+import { requireMerchantContext, requirePermission, apiErrorStatus } from '../../../../lib/merchant-context';
 import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
 import { csrfGuard } from '../../../../lib/csrf';
 
@@ -138,8 +138,9 @@ export async function PUT(req: NextRequest) {
   if (csrf) return csrf;
 
   try {
-    const { merchantId } = await requireMerchantContext();
-    const rl = checkRateLimit(req, 'policy', { limit: 30, windowMs: 60_000 }, merchantId);
+    const ctx = await requireMerchantContext();
+    requirePermission(ctx, 'policies:configure');
+    const rl = checkRateLimit(req, 'policy', { limit: 30, windowMs: 60_000 }, ctx.merchantId);
     if (!rl.allowed) return rateLimitResponse(rl);
 
     const body = await req.json().catch(() => null);
@@ -151,12 +152,12 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid policy', details: errors }, { status: 422 });
     }
 
-    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+    const merchant = await prisma.merchant.findUnique({ where: { id: ctx.merchantId } });
     const settings = ((merchant?.settings as Record<string, unknown>) ?? {}) as Record<string, unknown>;
     const updatedSettings = { ...settings, recoveryPolicy: policy };
 
     await prisma.merchant.update({
-      where: { id: merchantId },
+      where: { id: ctx.merchantId },
       data: { settings: updatedSettings },
     });
 

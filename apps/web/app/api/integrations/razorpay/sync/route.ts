@@ -8,7 +8,7 @@ import { prisma } from '@rp/database';
 import { processJob, JobType } from '@rp/observability';
 import { normalizeRazorpayEvent } from '@rp/razorpay';
 import { resolveRazorpayCredentials } from '../../../../../lib/razorpay-creds';
-import { requireMerchantContext } from '../../../../../lib/merchant-context';
+import { requireMerchantContext, requirePermission, apiErrorStatus } from '../../../../../lib/merchant-context';
 import { checkRateLimit, rateLimitResponse } from '../../../../../lib/rate-limit';
 import { csrfGuard } from '../../../../../lib/csrf';
 
@@ -20,7 +20,9 @@ export async function POST(req: NextRequest) {
   if (csrf) return csrf;
 
   try {
-    const { merchantId } = await requireMerchantContext();
+    const ctx = await requireMerchantContext();
+    requirePermission(ctx, 'integrations:manage');
+    const { merchantId } = ctx;
     // Razorpay API quota is shared across the merchant's integration.
     const rl = checkRateLimit(req, 'sync', { limit: 10, windowMs: 60_000 }, merchantId);
     if (!rl.allowed) return rateLimitResponse(rl);
@@ -115,6 +117,7 @@ export async function POST(req: NextRequest) {
       },
     });
     const result = await processJob({} as any, JobType.PROCESS_TRANSACTION_EVENT, {
+      merchantId,
       event: normalized,
       eventRef: webhookRow.id,
       webhookEventId: webhookRow.id,
@@ -147,7 +150,7 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message ?? 'Sync failed' },
-      { status: 500 }
+      { status: apiErrorStatus(e) }
     );
   }
 }

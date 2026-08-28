@@ -122,6 +122,7 @@ export async function POST(req: NextRequest) {
             });
 
             const result = await processJob({} as any, JobType.PROCESS_TRANSACTION_EVENT, {
+              merchantId,
               event: normalized,
               eventRef: webhookRow.id,
               webhookEventId: webhookRow.id,
