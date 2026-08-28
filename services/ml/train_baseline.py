@@ -126,7 +126,7 @@ def main():
     parser.add_argument("--version", type=str, default=None, help="Custom model version string")
     args = parser.parse_args()
 
-    model_version = args.version or "baseline-recovery-v3.1.0"
+    model_version = args.version or "baseline-recovery-v3.1.1"
 
     if args.real_world_only:
         X, y = load_multi_source(synthetic=False, production=True, custom=args.data)

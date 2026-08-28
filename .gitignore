@@ -25,7 +25,6 @@ __pycache__/
 .venv/
 services/ml/data/synthetic_transactions.json
 services/ml/baseline_model.json
-services/ml/metrics.json
 
 # OS / editor
 .DS_Store

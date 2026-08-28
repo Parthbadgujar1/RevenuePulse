@@ -4,5 +4,6 @@ python-multipart
 python-jose[cryptography]
 pydantic
 numpy
-scikit-learn
-pandasjoblib
+pandas
+joblib
+scikit-learn==1.9.0

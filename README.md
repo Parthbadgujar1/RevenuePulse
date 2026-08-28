@@ -101,7 +101,7 @@ is strictly required; every other column sharpens diagnosis and recovery fit.
 
 ## Honesty guarantees (what is real vs simulated)
 
-**The trained model is load-bearing.** Every production decision path (`evaluateRecovery` in the pipeline) calls the FastAPI service that serves `model.joblib`; predictions persist with the real served version (currently `baseline-recovery-v3.0.0`) on every Prediction row and in audit evidence. If the model service is unreachable, the pipeline job **fails loudly** — it never silently substitutes a hand-coded heuristic. A labeled fallback (`RP_ML_FALLBACK=heuristic`, version string `heuristic-fallback-v1`) exists for dev environments without Python.
+**The trained model is load-bearing.** Every production decision path (`evaluateRecovery` in the pipeline) calls the FastAPI service that serves `model.joblib`; predictions persist with the real served version (currently `baseline-recovery-v3.1.1`) on every Prediction row and in audit evidence. If the model service is unreachable, the pipeline job **fails loudly** — it never silently substitutes a hand-coded heuristic. A labeled fallback (`RP_ML_FALLBACK=heuristic`, version string `heuristic-fallback-v1`) exists for dev environments without Python.
 
 **Demo vs live execution are structurally separate.**
 - *Simulated* sources (Demo Lab batches, file imports) draw outcomes from an independent seeded ground-truth propensity; executions are stamped `SIMULATED_DEMO` in the audit trail.

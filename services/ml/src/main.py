@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional
 
 import joblib
 import numpy as np
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header
 from pydantic import BaseModel, Field
 
 import sys
@@ -37,10 +37,38 @@ MODEL_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "model", "model.joblib"),
 )
 
+# Comma-separated internal tokens sent by the worker on admin endpoints.
+# When unset, admin endpoints fail CLOSED (401) so a deploy without the
+# secret cannot silently expose retrain/logging to the public internet.
+ADMIN_TOKENS = [
+    t.strip()
+    for t in os.environ.get(
+        "ML_INTERNAL_TOKEN",
+        os.environ.get("RP_ML_TOKEN", ""),
+    ).split(",")
+    if t.strip()
+]
+
+
+def require_internal_token(authorization: str = Header(default="")) -> None:
+    """Reject admin calls that do not present an internal Bearer token."""
+    if not ADMIN_TOKENS:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "ML_INTERNAL_TOKEN is not configured on this instance; "
+                "admin endpoints are unavailable."
+            ),
+        )
+    token = (authorization or "").removeprefix("Bearer ").strip()
+    if token not in ADMIN_TOKENS:
+        raise HTTPException(status_code=401, detail="Invalid or missing internal token")
+
+
 app = FastAPI(
     title="RevenuePulse Recovery Prediction API",
     description="Recovery probability for failed payments (calibrated logistic regression)",
-    version="3.1.0",
+    version="3.1.1",
 )
 
 
@@ -223,8 +251,12 @@ def _run_retrain_background(force: bool = False):
 
 
 @app.post("/retrain")
-async def trigger_retrain(force: bool = False, background_tasks: BackgroundTasks = BackgroundTasks()):
-    """Trigger incremental model retraining in the background."""
+async def trigger_retrain(
+    force: bool = False,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    _auth: None = Depends(require_internal_token),
+):
+    """Trigger incremental model retraining in the background (admin only)."""
     global _retrain_lock
     if _retrain_lock:
         return {"status": "already_running", "message": "A retrain is already in progress"}
@@ -264,8 +296,11 @@ class TrainingDataPoint(BaseModel):
 
 
 @app.post("/log-training-data")
-async def log_training_data(point: TrainingDataPoint):
-    """Record a production training data point for future retraining."""
+async def log_training_data(
+    point: TrainingDataPoint,
+    _auth: None = Depends(require_internal_token),
+):
+    """Record a production training data point for future retraining (admin only)."""
     import json as _json
 
     f = point.features.model_dump()
@@ -304,8 +339,11 @@ async def log_training_data(point: TrainingDataPoint):
 
 
 @app.post("/log-prediction")
-async def log_prediction(features: RecoveryFeatures):
-    """Record a prediction's features for drift monitoring (no label needed)."""
+async def log_prediction(
+    features: RecoveryFeatures,
+    _auth: None = Depends(require_internal_token),
+):
+    """Record a prediction's features for drift monitoring (admin only)."""
     try:
         from drift import record_feature_vector
         record_feature_vector(features.model_dump())
