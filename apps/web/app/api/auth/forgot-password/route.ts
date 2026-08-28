@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const parsed = await parseJsonBody(req, ForgotPasswordSchema);
-    if (!parsed.ok) return parsed.response;
+    if (parsed.ok === false) return parsed.response;
     const { email } = parsed.data;
 
     const token = await createPasswordResetToken(email);

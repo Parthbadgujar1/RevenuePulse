@@ -6,7 +6,7 @@ import {
   registerWebhookEvent,
   hashPayload,
 } from '@rp/database';
-import { decryptSecret } from '../../../lib/crypto';
+import { decryptSecret } from '../../../../lib/crypto';
 import { normalizeRazorpayEvent } from '@rp/razorpay';
 import { enqueueProcessingJob, JobType, incWebhookEvent } from '@rp/observability';
 import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@rp/database';
-import { requireMerchantContext } from '../../../../../../lib/merchant-context';
+import { requireMerchantContext } from '../../../../../lib/merchant-context';
 
 export async function GET(
   _req: NextRequest,

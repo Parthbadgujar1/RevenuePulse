@@ -1,4 +1,4 @@
-import readXlsxFile from 'read-excel-file/node';
+import { readSheet } from 'read-excel-file/node';
 import type { CsvTable } from './csv';
 
 function normalize(v: unknown): string {
@@ -8,7 +8,7 @@ function normalize(v: unknown): string {
 }
 
 export async function parseExcel(buffer: Buffer): Promise<CsvTable> {
-  const rows = (await readXlsxFile(buffer)) as unknown[][];
+  const rows = await readSheet(buffer);
   if (rows.length === 0) return { headers: [], rows: [] };
 
   const rawHeaders = rows[0].map((h) => normalize(h));

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const parsed = await parseJsonBody(req, ResetPasswordSchema);
-    if (!parsed.ok) return parsed.response;
+    if (parsed.ok === false) return parsed.response;
     const { token, newPassword } = parsed.data;
 
     await resetPasswordWithToken(token, newPassword);

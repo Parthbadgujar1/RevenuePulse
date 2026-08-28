@@ -39,6 +39,9 @@ jobs:
       - name: Run typecheck
         run: npm run typecheck
 
+      - name: Run web typecheck (build gate)
+        run: npm run typecheck --workspace=web
+
   # Database migrations - validates the migration chain applies cleanly
   # from an empty database (catches broken SQL, checksum drift, drift vs schema).
   migrate:

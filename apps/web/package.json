@@ -4,6 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "npx tsx ../../scripts/test-unit.ts"
   },
   "keywords": [],
@@ -11,7 +15,10 @@
   "license": "ISC",
   "dependencies": {
     "@tanstack/react-query": "^5.102.0",
+    "next": "^16.3.3",
     "pdf-parse": "^2.4.5",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "read-excel-file": "^9.3.10",
     "recharts": "^3.10.1"
   },
