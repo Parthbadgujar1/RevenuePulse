@@ -79,6 +79,7 @@ const rolePermissions: Record<UserRole, string[]> = {
     'dashboard:view',
     'policies:configure',
     'actions:approve',
+    'integrations:manage',
     'analytics:view',
     'audit:view',
     'users:manage',

@@ -26,6 +26,11 @@ import { observeMlPrediction, incMlCircuitBreaker, setDriftPsi, setTrainingRows,
 const ML_SERVICE_URL =
   process.env.ML_SERVICE_URL ?? 'http://127.0.0.1:8001';
 
+// Internal token for ML admin endpoints (/retrain, /log-training-data,
+// /log-prediction). Absent => admin calls fail 401 on the service side
+// (fail-closed), which is the desired default for a public deployment.
+const ML_ADMIN_TOKEN = process.env.ML_INTERNAL_TOKEN ?? process.env.RP_ML_TOKEN ?? '';
+
 const ML_TIMEOUT_MS = parseInt(process.env.RP_ML_TIMEOUT_MS ?? '5000', 10);
 const ML_RETRY_COUNT = Math.max(0, parseInt(process.env.RP_ML_RETRY_COUNT ?? '1', 10));
 const ML_RETRY_BASE_MS = parseInt(process.env.RP_ML_RETRY_BASE_MS ?? '200', 10);
@@ -228,6 +233,13 @@ export async function predictRecoveryProbability(
  * Called after outcome verification in the pipeline.
  * Best-effort — never throws, never blocks the pipeline.
  */
+/** Headers for authenticated ML admin endpoints. */
+function adminHeaders(): Record<string, string> {
+  return ML_ADMIN_TOKEN
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${ML_ADMIN_TOKEN}` }
+    : { 'Content-Type': 'application/json' };
+}
+
 export async function logTrainingData(
   features: RecoveryFeatures,
   recovered: boolean,
@@ -236,7 +248,7 @@ export async function logTrainingData(
   try {
     const res = await fetch(`${ML_SERVICE_URL}/log-training-data`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders(),
       body: JSON.stringify({
         features: toMlFeatures(features),
         recovered,
@@ -261,6 +273,7 @@ export async function triggerRetrain(force: boolean = false): Promise<void> {
   try {
     await fetch(`${ML_SERVICE_URL}/retrain?force=${force}`, {
       method: 'POST',
+      headers: adminHeaders(),
       signal: AbortSignal.timeout(5000),
     });
     incRetrain('triggered');

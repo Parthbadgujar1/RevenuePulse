@@ -3,3 +3,4 @@ export * from './src/queue';
 export * from './src/ml-client';
 export * from './src/logger';
 export * from './src/metrics';
+export * from './src/encryption';

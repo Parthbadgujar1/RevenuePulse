@@ -94,7 +94,8 @@ model ProviderConnection {
   status            String   @default("active")
   mode              String?  // "test_demo" (simulated) | "live"
   displayName       String?  // Masked key id, e.g. rzp_test_****1234
-  webhookSecret     String?
+  webhookSecret     String?  // Legacy plaintext webhook secret (kept for backward compat)
+  webhookSecretEncrypted String? // AES-256-GCM encrypted webhook secret (never returned to client)
   createdAt         DateTime
   updatedAt         DateTime @updatedAt
   merchant          Merchant @relation(fields: [merchantId], references: [id])

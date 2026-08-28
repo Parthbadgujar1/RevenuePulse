@@ -13,6 +13,7 @@ import { DecisionEngine, DEFAULT_MERCHANT_POLICY } from '../../policies/src';
 import type { MerchantPolicy } from '../../policies/src';
 import { getInterventionLift } from '../../policies/src/intervention-lifts';
 import { predictRecoveryProbability, logTrainingData, triggerRetrain, observeDriftMetrics } from './ml-client';
+import { dispatchLiveAction } from './razorpay-live';
 import { setQueueDepth } from './metrics';
 import { RETRY_WINDOWS, calculateNextRetryTime } from '../../domain/src/services/retry-sequencer';
 
@@ -243,7 +244,7 @@ export async function processJob(
 
 // Process transaction event from webhook
 async function processTransactionEvent(payload: any): Promise<JobResult> {
-  const { event, eventRef, webhookEventId, source, simulated } = payload;
+  const { event, eventRef, webhookEventId, source, simulated, merchantId: payloadMerchantId } = payload;
 
   try {
     // 1. Transition durable webhook state: RECEIVED -> PROCESSING
@@ -257,8 +258,19 @@ async function processTransactionEvent(payload: any): Promise<JobResult> {
       throw new Error('Event missing providerTransactionId or amount');
     }
 
-    // 2. Ensure FK target exists
-    const merchantId = await ensureDemoMerchant(prisma);
+    // 2. Merchant attribution comes from the job payload (set by the caller
+    //    that authenticated the webhook). The demo tenant is used ONLY when
+    //    the caller intentionally omitted a merchant (dev/experiment paths).
+    //    A real signed webhook must never be silently attributed to the demo
+    //    merchant — that would break multi-tenant isolation.
+    let merchantId =
+      typeof payloadMerchantId === 'string' && payloadMerchantId ? payloadMerchantId : null;
+    if (!merchantId) {
+      merchantId = await ensureDemoMerchant(prisma);
+    } else {
+      // Ensure the FK target exists without ever overriding attribution.
+      await ensureDemoMerchant(prisma, merchantId);
+    }
 
     // 3. Persist transaction (idempotent on providerTransactionId)
     const transaction = await prisma.transaction.upsert({
@@ -714,6 +726,7 @@ async function executeAction(payload: any): Promise<JobResult> {
 
     const revenueCase = await prisma.revenueCase.findUnique({
       where: { id: action.caseId },
+      include: { transaction: true },
     });
     if (!revenueCase) {
       return { success: false, error: 'Revenue case not found' };
@@ -724,13 +737,32 @@ async function executeAction(payload: any): Promise<JobResult> {
     const isLive = simulated === false;
 
     // ---------------------------------------------------------------------
-    // LIVE / PROVIDER PATH — real money at stake. We do NOT fabricate an
-    // outcome. The action is recorded as executed with the provider, the case
-    // moves to OUTCOME_PENDING and verification happens only when Razorpay
-    // reports a real status change (webhook event or API poll).
+    // LIVE / PROVIDER PATH — real money at stake. A provider reference is
+    // NEVER fabricated here: a real Razorpay Payment Link is created (and its
+    // real id used) when credentials exist for a payment-collection action.
+    // Any other case is recorded honestly without a fake provider id, and a
+    // hard dispatch error bubbles up as a failed job instead of pretending.
     // ---------------------------------------------------------------------
     if (isLive) {
-      const providerActionId = `live_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const dispatch = await dispatchLiveAction({
+        merchantId: revenueCase.merchantId || 'demo-merchant',
+        actionType: action.actionType,
+        amountPaise: revenueCase.amountAtRisk,
+        currency: 'INR',
+        description: `RevenuePulse recovery — ${action.actionType} (case ${revenueCase.ref ?? revenueCase.id})`,
+        customerEmail: (revenueCase.transaction as any)?.paymentMethodDetails?.email,
+        customerPhone: (revenueCase.transaction as any)?.paymentMethodDetails?.phone,
+        caseRef: revenueCase.ref ?? revenueCase.id,
+      });
+
+      // Hard failure: we must not claim a live execution we could not do.
+      if (dispatch.status === 'error') {
+        return { success: false, error: dispatch.error };
+      }
+
+      const providerActionId = dispatch.providerActionId ?? null;
+      const paymentUrl = dispatch.paymentUrl ?? null;
+
       await prisma.recoveryAction.update({
         where: { id: action.id },
         data: {
@@ -746,9 +778,12 @@ async function executeAction(payload: any): Promise<JobResult> {
         mode: 'PROVIDER_LIVE',
         modelProbability: Number(probability.toFixed(4)),
         providerActionId,
+        paymentUrl,
         awaitingProviderOutcome: true,
         note:
-          'Executed against the live provider. No outcome is simulated; recovery is verified from a real payment.captured / payment.failed event or an API status poll.',
+          dispatch.status === 'dispatched'
+            ? `Real Razorpay Payment Link created (${providerActionId}). No outcome is simulated; recovery is verified only from a real payment event or API status poll.`
+            : `Recorded as executed for ${action.actionType}. Razorpay has no API dispatch for this action type in this MVP — no payment was charged, no provider id fabricated; recovery is verified only from real provider events.`,
       };
 
       await prisma.revenueCase.update({
@@ -764,7 +799,10 @@ async function executeAction(payload: any): Promise<JobResult> {
           action: 'recovery_action_executed',
           entityType: 'recovery_action',
           entityId: action.id,
-          reason: `${action.actionType} submitted to provider (LIVE) — awaiting provider/customer outcome`,
+          reason:
+            dispatch.status === 'dispatched'
+              ? `${action.actionType} executed via real Razorpay Payment Link (${providerActionId}) — awaiting provider/customer outcome`
+              : `${action.actionType} recorded (LIVE) — no provider dispatch in MVP, awaiting real provider/customer outcome`,
           evidence: executionDetails as any,
           beforeState: { executionStatus: 'PENDING' } as any,
           afterState: { executionStatus: 'EXECUTED', caseStatus: 'OUTCOME_PENDING' } as any,
