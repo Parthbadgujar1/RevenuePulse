@@ -22,8 +22,10 @@
     "experiment": "tsx scripts/batch-experiment.ts 100"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@prisma/client": "^7.9.1",
     "@types/node": "^26.2.0",
+    "eslint": "^10.9.1",
     "pg": "^8.23.0",
     "pg-boss": "^12.27.0",
     "prisma": "^7.9.1",

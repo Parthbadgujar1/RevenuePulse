@@ -1,34 +1,31 @@
-import * as XLSX from 'xlsx';
+import readXlsxFile from 'read-excel-file/node';
 import type { CsvTable } from './csv';
 
-export function parseExcel(buffer: Buffer): CsvTable {
-  const wb = XLSX.read(buffer, { type: 'buffer' });
-  const sheetName = wb.SheetNames[0];
-  if (!sheetName) return { headers: [], rows: [] };
-  const sheet = wb.Sheets[sheetName];
-  const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    defval: '',
-    raw: true,
-  });
-  if (json.length === 0) return { headers: [], rows: [] };
+function normalize(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  if (v instanceof Date) return v.toISOString();
+  return String(v).trim();
+}
 
-  const headerSet = new Set<string>();
-  for (const row of json) {
-    for (const k of Object.keys(row)) {
-      const h = String(k).trim();
-      if (h && !/^(empty|__EMPTY)/i.test(h)) headerSet.add(h);
+export async function parseExcel(buffer: Buffer): Promise<CsvTable> {
+  const rows = (await readXlsxFile(buffer)) as unknown[][];
+  if (rows.length === 0) return { headers: [], rows: [] };
+
+  const rawHeaders = rows[0].map((h) => normalize(h));
+  const headers = Array.from(new Set(rawHeaders.filter((h) => h && !/^(empty|__EMPTY)/i.test(h))));
+  if (headers.length === 0) return { headers: [], rows: [] };
+
+  const data = rows.slice(1).map((row) => {
+    const out: Record<string, string> = {};
+    for (let i = 0; i < rawHeaders.length; i++) {
+      const h = rawHeaders[i];
+      if (h && headers.includes(h)) out[h] = normalize(row[i]);
     }
-  }
-  const headers = Array.from(headerSet);
-  const rows = json
-    .map((row) => {
-      const out: Record<string, string> = {};
-      for (const h of headers) {
-        const v = row[h];
-        out[h] = v instanceof Date ? v.toISOString() : String(v ?? '').trim();
-      }
-      return out;
-    })
-    .filter((r) => Object.values(r).some((v) => v.length > 0));
-  return { headers, rows };
+    return out;
+  });
+
+  return {
+    headers,
+    rows: data.filter((r) => Object.values(r).some((v) => v.length > 0)),
+  };
 }
