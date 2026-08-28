@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { csrfFetch } from '../lib/csrf-client';
 
 const CHANNELS = [
   { value: 'email', label: 'Email' },
@@ -25,7 +26,7 @@ export default function InvoiceChaseForm({
     setSaving(true);
     setResult(null);
     try {
-      const res = await fetch(`/api/receivables/invoices/${invoiceId}/chase`, {
+      const res = await csrfFetch(`/api/receivables/invoices/${invoiceId}/chase`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ channel, message: message || undefined }),

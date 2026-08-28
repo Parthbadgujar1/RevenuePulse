@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { inr } from '../lib/ui';
+import { csrfFetch } from '../lib/csrf-client';
 
 const FAILURE_OPTIONS = [
   { code: 'INSUFFICIENT_FUNDS', label: 'Insufficient Funds' },
@@ -68,7 +69,7 @@ export default function RunDemoForm() {
     abortRef.current = controller;
 
     try {
-      const res = await fetch('/api/demo-lab/run', {
+      const res = await csrfFetch('/api/demo-lab/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count, seed, failureCodes: selected }),

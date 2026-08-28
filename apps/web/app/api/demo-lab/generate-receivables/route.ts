@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@rp/database';
 import { requireMerchantContext } from '../../../../lib/merchant-context';
+import { csrfGuard } from '../../../../lib/csrf';
 
 const CUSTOMER_NAMES = ['Acme Corp', 'TechStart India', 'GlobalTrade Ltd', 'FinanceHub', 'DataSync Inc', 'CloudPeak Solutions', 'InnoVenture', 'SecurePay B2B', 'QuickSettle', 'PrimeDeals'];
 
@@ -22,6 +23,8 @@ function calcAgingBucket(overdueDays: number): string {
 }
 
 export async function POST(req: NextRequest) {
+  const csrf = csrfGuard(req);
+  if (csrf) return csrf;
   try {
     const body = await req.json().catch(() => ({} as any));
     const count = Math.min(100, Math.max(5, Number(body?.count) || 20));

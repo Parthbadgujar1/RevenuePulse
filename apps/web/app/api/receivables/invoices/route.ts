@@ -127,6 +127,8 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const csrf = csrfGuard(req);
+    if (csrf) return csrf;
     const ctx = await requireMerchantContext();
     const id = req.nextUrl.searchParams.get('id');
     if (!id) {

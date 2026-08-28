@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { inr } from '../lib/ui';
+import { csrfFetch } from '../lib/csrf-client';
 
 interface MappingDetail {
   field: string;
@@ -65,7 +66,7 @@ export default function IngestForm() {
         fd.append('file', f);
         fd.append('dryRun', 'true');
         fd.append('amountUnit', amountUnit);
-        const res = await fetch('/api/ingest', { method: 'POST', body: fd });
+        const res = await csrfFetch('/api/ingest', { method: 'POST', body: fd });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Analysis failed');
         setPreview(json);
@@ -95,7 +96,7 @@ export default function IngestForm() {
       fd.append('file', file);
       fd.append('dryRun', 'false');
       fd.append('amountUnit', amountUnit);
-      const res = await fetch('/api/ingest', { method: 'POST', body: fd });
+      const res = await csrfFetch('/api/ingest', { method: 'POST', body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Ingest failed');
       setPreview(json);

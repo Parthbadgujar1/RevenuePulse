@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { csrfFetch } from '../lib/csrf-client';
 
 interface AdminAction {
   action: string;
@@ -39,7 +40,7 @@ export default function AdminActions({
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(`/api/cases/${caseId}/admin-action`, {
+      const res = await csrfFetch(`/api/cases/${caseId}/admin-action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),

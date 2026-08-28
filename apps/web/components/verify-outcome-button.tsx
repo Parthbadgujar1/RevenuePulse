@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { csrfFetch } from '../lib/csrf-client';
 
 interface VerifyResult {
   checked?: number;
@@ -19,7 +20,7 @@ export default function VerifyOutcomeButton() {
     setBusy(true);
     setResult(null);
     try {
-      const res = await fetch('/api/outcomes/verify', { method: 'POST' });
+      const res = await csrfFetch('/api/outcomes/verify', { method: 'POST' });
       const j = await res.json();
       if (!res.ok) {
         setResult({ error: j.error || `Request failed (${res.status})` });

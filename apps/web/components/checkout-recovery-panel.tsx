@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { csrfFetch } from '../lib/csrf-client';
 
 interface CheckoutSession {
   id: string;
@@ -40,7 +41,7 @@ export default function CheckoutRecoveryPanel({ sessionId }: { sessionId?: strin
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch('/api/checkout/recover', {
+      const res = await csrfFetch('/api/checkout/recover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: session.sessionId }),
@@ -64,7 +65,7 @@ export default function CheckoutRecoveryPanel({ sessionId }: { sessionId?: strin
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch('/api/checkout/recover', {
+      const res = await csrfFetch('/api/checkout/recover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: session.sessionId, action: 'mark_recovered' }),

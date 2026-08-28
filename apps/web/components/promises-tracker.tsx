@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { csrfFetch } from '../lib/csrf-client';
 
 interface PromiseRecord {
   id: string;
@@ -50,7 +51,7 @@ export default function PromisesTracker() {
   async function createPromise() {
     setCreating(true);
     try {
-      const res = await fetch('/api/promises', {
+      const res = await csrfFetch('/api/promises', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -80,7 +81,7 @@ export default function PromisesTracker() {
     if (!confirm('Delete this promise?')) return;
     setBusy(id + 'DELETE');
     try {
-      const res = await fetch(`/api/promises?id=${id}`, { method: 'DELETE' });
+      const res = await csrfFetch(`/api/promises?id=${id}`, { method: 'DELETE' });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `Request failed (${res.status})`);
@@ -110,7 +111,7 @@ export default function PromisesTracker() {
   async function resolve(id: string, status: 'kept' | 'broken') {
     setBusy(id + status);
     try {
-      const res = await fetch(`/api/promises/${id}/resolve`, {
+      const res = await csrfFetch(`/api/promises/${id}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
@@ -131,7 +132,7 @@ export default function PromisesTracker() {
     if (!extendDate) return;
     setBusy(id + 'EXTEND');
     try {
-      const res = await fetch(`/api/promises/${id}/resolve`, {
+      const res = await csrfFetch(`/api/promises/${id}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'extended', newDueDate: extendDate }),

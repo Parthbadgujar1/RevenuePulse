@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { csrfFetch } from '../lib/csrf-client';
 
 interface DemoResult {
   ok: boolean;
@@ -23,7 +24,7 @@ export default function DemoGeneratePanel() {
     setBusy(key);
     setResults((r) => ({ ...r, [key]: undefined as any }));
     try {
-      const res = await fetch(api, {
+      const res = await csrfFetch(api, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: 20, seed: Date.now() }),

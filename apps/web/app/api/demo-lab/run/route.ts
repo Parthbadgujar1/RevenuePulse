@@ -24,6 +24,7 @@ import {
   simulateGroundTruthOutcome,
 } from '@rp/observability';
 import { requireMerchantContext } from '../../../../lib/merchant-context';
+import { csrfGuard } from '../../../../lib/csrf';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,6 +61,8 @@ function fnv1a(str: string): number {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function POST(req: NextRequest) {
+  const csrf = csrfGuard(req);
+  if (csrf) return csrf;
   const body = await req.json().catch(() => ({} as any));
   const count = Math.min(500, Math.max(5, Number(body?.count) || 100));
   const seed = Number(body?.seed) > 0 ? Math.floor(Number(body?.seed)) : DEFAULT_DEMO_SEED;

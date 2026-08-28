@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { csrfFetch } from '../lib/csrf-client';
 
 export default function ApproveButton({ caseId }: { caseId: string }) {
   const router = useRouter();
@@ -12,7 +13,7 @@ export default function ApproveButton({ caseId }: { caseId: string }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/cases/${caseId}/approve`, { method: 'POST' });
+      const res = await csrfFetch(`/api/cases/${caseId}/approve`, { method: 'POST' });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `Request failed (${res.status})`);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { csrfFetch } from '../lib/csrf-client';
 
 export default function PaymentPlanForm({
   invoiceId,
@@ -46,7 +47,7 @@ export default function PaymentPlanForm({
     setSaving(true);
     setResult(null);
     try {
-      const res = await fetch(`/api/receivables/invoices/${invoiceId}/payment-plan`, {
+      const res = await csrfFetch(`/api/receivables/invoices/${invoiceId}/payment-plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ installments, startDate }),

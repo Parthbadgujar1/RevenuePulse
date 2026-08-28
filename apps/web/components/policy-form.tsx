@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { inr } from '../lib/ui';
+import { csrfFetch } from '../lib/csrf-client';
 
 interface Policy {
   autoActionEnable: boolean;
@@ -86,7 +87,7 @@ export default function PolicyForm() {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/settings/policy', {
+      const res = await csrfFetch('/api/settings/policy', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(policy),
@@ -112,7 +113,7 @@ export default function PolicyForm() {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/settings/policy', {
+      const res = await csrfFetch('/api/settings/policy', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),

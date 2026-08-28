@@ -9,10 +9,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPendingLiveOutcomes, VerifySummary } from '../../../../lib/outcome-verifier';
 import { requireMerchantContext, apiErrorStatus } from '../../../../lib/merchant-context';
+import { csrfGuard } from '../../../../lib/csrf';
 
 export const runtime = 'nodejs';
 
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
+  const csrf = csrfGuard(req);
+  if (csrf) return csrf;
   try {
     const ctx = await requireMerchantContext();
     const summary: VerifySummary = await verifyPendingLiveOutcomes({

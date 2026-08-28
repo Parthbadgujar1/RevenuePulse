@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import InvoiceChaseForm from './invoice-chase-form';
+import { csrfFetch } from '../lib/csrf-client';
 
 interface AgingBucket {
   label: string;
@@ -62,7 +63,7 @@ export default function ReceivablesDashboard() {
     e.preventDefault();
     setCreating(true);
     try {
-      const res = await fetch('/api/receivables/invoices', {
+      const res = await csrfFetch('/api/receivables/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -94,7 +95,7 @@ export default function ReceivablesDashboard() {
 
   async function handleDeleteInvoice(id: string) {
     try {
-      const res = await fetch(`/api/receivables/invoices/${id}`, { method: 'DELETE' });
+      const res = await csrfFetch(`/api/receivables/invoices/${id}`, { method: 'DELETE' });
       if (!res.ok) {
         const j = await res.json();
         throw new Error(j.error || `Delete failed (${res.status})`);

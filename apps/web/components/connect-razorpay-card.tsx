@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { timeAgo } from '../lib/ui';
+import { csrfFetch } from '../lib/csrf-client';
 
 interface Status {
   connected: boolean;
@@ -34,7 +35,7 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
     setBusy(busyLabel);
     setMessage(null);
     try {
-      const res = await fetch('/api/integrations/razorpay', {
+      const res = await csrfFetch('/api/integrations/razorpay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -103,7 +104,7 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
     setBusy('sync');
     setMessage(null);
     try {
-      const res = await fetch('/api/integrations/razorpay/sync', {
+      const res = await csrfFetch('/api/integrations/razorpay/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 100 }),
