@@ -31,7 +31,7 @@ export default function ApproveButton({ caseId }: { caseId: string }) {
       <button
         onClick={approve}
         disabled={busy}
-        className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy ? 'Executing…' : 'Approve & Execute Action'}
       </button>

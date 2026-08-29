@@ -173,7 +173,7 @@ export default function PromisesTracker() {
           <p className="text-sm font-semibold text-slate-100">Promise-to-Pay Tracker</p>
           <button
             onClick={() => setShowCreate(!showCreate)}
-            className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 border border-emerald-300 hover:bg-emerald-400 transition"
+            className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-on-accent border border-emerald-300 hover:bg-emerald-400 transition"
           >
             {showCreate ? 'Close' : 'Create Promise'}
           </button>
@@ -260,7 +260,7 @@ export default function PromisesTracker() {
               <button
                 onClick={createPromise}
                 disabled={creating || !createForm.customerEmail || !createForm.promisedAmount || !createForm.promisedDate}
-                className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 border border-emerald-300 hover:bg-emerald-400 disabled:opacity-60 transition"
+                className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-on-accent border border-emerald-300 hover:bg-emerald-400 disabled:opacity-60 transition"
               >
                 {creating ? 'Creating…' : 'Create'}
               </button>
@@ -325,7 +325,7 @@ export default function PromisesTracker() {
                   <button
                     onClick={() => resolve(p.id, 'kept')}
                     disabled={busy !== null}
-                    className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 border border-emerald-300 hover:bg-emerald-400 disabled:opacity-60 transition"
+                    className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-on-accent border border-emerald-300 hover:bg-emerald-400 disabled:opacity-60 transition"
                   >
                     {busy === p.id + 'kept' ? 'Working…' : 'Mark Kept'}
                   </button>

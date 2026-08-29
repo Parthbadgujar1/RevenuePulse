@@ -180,7 +180,7 @@ export default function ReceivablesDashboard() {
           <p className="text-sm font-semibold text-slate-100">Recent Invoices</p>
           <button
             onClick={() => setShowCreateForm((v) => !v)}
-            className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 border border-emerald-300 hover:bg-emerald-400 transition"
+            className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-on-accent border border-emerald-300 hover:bg-emerald-400 transition"
           >
             {showCreateForm ? 'Cancel' : 'Create Invoice'}
           </button>
@@ -235,7 +235,7 @@ export default function ReceivablesDashboard() {
               <button
                 type="submit"
                 disabled={creating}
-                className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 border border-emerald-300 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-on-accent border border-emerald-300 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {creating ? 'Creating…' : 'Create'}
               </button>

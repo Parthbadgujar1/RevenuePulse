@@ -13,7 +13,7 @@ interface AdminAction {
 
 const VARIANT_STYLES: Record<string, string> = {
   primary:
-    'bg-emerald-500 text-slate-950 hover:bg-emerald-400 border-emerald-300',
+    'bg-emerald-500 text-on-accent hover:bg-emerald-400 border-emerald-300',
   secondary:
     'bg-slate-900 text-slate-300 hover:bg-slate-900 border-slate-700',
   danger:

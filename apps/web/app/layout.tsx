@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { ThemeProvider } from '../components/theme-provider';
+import { themeBootScript } from '../lib/theme-script';
 
 export const metadata: Metadata = {
   title: 'RevenuePulse',
-  description: 'AI-powered revenue recovery for digital merchants',
+  description:
+    'AI-powered revenue intelligence for digital merchants — detect problems, understand why they happen, and take action.',
 };
 
 export default function RootLayout({
@@ -12,10 +15,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      {/* suppressHydrationWarning: browser extensions (e.g. Grammarly) inject
-          attributes like data-gr-ext-installed onto <body> before hydration */}
-      <body suppressHydrationWarning>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript() }} />
+      </head>
+      <body suppressHydrationWarning>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

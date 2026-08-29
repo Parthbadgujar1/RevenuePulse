@@ -1,39 +1,226 @@
 @import "tailwindcss";
 
-/* ── RevenuePulse dark theme ───────────────────────────────────────────────
-   Cohesive dark surfaces across every page. Individual screens already set
-   their own bg (min-h-screen bg-slate-950 / bg-slate-900 cards), so these
-   base tokens just harmonize typography, selection, scrollbars and focus.
-   ──────────────────────────────────────────────────────────────────────── */
+/* ────────────────────────────────────────────────────────────────────────────
+   RevenuePulse design tokens
+   CSS-first Tailwind v4. Both themes are individually designed (not inverted).
+   Light is the default (no modifier); the `.dark` class on <html> flips all
+   semantic tokens. Semantic tokens (bg/surface/ink/accent/…) are authored as
+   CSS variables and every legacy Tailwind class that the app used before the
+   redesign is aliased onto them, so the whole product themes instantly.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  color-scheme: light;
+  --rp-bg: #f6f8fb;
+  --rp-surface: #ffffff;
+  --rp-surface-2: #f0f3f7;
+  --rp-elevated: #ffffff;
+  --rp-edge: #e4e8ee;
+  --rp-edge-strong: #cdd6e0;
+  --rp-ink: #111827;
+  --rp-ink-2: #667085;
+  --rp-ink-3: #98a2b3;
+  --rp-accent: #2563eb;
+  --rp-accent-hover: #3b78f0;
+  --rp-accent-strong: #1d4ed8;
+  --rp-accent-ink: #1d4ed8;
+  --rp-success: #16a34a;
+  --rp-success-hover: #22c55e;
+  --rp-success-strong: #15803d;
+  --rp-success-ink: #15803d;
+  --rp-danger: #dc2626;
+  --rp-danger-strong: #b91c1c;
+  --rp-danger-ink: #b91c1c;
+  --rp-warning: #d97706;
+  --rp-warning-strong: #b45309;
+  --rp-warning-ink: #b45309;
+  --rp-info: #3b82f6;
+  --rp-info-ink: #1d4ed8;
+  --rp-purple: #8b5cf6;
+  --rp-purple-ink: #7c3aed;
+  --rp-orange: #ea580c;
+  --rp-orange-ink: #9a3412;
+  --rp-on-accent: #0b0f14;
+}
+
+.dark {
   color-scheme: dark;
+  --rp-bg: #0b0d10;
+  --rp-surface: #11151b;
+  --rp-surface-2: #171c23;
+  --rp-elevated: #1b2129;
+  --rp-edge: #20262f;
+  --rp-edge-strong: #2c3440;
+  --rp-ink: #f5f7fa;
+  --rp-ink-2: #9aa4b2;
+  --rp-ink-3: #667085;
+  --rp-accent: #4f8cff;
+  --rp-accent-hover: #6d99ff;
+  --rp-accent-strong: #3d7bfe;
+  --rp-accent-ink: #7fa6ff;
+  --rp-success: #28c76f;
+  --rp-success-hover: #3bd583;
+  --rp-success-strong: #1fab5d;
+  --rp-success-ink: #4ade80;
+  --rp-danger: #ff5c5c;
+  --rp-danger-strong: #ff7a7a;
+  --rp-danger-ink: #ff8a8a;
+  --rp-warning: #ffb020;
+  --rp-warning-strong: #e89b16;
+  --rp-warning-ink: #fbbf24;
+  --rp-info: #5c9dff;
+  --rp-info-ink: #8fc1ff;
+  --rp-purple: #9d7bff;
+  --rp-purple-ink: #c4b5fd;
+  --rp-orange: #fb923c;
+  --rp-orange-ink: #fdba74;
+  --rp-on-accent: #0b0f14;
+}
+
+/* Semantic color tokens → Tailwind utilities like bg-surface, text-ink,
+   border-edge, bg-accent, text-on-accent, … */
+@theme inline {
+  --color-bg: var(--rp-bg);
+  --color-surface: var(--rp-surface);
+  --color-surface-2: var(--rp-surface-2);
+  --color-elevated: var(--rp-elevated);
+  --color-edge: var(--rp-edge);
+  --color-edge-strong: var(--rp-edge-strong);
+  --color-ink: var(--rp-ink);
+  --color-ink-2: var(--rp-ink-2);
+  --color-ink-3: var(--rp-ink-3);
+  --color-accent: var(--rp-accent);
+  --color-accent-hover: var(--rp-accent-hover);
+  --color-accent-strong: var(--rp-accent-strong);
+  --color-accent-ink: var(--rp-accent-ink);
+  --color-success: var(--rp-success);
+  --color-success-hover: var(--rp-success-hover);
+  --color-success-strong: var(--rp-success-strong);
+  --color-success-ink: var(--rp-success-ink);
+  --color-danger: var(--rp-danger);
+  --color-danger-strong: var(--rp-danger-strong);
+  --color-danger-ink: var(--rp-danger-ink);
+  --color-warning: var(--rp-warning);
+  --color-warning-strong: var(--rp-warning-strong);
+  --color-warning-ink: var(--rp-warning-ink);
+  --color-info: var(--rp-info);
+  --color-info-ink: var(--rp-info-ink);
+  --color-purple: var(--rp-purple);
+  --color-purple-ink: var(--rp-purple-ink);
+  --color-orange: var(--rp-orange);
+  --color-orange-ink: var(--rp-orange-ink);
+  --color-on-accent: var(--rp-on-accent);
+}
+
+/* Legacy palette aliased onto semantic tokens so every pre-existing component
+   themes correctly without a full rewrite. Opacity modifiers such as
+   bg-red-500/10 resolve via color-mix against these variables at runtime. */
+@theme inline {
+  --color-slate-950: var(--rp-bg);
+  --color-slate-900: var(--rp-surface);
+  --color-slate-800: var(--rp-surface-2);
+  --color-slate-700: var(--rp-edge-strong);
+  --color-slate-600: var(--rp-edge-strong);
+  --color-slate-500: var(--rp-ink-3);
+  --color-slate-400: var(--rp-ink-3);
+  --color-slate-300: var(--rp-ink-2);
+  --color-slate-200: var(--rp-ink-2);
+  --color-slate-100: var(--rp-ink);
+  --color-gray-50: var(--rp-edge);
+  --color-gray-100: var(--rp-edge);
+  --color-gray-300: var(--rp-edge-strong);
+  --color-indigo-300: var(--rp-accent-ink);
+  --color-indigo-400: var(--rp-accent-hover);
+  --color-indigo-500: var(--rp-accent);
+  --color-indigo-600: var(--rp-accent-strong);
+  --color-emerald-300: var(--rp-success-ink);
+  --color-emerald-400: var(--rp-success-hover);
+  --color-emerald-500: var(--rp-success);
+  --color-emerald-600: var(--rp-success-strong);
+  --color-emerald-700: var(--rp-success-ink);
+  --color-emerald-900: var(--rp-success-ink);
+  --color-red-300: var(--rp-danger-ink);
+  --color-red-400: var(--rp-danger-ink);
+  --color-red-500: var(--rp-danger);
+  --color-red-900: var(--rp-danger-ink);
+  --color-red-950: var(--rp-danger-ink);
+  --color-amber-300: var(--rp-warning-ink);
+  --color-amber-400: var(--rp-warning);
+  --color-amber-500: var(--rp-warning);
+  --color-amber-600: var(--rp-warning-strong);
+  --color-blue-100: var(--rp-info-ink);
+  --color-blue-300: var(--rp-info-ink);
+  --color-blue-500: var(--rp-info);
+  --color-blue-600: var(--rp-info);
+  --color-blue-900: var(--rp-info-ink);
+  --color-purple-300: var(--rp-purple-ink);
+  --color-purple-500: var(--rp-purple);
+  --color-orange-50: var(--rp-edge);
+  --color-orange-300: var(--rp-orange-ink);
+  --color-orange-400: var(--rp-orange);
+  --color-orange-500: var(--rp-orange);
+  --color-orange-800: var(--rp-orange-ink);
+  --color-orange-900: var(--rp-orange-ink);
+  --color-yellow-900: var(--rp-warning-ink);
+  --color-green-400: var(--rp-success-hover);
+  --color-green-500: var(--rp-success);
+}
+
+/* ── Typography & base ────────────────────────────────────────────────────── */
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
 }
 
 html {
-  scrollbar-color: rgb(71 85 105) rgb(2 6 23);
+  scrollbar-color: var(--rp-edge-strong) var(--rp-bg);
   scrollbar-width: thin;
 }
 
 body {
-  background-color: rgb(2 6 23); /* slate-950 */
-  color: rgb(241 245 249); /* slate-100 */
+  background-color: var(--rp-bg);
+  color: var(--rp-ink);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 ::selection {
-  background-color: rgb(16 185 129 / 0.35); /* emerald-500 tint */
-  color: rgb(255 255 255);
+  background-color: color-mix(in oklab, var(--rp-accent) 28%, transparent);
+  color: var(--rp-ink);
 }
 
-/* Subtle emerald focus ring for interactive controls */
+/* Visible, consistent focus ring that works in both themes */
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 button:focus-visible,
 a:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid rgb(52 211 153 / 0.55);
+  outline: 2px solid color-mix(in oklab, var(--rp-accent) 70%, transparent);
   outline-offset: 2px;
+}
+
+/* Smooth token transition only while a theme change is animating */
+html.theme-transitioning * {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -280,7 +280,7 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
                 <button
                   onClick={() => connect(false)}
                   disabled={busy !== null}
-                  className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+                  className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-on-accent hover:bg-emerald-400 disabled:opacity-60"
                 >
                   {busy === 'connect-demo' ? 'Connecting…' : 'Connect Razorpay Test Account'}
                 </button>

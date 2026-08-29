@@ -118,7 +118,7 @@ export default function PaymentPlanForm({
       <button
         type="submit"
         disabled={saving}
-        className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 border border-emerald-300 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-on-accent border border-emerald-300 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {saving ? 'Creating…' : 'Create Payment Plan'}
       </button>

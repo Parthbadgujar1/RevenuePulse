@@ -200,7 +200,7 @@ export default function RunDemoForm() {
         <button
           onClick={run}
           disabled={running || selected.length === 0}
-          className="mt-4 rounded-lg bg-emerald-500 px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 rounded-lg bg-emerald-500 px-5 py-2 text-sm font-semibold text-on-accent transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {running ? 'Running…' : `Generate & Run Recovery on ${count} payments`}
         </button>
