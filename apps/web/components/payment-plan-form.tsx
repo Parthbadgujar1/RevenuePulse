@@ -67,19 +67,19 @@ export default function PaymentPlanForm({
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Invoice Total</p>
-        <p className="mt-1 text-lg font-semibold text-gray-900">{formatCurrency(totalAmount)}</p>
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Invoice Total</p>
+        <p className="mt-1 text-lg font-semibold text-slate-100">{formatCurrency(totalAmount)}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Installments</label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-slate-400">Installments</label>
           <select
             value={installments}
             onChange={(e) => setInstallments(Number(e.target.value))}
             disabled={saving}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm"
           >
             {Array.from({ length: 11 }, (_, i) => i + 2).map((n) => (
               <option key={n} value={n}>{n} installments</option>
@@ -87,31 +87,31 @@ export default function PaymentPlanForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Start Date</label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-slate-400">Start Date</label>
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             disabled={saving}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm"
           />
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Payment Schedule Preview</p>
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Payment Schedule Preview</p>
         <div className="mt-2 divide-y divide-gray-100">
           {schedule.map((s) => (
             <div key={s.number} className="flex items-center justify-between py-2 text-sm">
-              <span className="text-gray-600">Installment {s.number}</span>
-              <span className="text-gray-500">{s.date}</span>
-              <span className="font-medium text-gray-900">{formatCurrency(s.amount)}</span>
+              <span className="text-slate-400">Installment {s.number}</span>
+              <span className="text-slate-400">{s.date}</span>
+              <span className="font-medium text-slate-100">{formatCurrency(s.amount)}</span>
             </div>
           ))}
         </div>
-        <div className="mt-2 flex items-center justify-between border-t border-gray-200 pt-2 text-sm font-semibold">
-          <span className="text-gray-900">Total</span>
-          <span className="text-gray-900">{formatCurrency(totalAmount)}</span>
+        <div className="mt-2 flex items-center justify-between border-t border-slate-800 pt-2 text-sm font-semibold">
+          <span className="text-slate-100">Total</span>
+          <span className="text-slate-100">{formatCurrency(totalAmount)}</span>
         </div>
       </div>
 
@@ -126,8 +126,8 @@ export default function PaymentPlanForm({
       {result && (
         <p className={`rounded-lg border px-3 py-2 text-sm ${
           result.ok
-            ? 'border-green-300 bg-green-50 text-green-800'
-            : 'border-red-300 bg-red-50 text-red-800'
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+            : 'border-red-500/30 bg-red-500/10 text-red-300'
         }`}>
           {result.text}
         </p>

@@ -1,1 +1,39 @@
 @import "tailwindcss";
+
+/* ── RevenuePulse dark theme ───────────────────────────────────────────────
+   Cohesive dark surfaces across every page. Individual screens already set
+   their own bg (min-h-screen bg-slate-950 / bg-slate-900 cards), so these
+   base tokens just harmonize typography, selection, scrollbars and focus.
+   ──────────────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scrollbar-color: rgb(71 85 105) rgb(2 6 23);
+  scrollbar-width: thin;
+}
+
+body {
+  background-color: rgb(2 6 23); /* slate-950 */
+  color: rgb(241 245 249); /* slate-100 */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: rgb(16 185 129 / 0.35); /* emerald-500 tint */
+  color: rgb(255 255 255);
+}
+
+/* Subtle emerald focus ring for interactive controls */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgb(52 211 153 / 0.55);
+  outline-offset: 2px;
+}

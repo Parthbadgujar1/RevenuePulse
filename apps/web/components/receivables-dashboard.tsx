@@ -117,7 +117,7 @@ export default function ReceivablesDashboard() {
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-sm">
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-6 text-sm text-slate-400 shadow-sm">
         Loading receivables…
       </div>
     );
@@ -125,7 +125,7 @@ export default function ReceivablesDashboard() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700 shadow-sm">
+      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6 text-sm text-red-300 shadow-sm">
         {error}
       </div>
     );
@@ -135,49 +135,49 @@ export default function ReceivablesDashboard() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold text-gray-900">Receivables Overview</p>
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-sm">
+        <p className="text-sm font-semibold text-slate-100">Receivables Overview</p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Total Pending</p>
-            <p className="mt-1 text-lg font-semibold text-gray-900">{formatCurrency(summary.totalPending)}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Pending</p>
+            <p className="mt-1 text-lg font-semibold text-slate-100">{formatCurrency(summary.totalPending)}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Total Overdue</p>
-            <p className="mt-1 text-lg font-semibold text-red-700">{formatCurrency(summary.totalOverdue)}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Overdue</p>
+            <p className="mt-1 text-lg font-semibold text-red-300">{formatCurrency(summary.totalOverdue)}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Collection Rate</p>
-            <p className="mt-1 text-lg font-semibold text-emerald-700">{summary.collectionRate.toFixed(1)}%</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Collection Rate</p>
+            <p className="mt-1 text-lg font-semibold text-emerald-300">{summary.collectionRate.toFixed(1)}%</p>
           </div>
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold text-gray-900">Aging Buckets</p>
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-sm">
+        <p className="text-sm font-semibold text-slate-100">Aging Buckets</p>
         <div className="mt-4 space-y-3">
           {summary.agingBuckets.map((bucket) => (
             <div key={bucket.label} className="flex items-center gap-3">
-              <span className="w-16 text-xs font-medium text-gray-500">{bucket.label}</span>
+              <span className="w-16 text-xs font-medium text-slate-400">{bucket.label}</span>
               <div className="flex-1">
-                <div className="h-5 w-full rounded bg-gray-100">
+                <div className="h-5 w-full rounded bg-slate-800">
                   <div
-                    className={`h-5 rounded ${bucket.label.includes('90') ? 'bg-red-400' : bucket.label.includes('61') ? 'bg-amber-400' : bucket.label.includes('31') ? 'bg-yellow-300' : 'bg-emerald-400'}`}
+                    className={`h-5 rounded ${bucket.label.includes('90') ? 'bg-red-400' : bucket.label.includes('61') ? 'bg-amber-400' : bucket.label.includes('31') ? 'bg-amber-500' : 'bg-emerald-400'}`}
                     style={{ width: `${(bucket.amount / maxBucketAmount) * 100}%` }}
                   />
                 </div>
               </div>
-              <span className="w-24 text-right text-xs text-gray-600">{formatCurrency(bucket.amount)}</span>
-              <span className="w-10 text-right text-xs text-gray-400">{bucket.count}</span>
+              <span className="w-24 text-right text-xs text-slate-400">{formatCurrency(bucket.amount)}</span>
+              <span className="w-10 text-right text-xs text-slate-500">{bucket.count}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-sm">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-gray-900">Recent Invoices</p>
+          <p className="text-sm font-semibold text-slate-100">Recent Invoices</p>
           <button
             onClick={() => setShowCreateForm((v) => !v)}
             className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 border border-emerald-300 hover:bg-emerald-400 transition"
@@ -187,20 +187,20 @@ export default function ReceivablesDashboard() {
         </div>
 
         {showCreateForm && (
-          <form onSubmit={handleCreateInvoice} className="mt-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <form onSubmit={handleCreateInvoice} className="mt-4 space-y-3 rounded-lg border border-slate-800 bg-slate-900 p-4">
             <div>
-              <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Customer Name</label>
+              <label className="block text-xs font-medium uppercase tracking-wide text-slate-400">Customer Name</label>
               <input
                 type="text"
                 required
                 value={createForm.customerName}
                 onChange={(e) => setCreateForm((f) => ({ ...f, customerName: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400"
+                className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm placeholder:text-slate-500"
                 placeholder="Acme Corp"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Amount (₹)</label>
+              <label className="block text-xs font-medium uppercase tracking-wide text-slate-400">Amount (₹)</label>
               <input
                 type="number"
                 required
@@ -208,26 +208,26 @@ export default function ReceivablesDashboard() {
                 step="0.01"
                 value={createForm.amount}
                 onChange={(e) => setCreateForm((f) => ({ ...f, amount: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400"
+                className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm placeholder:text-slate-500"
                 placeholder="1000"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Due Date</label>
+              <label className="block text-xs font-medium uppercase tracking-wide text-slate-400">Due Date</label>
               <input
                 type="date"
                 value={createForm.dueDate}
                 onChange={(e) => setCreateForm((f) => ({ ...f, dueDate: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Customer Email</label>
+              <label className="block text-xs font-medium uppercase tracking-wide text-slate-400">Customer Email</label>
               <input
                 type="email"
                 value={createForm.customerEmail}
                 onChange={(e) => setCreateForm((f) => ({ ...f, customerEmail: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400"
+                className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm placeholder:text-slate-500"
                 placeholder="billing@example.com"
               />
             </div>
@@ -242,7 +242,7 @@ export default function ReceivablesDashboard() {
               <button
                 type="button"
                 onClick={() => setShowCreateForm(false)}
-                className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
+                className="rounded-lg border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-400 hover:bg-slate-900 transition"
               >
                 Cancel
               </button>
@@ -253,7 +253,7 @@ export default function ReceivablesDashboard() {
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-gray-100 text-xs font-medium uppercase tracking-wide text-gray-400">
+              <tr className="border-b border-slate-800 text-xs font-medium uppercase tracking-wide text-slate-500">
                 <th className="pb-2 pr-4">Reference</th>
                 <th className="pb-2 pr-4">Customer</th>
                 <th className="pb-2 pr-4 text-right">Amount</th>
@@ -264,22 +264,22 @@ export default function ReceivablesDashboard() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {summary.recentInvoices.map((inv) => (
-                <tr key={inv.id} className="hover:bg-gray-50">
-                  <td className="py-2.5 pr-4 font-medium text-gray-900">{inv.reference}</td>
-                  <td className="py-2.5 pr-4 text-gray-700">{inv.customerName}</td>
-                  <td className="py-2.5 pr-4 text-right text-gray-900">{formatCurrency(inv.amount)}</td>
+                <tr key={inv.id} className="hover:bg-slate-900">
+                  <td className="py-2.5 pr-4 font-medium text-slate-100">{inv.reference}</td>
+                  <td className="py-2.5 pr-4 text-slate-300">{inv.customerName}</td>
+                  <td className="py-2.5 pr-4 text-right text-slate-100">{formatCurrency(inv.amount)}</td>
                   <td className="py-2.5 pr-4">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                       inv.status === 'PAID'
-                        ? 'bg-green-100 text-green-700'
+                        ? 'bg-emerald-500/15 text-emerald-300'
                         : inv.status === 'OVERDUE'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-amber-100 text-amber-800'
+                          ? 'bg-red-500/15 text-red-300'
+                          : 'bg-amber-500/10 text-amber-300'
                     }`}>
                       {inv.status}
                     </span>
                   </td>
-                  <td className="py-2.5 text-right text-xs text-gray-500">
+                  <td className="py-2.5 text-right text-xs text-slate-400">
                     {inv.overdueDays > 0 ? inv.overdueDays : '—'}
                   </td>
                   <td className="py-2.5 text-right">
@@ -288,13 +288,13 @@ export default function ReceivablesDashboard() {
                         <>
                           <button
                             onClick={() => setChaseInvoiceId(chaseInvoiceId === inv.id ? null : inv.id)}
-                            className="text-xs font-medium text-emerald-600 hover:underline"
+                            className="text-xs font-medium text-emerald-400 hover:underline"
                           >
                             Chase
                           </button>
                           <button
                             onClick={() => handleDeleteInvoice(inv.id)}
-                            className="text-xs font-medium text-red-600 hover:underline"
+                            className="text-xs font-medium text-red-400 hover:underline"
                           >
                             Delete
                           </button>
@@ -306,7 +306,7 @@ export default function ReceivablesDashboard() {
               ))}
               {summary.recentInvoices.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-sm text-gray-500">No invoices found.</td>
+                  <td colSpan={6} className="py-4 text-center text-sm text-slate-400">No invoices found.</td>
                 </tr>
               )}
             </tbody>
@@ -314,12 +314,12 @@ export default function ReceivablesDashboard() {
         </div>
 
         {chaseInvoiceId && (
-          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900 p-4">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-700">Send Payment Reminder</p>
+              <p className="text-xs font-semibold text-slate-300">Send Payment Reminder</p>
               <button
                 onClick={() => setChaseInvoiceId(null)}
-                className="text-xs text-gray-400 hover:text-gray-600"
+                className="text-xs text-slate-500 hover:text-slate-400"
               >
                 ✕
               </button>

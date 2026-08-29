@@ -33,14 +33,14 @@ export function categoryLabel(cat: string | null | undefined): string {
 }
 
 export const STATUS_TONES: Record<string, string> = {
-  DETECTED: 'bg-red-100 text-red-700 border-red-300',
-  EVALUATED: 'bg-blue-100 text-blue-700 border-blue-300',
-  ACTION_PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  RECOVERY_IN_PROGRESS: 'bg-purple-100 text-purple-700 border-purple-300',
-  OUTCOME_PENDING: 'bg-orange-100 text-orange-800 border-orange-300',
-  RECOVERED: 'bg-green-100 text-green-700 border-green-300',
-  FAILED: 'bg-gray-200 text-gray-700 border-gray-300',
-  STOPPED: 'bg-gray-200 text-gray-700 border-gray-300',
+  DETECTED: 'bg-red-500/10 text-red-300 border-red-500/30',
+  EVALUATED: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+  ACTION_PENDING: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+  RECOVERY_IN_PROGRESS: 'bg-purple-500/10 text-purple-300 border-purple-500/30',
+  OUTCOME_PENDING: 'bg-orange-500/10 text-orange-300 border-orange-500/30',
+  RECOVERED: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
+  FAILED: 'bg-slate-800 text-slate-300 border-slate-700',
+  STOPPED: 'bg-slate-800 text-slate-300 border-slate-700',
 };
 
 /** Source attribution chips — where each case came from. */
@@ -52,7 +52,7 @@ export const SOURCE_LABELS: Record<string, string> = {
 };
 
 export function statusTone(status: string): string {
-  return STATUS_TONES[status] || 'bg-gray-100 text-gray-700 border-gray-300';
+  return STATUS_TONES[status] || 'bg-slate-800 text-slate-300 border-slate-700';
 }
 
 export function timeAgo(date: Date | string | null | undefined): string {

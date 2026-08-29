@@ -47,7 +47,7 @@ export default function InvoiceChaseForm({
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Channel</label>
+        <label className="block text-xs font-medium uppercase tracking-wide text-slate-400">Channel</label>
         <div className="mt-2 flex gap-2">
           {CHANNELS.map((c) => (
             <button
@@ -56,8 +56,8 @@ export default function InvoiceChaseForm({
               onClick={() => setChannel(c.value)}
               className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
                 channel === c.value
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
+                  : 'border-slate-800 bg-slate-900 text-slate-400 hover:bg-slate-900'
               }`}
             >
               {c.label}
@@ -67,7 +67,7 @@ export default function InvoiceChaseForm({
       </div>
 
       <div>
-        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+        <label className="block text-xs font-medium uppercase tracking-wide text-slate-400">
           Message <span className="font-normal normal-case">(optional)</span>
         </label>
         <textarea
@@ -75,7 +75,7 @@ export default function InvoiceChaseForm({
           onChange={(e) => setMessage(e.target.value)}
           rows={3}
           placeholder="Custom message to include in the reminder…"
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400"
+          className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm placeholder:text-slate-500"
         />
       </div>
 
@@ -90,8 +90,8 @@ export default function InvoiceChaseForm({
       {result && (
         <p className={`rounded-lg border px-3 py-2 text-sm ${
           result.ok
-            ? 'border-green-300 bg-green-50 text-green-800'
-            : 'border-red-300 bg-red-50 text-red-800'
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+            : 'border-red-500/30 bg-red-500/10 text-red-300'
         }`}>
           {result.text}
         </p>

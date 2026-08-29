@@ -52,11 +52,11 @@ async function loadStatus() {
 export default async function IntegrationsPage() {
   const status = await loadStatus();
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-950">
       <AppNav />
       <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Integrations</h1>
-        <p className="mb-6 mt-1 text-sm text-gray-500">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-100">Integrations</h1>
+        <p className="mb-6 mt-1 text-sm text-slate-400">
           Connect a data source so failed payments flow into the AI recovery pipeline.
         </p>
         <ConnectRazorpayCard initial={status} />

@@ -15,9 +15,9 @@ const VARIANT_STYLES: Record<string, string> = {
   primary:
     'bg-emerald-500 text-slate-950 hover:bg-emerald-400 border-emerald-300',
   secondary:
-    'bg-white text-gray-700 hover:bg-gray-50 border-gray-300',
+    'bg-slate-900 text-slate-300 hover:bg-slate-900 border-slate-700',
   danger:
-    'bg-red-50 text-red-700 hover:bg-red-100 border-red-300',
+    'bg-red-500/10 text-red-300 hover:bg-red-500/15 border-red-500/30',
 };
 
 export default function AdminActions({
@@ -60,9 +60,9 @@ export default function AdminActions({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <p className="text-sm font-semibold text-gray-900">Admin Controls</p>
-      <p className="mt-0.5 text-xs text-gray-500">
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
+      <p className="text-sm font-semibold text-slate-100">Admin Controls</p>
+      <p className="mt-0.5 text-xs text-slate-400">
         Override the automatic decision. The AI still suggests the best path — you decide.
       </p>
 
@@ -76,16 +76,16 @@ export default function AdminActions({
             >
               {busy === a.action ? 'Working…' : a.label}
             </button>
-            <span className="text-xs text-gray-500">{a.description}</span>
+            <span className="text-xs text-slate-400">{a.description}</span>
           </div>
         ))}
       </div>
 
       {error && (
-        <p className="mt-3 rounded bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
+        <p className="mt-3 rounded bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>
       )}
       {success && (
-        <p className="mt-3 rounded bg-green-50 px-3 py-2 text-xs text-green-700">{success}</p>
+        <p className="mt-3 rounded bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">{success}</p>
       )}
     </div>
   );

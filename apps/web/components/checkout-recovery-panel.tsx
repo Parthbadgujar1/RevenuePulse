@@ -85,7 +85,7 @@ export default function CheckoutRecoveryPanel({ sessionId }: { sessionId?: strin
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-sm">
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-6 text-sm text-slate-400 shadow-sm">
         Loading checkout session…
       </div>
     );
@@ -93,49 +93,49 @@ export default function CheckoutRecoveryPanel({ sessionId }: { sessionId?: strin
 
   if (!session) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-sm">
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-6 text-sm text-slate-400 shadow-sm">
         No checkout session selected.
       </div>
     );
   }
 
   const statusTone: Record<string, string> = {
-    abandoned: 'bg-amber-100 text-amber-800',
-    recovery_sent: 'bg-blue-100 text-blue-800',
-    recovered: 'bg-green-100 text-green-800',
-    expired: 'bg-gray-100 text-gray-600',
+    abandoned: 'bg-amber-500/10 text-amber-300',
+    recovery_sent: 'bg-blue-500/15 text-blue-300',
+    recovered: 'bg-emerald-500/15 text-emerald-300',
+    expired: 'bg-slate-800 text-slate-400',
   };
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-900">Checkout Recovery</p>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone[session.status] ?? 'bg-gray-100 text-gray-600'}`}>
+        <p className="text-sm font-semibold text-slate-100">Checkout Recovery</p>
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone[session.status] ?? 'bg-slate-800 text-slate-400'}`}>
           {session.status.replace(/_/g, ' ')}
         </span>
       </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Amount</p>
-          <p className="mt-1 text-lg font-semibold text-gray-900">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Amount</p>
+          <p className="mt-1 text-lg font-semibold text-slate-100">
             {session.currency.toUpperCase()} {(session.amount / 100).toFixed(2)}
           </p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Abandonment Reason</p>
-          <p className="mt-1 text-sm text-gray-800">{session.abandonmentReason ?? 'Unknown'}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Abandonment Reason</p>
+          <p className="mt-1 text-sm text-slate-200">{session.abandonmentReason ?? 'Unknown'}</p>
         </div>
         {session.incentiveType && (
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Incentive Applied</p>
-            <p className="mt-1 text-sm text-gray-800">{session.incentiveType}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Incentive Applied</p>
+            <p className="mt-1 text-sm text-slate-200">{session.incentiveType}</p>
           </div>
         )}
         {session.customerEmail && (
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Customer</p>
-            <p className="mt-1 text-sm text-gray-800">{session.customerEmail}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Customer</p>
+            <p className="mt-1 text-sm text-slate-200">{session.customerEmail}</p>
           </div>
         )}
       </div>
@@ -153,7 +153,7 @@ export default function CheckoutRecoveryPanel({ sessionId }: { sessionId?: strin
             <button
               onClick={markRecovered}
               disabled={busy !== null}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy === 'mark' ? 'Working…' : 'Mark Recovered'}
             </button>
@@ -162,10 +162,10 @@ export default function CheckoutRecoveryPanel({ sessionId }: { sessionId?: strin
       </div>
 
       {error && (
-        <p className="mt-3 rounded bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
+        <p className="mt-3 rounded bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>
       )}
       {success && (
-        <p className="mt-3 rounded bg-green-50 px-3 py-2 text-xs text-green-700">{success}</p>
+        <p className="mt-3 rounded bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">{success}</p>
       )}
     </div>
   );

@@ -40,9 +40,9 @@ export default function DemoGeneratePanel() {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-      <h2 className="font-semibold text-gray-900">Generate Demo Data</h2>
-      <p className="mt-1 text-sm text-gray-500">
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-sm">
+      <h2 className="font-semibold text-slate-100">Generate Demo Data</h2>
+      <p className="mt-1 text-sm text-slate-400">
         Populate checkout, receivables, and promises pages with sample data to explore all features.
       </p>
 
@@ -50,9 +50,9 @@ export default function DemoGeneratePanel() {
         {DEMO_TYPES.map((dt) => {
           const result = results[dt.key];
           return (
-            <div key={dt.key} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <p className="text-sm font-semibold text-gray-900">{dt.label}</p>
-              <p className="mt-0.5 text-xs text-gray-500">{dt.desc}</p>
+            <div key={dt.key} className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+              <p className="text-sm font-semibold text-slate-100">{dt.label}</p>
+              <p className="mt-0.5 text-xs text-slate-400">{dt.desc}</p>
               <button
                 onClick={() => generate(dt.api, dt.key)}
                 disabled={busy !== null}
@@ -61,10 +61,10 @@ export default function DemoGeneratePanel() {
                 {busy === dt.key ? 'Generating…' : result?.ok ? `Regenerate (${result.created})` : 'Generate 20'}
               </button>
               {result?.ok && (
-                <p className="mt-1 text-[11px] text-green-600">Created {result.created} records</p>
+                <p className="mt-1 text-[11px] text-emerald-400">Created {result.created} records</p>
               )}
               {result?.error && (
-                <p className="mt-1 text-[11px] text-red-600">{result.error}</p>
+                <p className="mt-1 text-[11px] text-red-400">{result.error}</p>
               )}
             </div>
           );

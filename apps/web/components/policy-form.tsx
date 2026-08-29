@@ -133,7 +133,7 @@ export default function PolicyForm() {
 
   if (!policy) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-sm">
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-6 text-sm text-slate-400 shadow-sm">
         Loading policy…
       </div>
     );
@@ -141,11 +141,11 @@ export default function PolicyForm() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-sm">
         <label className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-gray-900">Autonomous execution</p>
-            <p className="text-xs text-gray-500">
+            <p className="text-sm font-semibold text-slate-100">Autonomous execution</p>
+            <p className="text-xs text-slate-400">
               When off, every action queues for human approval regardless of amount.
             </p>
           </div>
@@ -217,8 +217,8 @@ export default function PolicyForm() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold text-gray-900">Stopping rules</p>
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-sm">
+        <p className="text-sm font-semibold text-slate-100">Stopping rules</p>
         <div className="mt-3 space-y-2">
           <ToggleRow
             label="Stop on customer decline"
@@ -238,14 +238,14 @@ export default function PolicyForm() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold text-gray-900">Allowed interventions</p>
-        <p className="text-xs text-gray-500">
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-sm">
+        <p className="text-sm font-semibold text-slate-100">Allowed interventions</p>
+        <p className="text-xs text-slate-400">
           The decision engine only considers these when picking an action.
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {ALL_INTERVENTIONS.map((i) => (
-            <label key={i.value} className="flex items-center gap-2 text-sm text-gray-700">
+            <label key={i.value} className="flex items-center gap-2 text-sm text-slate-300">
               <input
                 type="checkbox"
                 checked={policy.allowedInterventionTypes.includes(i.value)}
@@ -263,8 +263,8 @@ export default function PolicyForm() {
         <div
           className={`rounded-lg border p-3 text-sm ${
             message.ok
-              ? 'border-green-300 bg-green-50 text-green-800'
-              : 'border-red-300 bg-red-50 text-red-800'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+              : 'border-red-500/30 bg-red-500/10 text-red-300'
           }`}
         >
           {message.text}
@@ -283,12 +283,12 @@ export default function PolicyForm() {
           <button
             onClick={resetDefaults}
             disabled={saving}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-900 disabled:opacity-50"
           >
             Reset to defaults
           </button>
         )}
-        <span className="text-xs text-gray-400">Applied live — no redeploy needed.</span>
+        <span className="text-xs text-slate-500">Applied live — no redeploy needed.</span>
       </div>
     </div>
   );
@@ -308,11 +308,11 @@ function NumberField({
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div>
-      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">{label}</label>
-      <input type="number" step={step} {...input} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-      <p className="mt-0.5 text-xs font-medium text-emerald-700">
+      <label className="block text-xs font-medium uppercase tracking-wide text-slate-400">{label}</label>
+      <input type="number" step={step} {...input} className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm" />
+      <p className="mt-0.5 text-xs font-medium text-emerald-300">
         Now: {hint}
-        {note && <span className="ml-1 font-normal text-gray-400">({note})</span>}
+        {note && <span className="ml-1 font-normal text-slate-500">({note})</span>}
       </p>
     </div>
   );
@@ -332,10 +332,10 @@ function ToggleRow({
   disabled?: boolean;
 }) {
   return (
-    <label className="flex items-center justify-between gap-4 rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50">
+    <label className="flex items-center justify-between gap-4 rounded-lg border border-slate-800 px-3 py-2 hover:bg-slate-900">
       <div>
-        <p className="text-sm text-gray-800">{label}</p>
-        <p className="text-xs text-gray-500">{note}</p>
+        <p className="text-sm text-slate-200">{label}</p>
+        <p className="text-xs text-slate-400">{note}</p>
       </div>
       <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} className="h-5 w-5 accent-emerald-600" />
     </label>

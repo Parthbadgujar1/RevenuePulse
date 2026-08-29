@@ -130,9 +130,9 @@ export default function RunDemoForm() {
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="font-semibold text-gray-900">Run Recovery Simulation</h2>
-        <p className="mt-1 text-sm text-gray-500">
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-sm">
+        <h2 className="font-semibold text-slate-100">Run Recovery Simulation</h2>
+        <p className="mt-1 text-sm text-slate-400">
           Generates synthetic failed payments and pushes them through the real pipeline — durable
           webhook ingestion, diagnosis, ML scoring, policy-checked decisions, bounded execution and
           outcome verification.
@@ -144,7 +144,7 @@ export default function RunDemoForm() {
               key={name}
               onClick={() => setSelected(PRESETS[name])}
               disabled={running}
-              className="rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50"
+              className="rounded-full border border-slate-700 px-3 py-1 text-xs font-medium text-slate-300 hover:border-emerald-400 hover:text-emerald-300 disabled:opacity-50"
             >
               {name}
             </button>
@@ -153,12 +153,12 @@ export default function RunDemoForm() {
 
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div>
-            <label className="text-sm font-medium text-gray-700">Number of transactions</label>
+            <label className="text-sm font-medium text-slate-300">Number of transactions</label>
             <select
               value={count}
               onChange={(e) => setCount(Number(e.target.value))}
               disabled={running}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm"
             >
               {[25, 50, 100, 250].map((n) => (
                 <option key={n} value={n}>{n}</option>
@@ -166,23 +166,23 @@ export default function RunDemoForm() {
             </select>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-slate-300">
               Seed{' '}
-              <span className="font-normal text-gray-400">(same seed = reproducible batch)</span>
+              <span className="font-normal text-slate-500">(same seed = reproducible batch)</span>
             </label>
             <input
               type="number"
               value={seed}
               onChange={(e) => setSeed(Number(e.target.value) || 20260823)}
               disabled={running}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <span className="text-sm font-medium text-gray-700">Failure distribution</span>
+            <span className="text-sm font-medium text-slate-300">Failure distribution</span>
             <div className="mt-1 grid grid-cols-2 gap-1">
               {FAILURE_OPTIONS.map((f) => (
-                <label key={f.code} className="flex items-center gap-2 text-xs text-gray-700">
+                <label key={f.code} className="flex items-center gap-2 text-xs text-slate-300">
                   <input
                     type="checkbox"
                     checked={selected.includes(f.code)}
@@ -208,8 +208,8 @@ export default function RunDemoForm() {
 
       {/* Progress */}
       {(stageOrder.length > 0 || running) && (
-        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 font-semibold text-gray-900">Pipeline progress</h2>
+        <div className="rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-sm">
+          <h2 className="mb-3 font-semibold text-slate-100">Pipeline progress</h2>
           <ol className="space-y-3">
             {stageOrder.map((key) => {
               const st = stages[key];
@@ -218,18 +218,18 @@ export default function RunDemoForm() {
               return (
                 <li key={key}>
                   <div className="flex justify-between text-xs">
-                    <span className={st.complete ? 'font-medium text-green-700' : 'text-gray-700'}>
+                    <span className={st.complete ? 'font-medium text-emerald-300' : 'text-slate-300'}>
                       {st.complete ? '✓ ' : ''}
                       {st.label}
                     </span>
-                    <span className="text-gray-400">
+                    <span className="text-slate-500">
                       {Math.min(st.done, st.total)}/{st.total}
                     </span>
                   </div>
-                  <div className="mt-1 h-2 overflow-hidden rounded bg-gray-100">
+                  <div className="mt-1 h-2 overflow-hidden rounded bg-slate-800">
                     <div
                       className={`h-full rounded transition-all duration-300 ${
-                        st.complete ? 'bg-green-500' : 'bg-blue-500'
+                        st.complete ? 'bg-emerald-500' : 'bg-blue-500'
                       }`}
                       style={{ width: `${pct}%` }}
                     />
@@ -246,20 +246,20 @@ export default function RunDemoForm() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Kpi label="At risk" value={inr(results.money.atRisk)} tone="bg-blue-500" />
-            <Kpi label="Recovered" value={inr(results.money.recovered)} tone="bg-green-500" />
+            <Kpi label="Recovered" value={inr(results.money.recovered)} tone="bg-emerald-500" />
             <Kpi label="Intervention cost" value={inr(results.money.cost)} tone="bg-orange-500" />
             <Kpi label="Net recovered" value={inr(results.money.net)} tone="bg-purple-500" />
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-gray-900">Recovery funnel</h2>
+          <div className="rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-sm">
+            <h2 className="font-semibold text-slate-100">Recovery funnel</h2>
             <FunnelBar label="Failed payments ingested" n={results.funnel.ingested} of={results.cohortSize} />
             <FunnelBar label="Diagnosed" n={results.funnel.diagnosed} of={results.cohortSize} />
             <FunnelBar label="Eligible for recovery" n={results.funnel.eligible} of={results.cohortSize} />
             <FunnelBar label="Actions executed" n={results.funnel.executed} of={results.cohortSize} />
             <FunnelBar label="Outcomes verified" n={results.funnel.verified} of={results.cohortSize} />
             <FunnelBar label="Recovered" n={results.funnel.recovered} of={results.cohortSize} last />
-            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-gray-100 pt-3 text-xs text-gray-600">
+            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-slate-800 pt-3 text-xs text-slate-400">
               <span>⏹ {results.funnel.stoppedByPolicyOrEconomics} stopped by policy/economics</span>
               <span>👤 {results.funnel.awaitingApproval} awaiting human approval</span>
               <span>
@@ -269,8 +269,8 @@ export default function RunDemoForm() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-gray-900">Strategy comparison</h2>
+          <div className="rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-sm">
+            <h2 className="font-semibold text-slate-100">Strategy comparison</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <StrategyCard
                 title="No intervention"
@@ -294,7 +294,7 @@ export default function RunDemoForm() {
               />
             </div>
             {results.strategies.upliftVsRetryAll > 0 && (
-              <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-center text-sm font-semibold text-emerald-700">
+              <p className="mt-3 rounded-lg bg-emerald-500/10 p-3 text-center text-sm font-semibold text-emerald-300">
                 RevenuePulse nets {inr(results.strategies.upliftVsRetryAll)} more than retry-everything
                 on this exact cohort — same ground-truth simulator, smarter targeting.
               </p>
@@ -304,13 +304,13 @@ export default function RunDemoForm() {
           <div className="flex flex-wrap gap-3">
             <Link
               href="/dashboard"
-              className="rounded-lg border border-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
+              className="rounded-lg border border-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/10"
             >
               See it on the dashboard →
             </Link>
             <Link
               href="/cases"
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-900"
             >
               Investigate cases
             </Link>
@@ -319,7 +319,7 @@ export default function RunDemoForm() {
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
           {error}
         </div>
       )}
@@ -341,12 +341,12 @@ function FunnelBar({ label, n, of, last }: { label: string; n: number; of: numbe
   return (
     <div className={last ? '' : 'mb-2'}>
       <div className="flex justify-between text-xs">
-        <span className="text-gray-700">{label}</span>
-        <span className="text-gray-500">{n}</span>
+        <span className="text-slate-300">{label}</span>
+        <span className="text-slate-400">{n}</span>
       </div>
-      <div className="mt-1 h-2 rounded bg-gray-100">
+      <div className="mt-1 h-2 rounded bg-slate-800">
         <div
-          className={`h-full rounded ${last ? 'bg-green-500' : 'bg-blue-500'}`}
+          className={`h-full rounded ${last ? 'bg-emerald-500' : 'bg-blue-500'}`}
           style={{ width: `${Math.max(pct, n > 0 ? 3 : 0)}%` }}
         />
       </div>
@@ -372,15 +372,15 @@ function StrategyCard({
   return (
     <div
       className={`rounded-lg border p-4 ${
-        highlight ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'
+        highlight ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800 bg-slate-900'
       }`}
     >
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{title}</p>
-      <p className={`mt-1 text-xl font-bold ${highlight ? 'text-emerald-700' : 'text-gray-900'}`}>
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{title}</p>
+      <p className={`mt-1 text-xl font-bold ${highlight ? 'text-emerald-300' : 'text-slate-100'}`}>
         {inr(net)}
       </p>
-      <p className="text-xs text-gray-500">net · recovered {inr(recovered)} · cost {inr(cost)}</p>
-      {note && <p className="mt-1 text-[10px] uppercase tracking-wide text-gray-400">({note})</p>}
+      <p className="text-xs text-slate-400">net · recovered {inr(recovered)} · cost {inr(cost)}</p>
+      {note && <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">({note})</p>}
     </div>
   );
 }

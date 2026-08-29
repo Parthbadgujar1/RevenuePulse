@@ -126,18 +126,18 @@ export default async function CaseDetailPage({
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-      <Link href="/cases" className="text-sm text-emerald-600 hover:underline">
+      <Link href="/cases" className="text-sm text-emerald-400 hover:underline">
         ← All cases
       </Link>
 
       {/* Header — plain language */}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-100">
             {inr(revenueCase.amountAtRisk)} payment from{' '}
             {tx?.customerName || 'customer'}
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-slate-400">
             Case {revenueCase.ref || 'new'} · {tx?.paymentMethod ? `paid via ${tx.paymentMethod}` : 'payment'}{' '}
             {tx?.occurredAt ? `${timeAgo(tx.occurredAt)}` : ''}
           </p>
@@ -146,9 +146,9 @@ export default async function CaseDetailPage({
       </div>
 
       {/* What happened — plain English */}
-      <div className="mt-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">What happened</p>
-        <p className="mt-1 text-sm text-gray-800">{whatHappened}</p>
+      <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">What happened</p>
+        <p className="mt-1 text-sm text-slate-200">{whatHappened}</p>
       </div>
 
       {/* Outcome banner — simplified */}
@@ -156,13 +156,13 @@ export default async function CaseDetailPage({
         <div
           className={`mt-3 rounded-lg border p-4 ${
             latestOutcome.result === 'RECOVERED' || latestOutcome.result === 'ADMIN_CONFIRMED_RECOVERY'
-              ? 'border-green-300 bg-green-50'
-              : 'border-gray-300 bg-gray-50'
+              ? 'border-emerald-500/30 bg-emerald-500/10'
+              : 'border-slate-700 bg-slate-900'
           }`}
         >
           {latestOutcome.result === 'RECOVERED' || latestOutcome.result === 'ADMIN_CONFIRMED_RECOVERY' ? (
             <>
-              <p className="font-semibold text-green-800">
+              <p className="font-semibold text-emerald-300">
                 {plainOutcomeExplanation(
                   latestOutcome.result,
                   latestOutcome.recoveredAmount,
@@ -171,7 +171,7 @@ export default async function CaseDetailPage({
                 )}
               </p>
               {latestOutcome.verifiedAt && (
-                <p className="mt-0.5 text-xs text-green-600">
+                <p className="mt-0.5 text-xs text-emerald-400">
                   Confirmed {timeAgo(latestOutcome.verifiedAt)}
                   {latestOutcome.verificationRef ? ` · ref ${latestOutcome.verificationRef}` : ''}
                 </p>
@@ -179,7 +179,7 @@ export default async function CaseDetailPage({
             </>
           ) : (
             <>
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-slate-300">
                 {plainOutcomeExplanation(
                   'NOT_RECOVERED',
                   0,
@@ -199,8 +199,8 @@ export default async function CaseDetailPage({
 
       {/* Outcomes banner for FAILED/STOPPED without explicit outcome */}
       {['FAILED', 'STOPPED'].includes(revenueCase.status) && !latestOutcome && (
-        <div className="mt-3 rounded-lg border border-gray-300 bg-gray-50 p-4">
-          <p className="text-sm text-gray-700">
+        <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900 p-4">
+          <p className="text-sm text-slate-300">
             {revenueCase.status === 'FAILED'
               ? 'This payment was not recovered. The system tried but the bank or provider did not complete the transfer.'
               : `This case was closed${revenueCase.stoppedReason ? ` — ${revenueCase.stoppedReason.replace(/_/g, ' ')}` : ''}.`}
@@ -236,11 +236,11 @@ export default async function CaseDetailPage({
 
       {/* Pending approval */}
       {pendingApproval && (
-        <div className="mt-3 rounded-lg border border-yellow-300 bg-yellow-50 p-4">
+        <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
           <p className="text-sm font-semibold text-yellow-900">
             This action needs your approval before it can run.
           </p>
-          <p className="mt-0.5 text-sm text-yellow-800">
+          <p className="mt-0.5 text-sm text-amber-300">
             The AI has proposed a recovery plan. Review the details below and approve when ready.
           </p>
           <div className="mt-2">
@@ -251,18 +251,18 @@ export default async function CaseDetailPage({
 
       {/* Refund status */}
       {refunds.length > 0 && (
-        <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <div className="mt-3 rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
           <p className="text-sm font-semibold text-blue-900">Refund Status</p>
           {refunds.map((refund) => (
-            <div key={refund.id} className="mt-2 flex items-center gap-3 text-sm text-blue-800">
+            <div key={refund.id} className="mt-2 flex items-center gap-3 text-sm text-blue-300">
               <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                 refund.status === 'processed'
-                  ? 'bg-green-100 text-green-700'
+                  ? 'bg-emerald-500/15 text-emerald-300'
                   : refund.status === 'initiated'
-                    ? 'bg-blue-100 text-blue-700'
+                    ? 'bg-blue-100 text-blue-300'
                     : refund.status === 'failed'
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-yellow-100 text-yellow-800'
+                      ? 'bg-red-500/15 text-red-300'
+                      : 'bg-amber-500/20 text-amber-300'
               }`}>
                 {refund.status}
               </span>
@@ -286,10 +286,10 @@ export default async function CaseDetailPage({
         <section className="lg:col-span-3">
           {/* AI suggestion — plain language */}
           {whatAiSuggests && (
-            <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">AI recommendation</p>
+            <div className="mb-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-emerald-400">AI recommendation</p>
               <p className="mt-1 text-sm text-emerald-900">{whatAiSuggests}</p>
-              <p className="mt-1 text-xs text-emerald-600">
+              <p className="mt-1 text-xs text-emerald-400">
                 Based on model {prediction?.modelVersion ?? 'v3'} · scored{' '}
                 {new Date(actions.find((a) => a.actionType)?.createdAt ?? revenueCase.createdAt).toLocaleTimeString()}
               </p>
@@ -330,13 +330,13 @@ export default async function CaseDetailPage({
             const blocked = (snapshot.blockedAlternatives as Array<{ action: string; reason: string }>) || [];
             if (blocked.length === 0) return null;
             return (
-              <div className="mt-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+              <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                   Other options the AI considered
                 </p>
                 <ul className="mt-2 space-y-1.5">
                   {blocked.map((b, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                    <li key={i} className="flex items-start gap-2 text-sm text-slate-400">
                       <span className="mt-0.5 text-gray-300">•</span>
                       <span>
                         <span className="font-medium">{humanizeAction(b.action)}</span>{' '}
@@ -350,33 +350,33 @@ export default async function CaseDetailPage({
           })()}
 
           {/* Transaction details — simplified */}
-          <div className="mt-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Payment details</p>
+          <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Payment details</p>
             <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-              <dt className="text-gray-500">Amount</dt>
-              <dd className="text-gray-800">{inr(tx?.amount ?? revenueCase.amountAtRisk)}</dd>
-              <dt className="text-gray-500">Method</dt>
-              <dd className="capitalize text-gray-800">{tx?.paymentMethod ?? '—'}</dd>
+              <dt className="text-slate-400">Amount</dt>
+              <dd className="text-slate-200">{inr(tx?.amount ?? revenueCase.amountAtRisk)}</dd>
+              <dt className="text-slate-400">Method</dt>
+              <dd className="capitalize text-slate-200">{tx?.paymentMethod ?? '—'}</dd>
               {tx?.providerTransactionId && (
                 <>
-                  <dt className="text-gray-500">Razorpay ID</dt>
-                  <dd className="truncate font-mono text-xs text-gray-600">{tx.providerTransactionId}</dd>
+                  <dt className="text-slate-400">Razorpay ID</dt>
+                  <dd className="truncate font-mono text-xs text-slate-400">{tx.providerTransactionId}</dd>
                 </>
               )}
               {tx?.customerName && (
                 <>
-                  <dt className="text-gray-500">Customer</dt>
-                  <dd className="text-gray-800">{tx.customerName}</dd>
+                  <dt className="text-slate-400">Customer</dt>
+                  <dd className="text-slate-200">{tx.customerName}</dd>
                 </>
               )}
               {tx?.customerEmail && (
                 <>
-                  <dt className="text-gray-500">Email</dt>
-                  <dd className="truncate text-gray-800">{tx.customerEmail}</dd>
+                  <dt className="text-slate-400">Email</dt>
+                  <dd className="truncate text-slate-200">{tx.customerEmail}</dd>
                 </>
               )}
-              <dt className="text-gray-500">Source</dt>
-              <dd className="text-gray-800">
+              <dt className="text-slate-400">Source</dt>
+              <dd className="text-slate-200">
                 {SOURCE_LABELS[String((tx?.paymentMethodDetails as any)?.source ?? 'webhook')] ??
                   '🔵 Razorpay Webhook'}
               </dd>
@@ -386,10 +386,10 @@ export default async function CaseDetailPage({
 
         {/* Right column: timeline */}
         <section className="lg:col-span-2">
-          <h2 className="mb-3 text-lg font-medium text-gray-900">What we did</h2>
-          <ol className="relative space-y-4 border-l-2 border-gray-200 pl-5">
+          <h2 className="mb-3 text-lg font-medium text-slate-100">What we did</h2>
+          <ol className="relative space-y-4 border-l-2 border-slate-800 pl-5">
             {auditLogs.length === 0 && (
-              <li className="text-sm text-gray-500">No actions recorded yet.</li>
+              <li className="text-sm text-slate-400">No actions recorded yet.</li>
             )}
             {auditLogs.map((log) => {
               const meta = ACTION_LABELS[log.action] || {
@@ -398,12 +398,12 @@ export default async function CaseDetailPage({
               };
               return (
                 <li key={log.id} className="relative">
-                  <span className="absolute -left-[27px] flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs ring-2 ring-emerald-200">
+                  <span className="absolute -left-[27px] flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-xs ring-2 ring-emerald-500/30">
                     {meta.icon}
                   </span>
-                  <p className="text-sm font-medium text-gray-900">{meta.label}</p>
-                  <p className="text-xs text-gray-600">{log.reason}</p>
-                  <p className="mt-0.5 text-xs text-gray-400">
+                  <p className="text-sm font-medium text-slate-100">{meta.label}</p>
+                  <p className="text-xs text-slate-400">{log.reason}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
                     {new Date(log.createdAt).toLocaleTimeString()} ·{' '}
                     {log.actorType === 'system' || log.actorType === 'agent' ? 'AI' : log.actorId}
                   </p>
@@ -425,10 +425,10 @@ export default async function CaseDetailPage({
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-gray-900">{value}</p>
-      {hint && <p className="truncate text-xs text-gray-400">{hint}</p>}
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-slate-100">{value}</p>
+      {hint && <p className="truncate text-xs text-slate-500">{hint}</p>}
     </div>
   );
 }

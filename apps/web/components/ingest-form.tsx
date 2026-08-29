@@ -124,7 +124,7 @@ export default function IngestForm() {
         }}
         onClick={() => inputRef.current?.click()}
         className={`cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition ${
-          dragOver ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-white hover:border-indigo-400'
+          dragOver ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700 bg-slate-900 hover:border-indigo-400'
         }`}
       >
         <input
@@ -138,33 +138,33 @@ export default function IngestForm() {
           }}
         />
         <p className="text-4xl">📥</p>
-        <p className="mt-2 font-semibold text-gray-900">
+        <p className="mt-2 font-semibold text-slate-100">
           {busy === 'analyze' ? 'Analyzing…' : 'Drop your payment export here'}
         </p>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-slate-400">
           CSV · Excel (.xlsx/.xls) · PDF report — or click to browse (max 10 MB, 5,000 rows)
         </p>
       </div>
 
-      <div className="grid gap-3 text-sm text-gray-600 md:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <p className="font-medium text-gray-800">Automatic column mapping</p>
+      <div className="grid gap-3 text-sm text-slate-400 md:grid-cols-3">
+        <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+          <p className="font-medium text-slate-200">Automatic column mapping</p>
           Detects amount, status, method, error code/date columns by fuzzy header matching — any export format works.
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <p className="font-medium text-gray-800">Same AI pipeline</p>
+        <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+          <p className="font-medium text-slate-200">Same AI pipeline</p>
           Imported failures flow through the exact diagnose → predict → decide → execute → verify workflow as live webhooks.
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <p className="font-medium text-gray-800">Razorpay API too</p>
+        <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+          <p className="font-medium text-slate-200">Razorpay API too</p>
           Prefer keys over files? Connect real API keys under Integrations and pull failed payments directly.
         </div>
       </div>
 
       {/* Sample Templates */}
-      <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
-        <p className="text-sm font-semibold text-indigo-900">Sample CSV Templates</p>
-        <p className="mt-1 text-xs text-indigo-700">
+      <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-4">
+        <p className="text-sm font-semibold text-indigo-300">Sample CSV Templates</p>
+        <p className="mt-1 text-xs text-indigo-300">
           Download a template to see the expected column format for each data type.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -176,22 +176,22 @@ export default function IngestForm() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</div>
       )}
 
       {/* Analysis results */}
       {preview && !preview.ingested && (
-        <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
+        <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-semibold text-gray-900">
+            <h2 className="font-semibold text-slate-100">
               📄 {preview.fileName} — detected {preview.totalRows.toLocaleString()} rows
             </h2>
-            <label className="flex items-center gap-2 text-xs text-gray-600">
+            <label className="flex items-center gap-2 text-xs text-slate-400">
               Amounts are in:
               <select
                 value={amountUnit}
                 onChange={(e) => reanalyze(e.target.value as typeof amountUnit)}
-                className="rounded border border-gray-300 px-2 py-1 text-xs"
+                className="rounded border border-slate-700 px-2 py-1 text-xs"
               >
                 <option value="auto">Auto-detect</option>
                 <option value="rupees">Rupees (₹)</option>
@@ -208,20 +208,20 @@ export default function IngestForm() {
           </div>
 
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
               Column mapping
             </p>
-            <div className="overflow-hidden rounded-lg border border-gray-200">
+            <div className="overflow-hidden rounded-lg border border-slate-800">
               <table className="w-full text-sm">
                 <tbody className="divide-y divide-gray-100">
                   {preview.mapping.map((m) => (
                     <tr key={m.field}>
-                      <td className="px-3 py-1.5 font-medium text-gray-800">{FIELD_LABELS[m.field] ?? m.field}</td>
-                      <td className="px-3 py-1.5 text-gray-500">← “{m.header}”</td>
+                      <td className="px-3 py-1.5 font-medium text-slate-200">{FIELD_LABELS[m.field] ?? m.field}</td>
+                      <td className="px-3 py-1.5 text-slate-400">← “{m.header}”</td>
                       <td className="px-3 py-1.5 text-right">
                         <span
                           className={`rounded-full px-2 py-0.5 text-[11px] ${
-                            m.confidence >= 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                            m.confidence >= 1 ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'
                           }`}
                         >
                           {m.confidence >= 1 ? 'exact' : `${Math.round(m.confidence * 100)}% guess`}
@@ -231,7 +231,7 @@ export default function IngestForm() {
                   ))}
                   {Object.entries(preview.skipped).map(([reason, n]) => (
                     <tr key={reason}>
-                      <td className="px-3 py-1.5 text-red-600" colSpan={2}>
+                      <td className="px-3 py-1.5 text-red-400" colSpan={2}>
                         {n} row(s) skipped — {reason}
                       </td>
                       <td />
@@ -243,7 +243,7 @@ export default function IngestForm() {
           </div>
 
           {Object.keys(preview.categoryCounts).length > 0 && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-slate-400">
               Failure mix:{' '}
               {Object.entries(preview.categoryCounts)
                 .sort((a, b) => b[1] - a[1])
@@ -264,7 +264,7 @@ export default function IngestForm() {
                 ? 'No failed payments found in this file'
                 : `⚡ Recover ${preview.failureCount.toLocaleString()} failed payments (${inr(Math.round(preview.estimatedAtRiskInr * 100))})`}
           </button>
-          <p className="text-center text-[11px] text-gray-400">
+          <p className="text-center text-[11px] text-slate-500">
             Processing runs diagnose → ML predict → policy decision → action → verification for every row.
           </p>
         </div>
@@ -272,9 +272,9 @@ export default function IngestForm() {
 
       {/* Ingested result */}
       {preview?.ingested && (
-        <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-          <h2 className="font-semibold text-emerald-800">✅ Import complete — {preview.fileName}</h2>
-          {preview.note && <p className="text-sm text-emerald-700">{preview.note}</p>}
+        <div className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5">
+          <h2 className="font-semibold text-emerald-300">✅ Import complete — {preview.fileName}</h2>
+          {preview.note && <p className="text-sm text-emerald-300">{preview.note}</p>}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Kpi label="Processed events" value={(preview.processed ?? 0).toLocaleString()} tone="green" />
             <Kpi label="Recovery cases" value={(preview.casesCreated ?? 0).toLocaleString()} tone="green" />
@@ -289,7 +289,7 @@ export default function IngestForm() {
             <a href="/dashboard" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">
               View dashboard
             </a>
-            <a href="/cases" className="rounded-lg border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">
+            <a href="/cases" className="rounded-lg border border-emerald-500/50 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/10">
               Open recovery cases
             </a>
           </div>
@@ -301,11 +301,11 @@ export default function IngestForm() {
 
 function Kpi({ label, value, tone }: { label: string; value: string; tone?: 'green' | 'red' }) {
   const color =
-    tone === 'green' ? 'text-emerald-700' : tone === 'red' ? 'text-red-600' : 'text-gray-900';
+    tone === 'green' ? 'text-emerald-300' : tone === 'red' ? 'text-red-400' : 'text-slate-100';
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
       <p className={`text-lg font-bold ${color}`}>{value}</p>
-      <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
     </div>
   );
 }
@@ -324,7 +324,7 @@ function TemplateDownload({ name, headers, sample }: { name: string; headers: st
   return (
     <button
       onClick={download}
-      className="rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100"
+      className="rounded-lg border border-indigo-500/30 bg-slate-900 px-3 py-1.5 text-xs font-medium text-indigo-300 transition hover:bg-indigo-500/10"
     >
       Download {name} template
     </button>

@@ -238,11 +238,11 @@ async function getDashboardData() {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  DETECTED: 'bg-red-50 border-red-300 text-red-700',
-  EVALUATED: 'bg-blue-50 border-blue-300 text-blue-700',
-  ACTION_PENDING: 'bg-yellow-50 border-yellow-300 text-yellow-700',
-  RECOVERY_IN_PROGRESS: 'bg-purple-50 border-purple-300 text-purple-700',
-  RECOVERED: 'bg-green-50 border-green-300 text-green-700',
+  DETECTED: 'bg-red-500/10 border-red-500/30 text-red-300',
+  EVALUATED: 'bg-blue-500/10 border-blue-500/30 text-blue-300',
+  ACTION_PENDING: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
+  RECOVERY_IN_PROGRESS: 'bg-purple-500/10 border-purple-500/30 text-purple-300',
+  RECOVERED: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
 };
 
 export default async function Dashboard() {
@@ -250,11 +250,11 @@ export default async function Dashboard() {
   const model = await getModelInfo();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-950">
       <AppNav />
       <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-100">
             Revenue Recovery Dashboard
           </h1>
           <Link
@@ -264,32 +264,32 @@ export default async function Dashboard() {
             ▶ Run Demo Batch
           </Link>
         </div>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-slate-400">
           Live data · {summary.totalCases} case{summary.totalCases === 1 ? '' : 's'} on record
           {summary.awaitingApproval > 0 && (
-            <span className="ml-2 rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+            <span className="ml-2 rounded bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-300">
               {summary.awaitingApproval} awaiting approval
             </span>
           )}
         </p>
 
         {!ok && (
-          <div className="mb-6 rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-800">
+          <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
             Database unreachable — showing empty values.
           </div>
         )}
 
         {/* AI model transparency strip */}
         {model.ok && (
-          <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm">
-            <span className="font-semibold text-indigo-900">🧠 AI model {model.version}</span>
-            <span className="text-indigo-800" title="How well the model ranks recoverable vs hopeless cases (0.5 = coin flip, 1 = perfect)">
+          <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm">
+            <span className="font-semibold text-indigo-300">🧠 AI model {model.version}</span>
+            <span className="text-indigo-300" title="How well the model ranks recoverable vs hopeless cases (0.5 = coin flip, 1 = perfect)">
               ranking quality (ROC-AUC): <strong>{model.rocAuc?.toFixed(2) ?? '—'}</strong>
             </span>
-            <span className="text-indigo-800" title="Precision-recall quality on the recoverable class">
+            <span className="text-indigo-300" title="Precision-recall quality on the recoverable class">
               precision quality (PR-AUC): <strong>{model.prAuc?.toFixed(2) ?? '—'}</strong>
             </span>
-            <span className="text-xs text-indigo-700">trained on 60,000 industry-calibrated recovery outcomes · scores are probabilities, not guarantees</span>
+            <span className="text-xs text-indigo-300">trained on 60,000 industry-calibrated recovery outcomes · scores are probabilities, not guarantees</span>
           </div>
         )}
 
@@ -303,7 +303,7 @@ export default async function Dashboard() {
             <div className="text-2xl sm:text-3xl font-bold">{summary.openCases}</div>
             <div className="text-sm opacity-90">Open Cases</div>
           </div>
-          <div className="p-4 rounded-lg bg-green-500 text-white shadow">
+          <div className="p-4 rounded-lg bg-emerald-500 text-white shadow">
             <div className="text-2xl sm:text-3xl font-bold">{inr(summary.recovered)}</div>
             <div className="text-sm opacity-90">Recovered</div>
           </div>
@@ -322,20 +322,20 @@ export default async function Dashboard() {
         {/* Funnels */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <section>
-            <h2 className="text-lg font-medium mb-4 text-gray-900">Recovery Funnel</h2>
-            <div className="p-3 rounded-lg border border-gray-200 bg-white shadow-sm space-y-2">
+            <h2 className="text-lg font-medium mb-4 text-slate-100">Recovery Funnel</h2>
+            <div className="p-3 rounded-lg border border-slate-800 bg-slate-900 shadow-sm space-y-2">
               {funnel.length === 0 ? (
-                <p className="text-sm text-gray-500 p-2">No data yet.</p>
+                <p className="text-sm text-slate-400 p-2">No data yet.</p>
               ) : (
                 funnel.map((f) => (
                   <div key={f.stage}>
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="font-medium text-gray-700">{f.stage}</span>
-                      <span className="text-gray-500">
+                      <span className="font-medium text-slate-300">{f.stage}</span>
+                      <span className="text-slate-400">
                         {f.count} ({(f.ofTotal * 100).toFixed(0)}%)
                       </span>
                     </div>
-                    <div className="h-2 rounded bg-gray-100 overflow-hidden">
+                    <div className="h-2 rounded bg-slate-800 overflow-hidden">
                       <div
                         className="h-full rounded bg-blue-500"
                         style={{ width: `${Math.max(f.ofTotal * 100, f.count > 0 ? 4 : 0)}%` }}
@@ -348,23 +348,23 @@ export default async function Dashboard() {
           </section>
 
           <section>
-            <h2 className="text-lg font-medium mb-4 text-gray-900">Money Funnel</h2>
-            <div className="p-3 rounded-lg border border-gray-200 bg-white shadow-sm">
+            <h2 className="text-lg font-medium mb-4 text-slate-100">Money Funnel</h2>
+            <div className="p-3 rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
               {money.length === 0 ? (
-                <p className="text-sm text-gray-500 p-2">No data yet.</p>
+                <p className="text-sm text-slate-400 p-2">No data yet.</p>
               ) : (
                 <table className="w-full text-sm">
                   <tbody>
                     {money.map((m) => (
-                      <tr key={m.label} className="border-b last:border-b-0 border-gray-100">
-                        <td className="py-2 text-gray-700">{m.label}</td>
+                      <tr key={m.label} className="border-b last:border-b-0 border-slate-800">
+                        <td className="py-2 text-slate-300">{m.label}</td>
                         <td
                           className={`py-2 text-right font-semibold ${
                             m.label === 'Net recovered'
                               ? m.amount >= 0
-                                ? 'text-green-600'
-                                : 'text-red-600'
-                              : 'text-gray-900'
+                                ? 'text-emerald-400'
+                                : 'text-red-400'
+                              : 'text-slate-100'
                           }`}
                         >
                           {inr(m.amount)}
@@ -374,7 +374,7 @@ export default async function Dashboard() {
                   </tbody>
                 </table>
               )}
-              <p className="mt-2 text-xs text-gray-400">
+              <p className="mt-2 text-xs text-slate-500">
                 Outcomes in demo mode are simulated from an independent ground-truth propensity.
               </p>
             </div>
@@ -382,20 +382,20 @@ export default async function Dashboard() {
         </div>
 
         {/* Funnel explanation */}
-        <p className="mb-8 -mt-2 text-xs text-gray-500">
+        <p className="mb-8 -mt-2 text-xs text-slate-400">
           ⏹ {summary.stoppedByPolicyOrEconomics} stopped by policy/economics · 👤{' '}
           {summary.awaitingApproval} awaiting human approval · ↩︎ {summary.failedAttempts} verified
           attempts did not recover. Every case is clickable in{' '}
-          <Link href="/cases" className="font-medium text-emerald-600 hover:underline">Cases</Link> —
+          <Link href="/cases" className="font-medium text-emerald-400 hover:underline">Cases</Link> —
           see what the agent decided in{' '}
-          <Link href="/actions" className="font-medium text-emerald-600 hover:underline">Recovery Actions</Link>.
+          <Link href="/actions" className="font-medium text-emerald-400 hover:underline">Recovery Actions</Link>.
         </p>
 
         {/* Leakage Analysis */}
         <section className="mb-8">
-          <h2 className="text-lg font-medium mb-4 text-gray-900">Revenue Leakage by Category</h2>
+          <h2 className="text-lg font-medium mb-4 text-slate-100">Revenue Leakage by Category</h2>
           {categories.length === 0 ? (
-            <p className="p-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-500 shadow-sm">
+            <p className="p-3 rounded-lg border border-slate-800 bg-slate-900 text-sm text-slate-400 shadow-sm">
               No failed payments recorded yet. Send a webhook event to see leakage analysis.
             </p>
           ) : (
@@ -403,12 +403,12 @@ export default async function Dashboard() {
               {categories.map((cat) => (
                 <div
                   key={cat.name}
-                  className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 text-sm p-3 rounded-lg border border-gray-200 bg-white shadow-sm"
+                  className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 text-sm p-3 rounded-lg border border-slate-800 bg-slate-900 shadow-sm"
                 >
-                  <span className="font-medium text-gray-800 capitalize">
+                  <span className="font-medium text-slate-200 capitalize">
                     {cat.name.replace(/_/g, ' ')}
                   </span>
-                  <span className="text-gray-600">
+                  <span className="text-slate-400">
                     {inr(cat.amount)} ({cat.percentage.toFixed(1)}%)
                   </span>
                 </div>
@@ -419,9 +419,9 @@ export default async function Dashboard() {
 
         {/* Recent Cases */}
         <section>
-          <h2 className="text-lg font-medium mb-4 text-gray-900">Recent Cases</h2>
+          <h2 className="text-lg font-medium mb-4 text-slate-100">Recent Cases</h2>
           {recentCases.length === 0 ? (
-            <p className="p-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-500 shadow-sm">
+            <p className="p-3 rounded-lg border border-slate-800 bg-slate-900 text-sm text-slate-400 shadow-sm">
               No recovery cases yet.
             </p>
           ) : (
@@ -430,19 +430,19 @@ export default async function Dashboard() {
                 <div
                   key={c.id}
                   className={`p-4 rounded-lg border shadow-sm ${
-                    STATUS_STYLES[c.status] || 'border-gray-300 bg-white'
+                    STATUS_STYLES[c.status] || 'border-slate-700 bg-slate-900'
                   }`}
                 >
                   <div className="flex justify-between items-start gap-2">
-                    <span className="font-semibold text-gray-900">{inr(c.amount)}</span>
+                    <span className="font-semibold text-slate-100">{inr(c.amount)}</span>
                     <span className="text-xs font-medium uppercase tracking-wide">
                       {c.status}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-600 mt-1 capitalize">
+                  <p className="text-xs text-slate-400 mt-1 capitalize">
                     {c.category.replace(/_/g, ' ')}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-slate-400 mt-1">
                     Priority {c.priority} · {c.attempts} attempt{c.attempts === 1 ? '' : 's'}
                   </p>
                 </div>

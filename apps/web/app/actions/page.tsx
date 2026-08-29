@@ -60,21 +60,21 @@ export default async function ActionsPage() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-      <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Recovery Actions</h1>
-      <p className="mt-1 text-sm text-gray-500">
+      <h1 className="text-xl sm:text-2xl font-bold text-slate-100">Recovery Actions</h1>
+      <p className="mt-1 text-sm text-slate-400">
         Every intervention the AI agent decided, its policy status, and the verified outcome.
       </p>
 
       {!ok && (
-        <div className="mt-4 rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-800">
+        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
           Database unreachable.
         </div>
       )}
 
       {ok && rows.length === 0 && (
-        <p className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-sm">
+        <p className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-6 text-sm text-slate-400 shadow-sm">
           No actions yet — run the{' '}
-          <Link href="/demo-lab" className="font-medium text-emerald-600 hover:underline">
+          <Link href="/demo-lab" className="font-medium text-emerald-400 hover:underline">
             Demo Lab
           </Link>
           .
@@ -82,9 +82,9 @@ export default async function ActionsPage() {
       )}
 
       {rows.length > 0 && (
-        <div className="mt-6 overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="mt-6 overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
           <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+            <thead className="border-b border-slate-800 bg-slate-900 text-xs uppercase tracking-wide text-slate-400">
               <tr>
                 <th className="px-4 py-3">Case</th>
                 <th className="px-4 py-3">Amount</th>
@@ -97,26 +97,26 @@ export default async function ActionsPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {rows.map(({ action, caseRef, amount, category, outcome }) => (
-                <tr key={action.id} className="hover:bg-gray-50">
+                <tr key={action.id} className="hover:bg-slate-900">
                   <td className="px-4 py-3">
-                    <Link href={`/cases/${(action as any).caseId}`} className="font-mono font-medium text-emerald-700 hover:underline">
+                    <Link href={`/cases/${(action as any).caseId}`} className="font-mono font-medium text-emerald-300 hover:underline">
                       {caseRef}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{inr(amount)}</td>
-                  <td className="px-4 py-3 capitalize text-gray-600">{categoryLabel(category)}</td>
-                  <td className="px-4 py-3 text-gray-800">
+                  <td className="px-4 py-3 font-medium text-slate-100">{inr(amount)}</td>
+                  <td className="px-4 py-3 capitalize text-slate-400">{categoryLabel(category)}</td>
+                  <td className="px-4 py-3 text-slate-200">
                     {humanizeAction(action.actionType)}
-                    <div className="text-xs text-gray-400">exp. net {inr(action.expectedNetRecovery)}</div>
+                    <div className="text-xs text-slate-500">exp. net {inr(action.expectedNetRecovery)}</div>
                   </td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded border px-2 py-0.5 text-xs ${
                         action.approvalStatus === 'pending'
-                          ? 'border-yellow-300 bg-yellow-50 text-yellow-700'
+                          ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
                           : action.approvalStatus === 'approved'
-                            ? 'border-blue-300 bg-blue-50 text-blue-700'
-                            : 'border-gray-300 bg-white text-gray-600'
+                            ? 'border-blue-500/30 bg-blue-500/10 text-blue-300'
+                            : 'border-slate-700 bg-slate-900 text-slate-400'
                       }`}
                     >
                       {action.approvalStatus.replace(/_/g, ' ')}
@@ -132,18 +132,18 @@ export default async function ActionsPage() {
                   <td className="px-4 py-3">
                     {outcome ? (
                       outcome.result === 'RECOVERED' ? (
-                        <span className="font-medium text-green-700">
+                        <span className="font-medium text-emerald-300">
                           ✓ Recovered {inr(outcome.recoveredAmount)}
                         </span>
                       ) : outcome.result === 'ADMIN_CONFIRMED_RECOVERY' ? (
-                        <span className="font-medium text-green-700">
+                        <span className="font-medium text-emerald-300">
                           ✓ Recovered (admin-confirmed) {inr(outcome.recoveredAmount)}
                         </span>
                       ) : (
-                        <span className="text-gray-500">Not recovered</span>
+                        <span className="text-slate-400">Not recovered</span>
                       )
                     ) : (
-                      <span className="text-gray-400">{timeAgo((action as any).createdAt)}</span>
+                      <span className="text-slate-500">{timeAgo((action as any).createdAt)}</span>
                     )}
                   </td>
                 </tr>

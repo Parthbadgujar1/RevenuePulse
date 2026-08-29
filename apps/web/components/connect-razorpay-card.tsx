@@ -153,14 +153,14 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
   const connected = Boolean(status?.connected);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-      <div className="border-b border-gray-200 bg-gray-50 px-5 py-4">
+    <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
+      <div className="border-b border-slate-800 bg-slate-900 px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <span className="text-lg font-bold text-gray-900">Razorpay</span>
+            <span className="text-lg font-bold text-slate-100">Razorpay</span>
             <span
               className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                connected ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
+                connected ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-700 text-slate-400'
               }`}
             >
               {connected ? `Connected ✓ · ${status?.connectionMode === 'live' ? 'LIVE' : 'Test Mode'}` : 'Not Connected'}
@@ -191,8 +191,8 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
             <Row label="Total events ingested" value={String(status?.totalEvents ?? 0)} />
           </dl>
 
-          <p className="mt-3 text-xs text-gray-400">Webhook URL</p>
-          <code className="mt-1 block truncate rounded bg-gray-100 px-2 py-1.5 text-xs text-gray-700">
+          <p className="mt-3 text-xs text-slate-500">Webhook URL</p>
+          <code className="mt-1 block truncate rounded bg-slate-800 px-2 py-1.5 text-xs text-slate-300">
             {typeof window !== 'undefined'
               ? `${window.location.origin}/api/webhooks/razorpay`
               : '/api/webhooks/razorpay'}
@@ -202,16 +202,16 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
               connect time. Pasting both into the Razorpay dashboard is what
               turns this on for live payment events. */}
           {webhookSetup && (
-            <div className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs">
-              <p className="font-medium text-emerald-800">
+            <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs">
+              <p className="font-medium text-emerald-300">
                 Live webhook setup — paste both into Razorpay Dashboard →
                 Settings → Webhooks
               </p>
               <div className="mt-2 space-y-2">
                 <div>
-                  <p className="text-gray-500">URL</p>
+                  <p className="text-slate-400">URL</p>
                   <div className="mt-0.5 flex items-center gap-1">
-                    <code className="block min-w-0 flex-1 truncate rounded bg-white px-2 py-1 font-mono text-emerald-700">
+                    <code className="block min-w-0 flex-1 truncate rounded bg-slate-900 px-2 py-1 font-mono text-emerald-300">
                       {webhookSetup.url}
                     </code>
                     <CopyButton
@@ -226,9 +226,9 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
                   </div>
                 </div>
                 <div>
-                  <p className="text-gray-500">Secret (shown once — store it)</p>
+                  <p className="text-slate-400">Secret (shown once — store it)</p>
                   <div className="mt-0.5 flex items-center gap-1">
-                    <code className="block min-w-0 flex-1 truncate rounded bg-white px-2 py-1 font-mono text-emerald-700">
+                    <code className="block min-w-0 flex-1 truncate rounded bg-slate-900 px-2 py-1 font-mono text-emerald-300">
                       {webhookSetup.secret}
                     </code>
                     <CopyButton
@@ -243,7 +243,7 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
                   </div>
                 </div>
               </div>
-              <p className="mt-2 text-gray-500">
+              <p className="mt-2 text-slate-400">
                 Subscribe to <code>payment.failed</code>,{' '}
                 <code>payment.captured</code>, <code>payment.authorized</code>{' '}
                 and <code>subscription.charged</code>. Events are HMAC-verified
@@ -253,12 +253,12 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
           )}
 
           {/* Listening checklist */}
-          <p className="mt-4 text-xs font-medium uppercase tracking-wide text-gray-400">
+          <p className="mt-4 text-xs font-medium uppercase tracking-wide text-slate-500">
             Listening for
           </p>
           <ul className="mt-1 space-y-0.5 text-sm">
             {(status?.listeningTo || []).map((e) => (
-              <li key={e} className={connected ? 'text-green-700' : 'text-gray-400'}>
+              <li key={e} className={connected ? 'text-emerald-300' : 'text-slate-500'}>
                 {connected ? '✓' : '○'} {e}
               </li>
             ))}
@@ -267,7 +267,7 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
           {message && (
             <p
               className={`mt-3 rounded p-2 text-xs ${
-                message.tone === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                message.tone === 'ok' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
               }`}
             >
               {message.text}
@@ -288,7 +288,7 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
                   onClick={() => connect(true)}
                   disabled={busy !== null || !keyId || !keySecret}
                   title={!keyId || !keySecret ? 'Enter a Key ID and Secret first' : undefined}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-900 disabled:opacity-50"
                 >
                   Connect with Live Keys
                 </button>
@@ -298,7 +298,7 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
                 <button
                   onClick={test}
                   disabled={busy !== null}
-                  className="rounded-lg border border-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                  className="rounded-lg border border-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-60"
                 >
                   {busy === 'test' ? 'Testing…' : 'Test Connection'}
                 </button>
@@ -313,7 +313,7 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
                 <button
                   onClick={disconnect}
                   disabled={busy !== null}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                  className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-400 hover:bg-slate-900 disabled:opacity-60"
                 >
                   Disconnect
                 </button>
@@ -322,8 +322,8 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
           </div>
 
           {!connected && (
-            <details className="mt-4 text-xs text-gray-500">
-              <summary className="cursor-pointer font-medium text-gray-600">
+            <details className="mt-4 text-xs text-slate-400">
+              <summary className="cursor-pointer font-medium text-slate-400">
                 Have real keys (test or live)? Enter them here — stored AES-256 encrypted, enables API sync
               </summary>
               <div className="mt-2 space-y-2">
@@ -331,14 +331,14 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
                   value={keyId}
                   onChange={(e) => setKeyId(e.target.value)}
                   placeholder="rzp_test_xxxxxxxxxxxx"
-                  className="w-full rounded border border-gray-300 px-3 py-1.5 font-mono text-xs"
+                  className="w-full rounded border border-slate-700 px-3 py-1.5 font-mono text-xs"
                 />
                 <input
                   value={keySecret}
                   onChange={(e) => setKeySecret(e.target.value)}
                   type="password"
                   placeholder="Key secret (stored server-side, never rendered)"
-                  className="w-full rounded border border-gray-300 px-3 py-1.5 font-mono text-xs"
+                  className="w-full rounded border border-slate-700 px-3 py-1.5 font-mono text-xs"
                 />
               </div>
             </details>
@@ -385,8 +385,8 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <>
-      <dt className="w-40 shrink-0 text-gray-500">{label}</dt>
-      <dd className={`truncate text-gray-900 ${mono ? 'font-mono text-xs' : ''}`}>{value}</dd>
+      <dt className="w-40 shrink-0 text-slate-400">{label}</dt>
+      <dd className={`truncate text-slate-100 ${mono ? 'font-mono text-xs' : ''}`}>{value}</dd>
     </>
   );
 }
@@ -424,7 +424,7 @@ function CopyButton({ label, value, copied, onCopy }: {
         void navigator.clipboard?.writeText(value).catch(() => {});
         onCopy();
       }}
-      className="shrink-0 rounded border border-emerald-300 bg-white px-2 py-1 font-medium text-emerald-700 hover:bg-emerald-100"
+      className="shrink-0 rounded border border-emerald-500/30 bg-slate-900 px-2 py-1 font-medium text-emerald-300 transition hover:bg-emerald-500/10"
     >
       {copied ? '✓ copied' : label}
     </button>

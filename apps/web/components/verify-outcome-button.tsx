@@ -40,13 +40,13 @@ export default function VerifyOutcomeButton() {
       <button
         onClick={verify}
         disabled={busy}
-        className="rounded-lg border border-orange-400 bg-white px-3 py-1.5 text-xs font-semibold text-orange-800 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-lg border border-orange-400/40 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-orange-300 transition hover:bg-orange-500/10 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy ? 'Checking with Razorpay…' : 'Verify now via Razorpay API'}
       </button>
-      {result?.error && <p className="mt-2 text-xs text-red-600">{result.error}</p>}
+      {result?.error && <p className="mt-2 text-xs text-red-400">{result.error}</p>}
       {result && !result.error && (
-        <p className="mt-2 text-xs text-orange-800">
+        <p className="mt-2 text-xs text-orange-300">
           Checked {result.checked ?? 0} payment(s): {result.recovered ?? 0} recovered ·{' '}
           {result.notRecovered ?? 0} not recovered — recorded exactly as the provider reports.
         </p>
