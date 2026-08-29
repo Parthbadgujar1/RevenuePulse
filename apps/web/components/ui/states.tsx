@@ -51,7 +51,7 @@ export function EmptyState({
 }: {
   icon?: typeof PackageOpen;
   title: string;
-  message?: string;
+  message?: ReactNode;
   action?: ReactNode;
   actionLabel?: string;
   onAction?: () => void;
@@ -79,7 +79,7 @@ export function ErrorState({
   onRetry,
 }: {
   title?: string;
-  message?: string;
+  message?: ReactNode;
   onRetry?: () => void;
 }) {
   return (

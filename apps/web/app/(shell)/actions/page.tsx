@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { prisma } from '@rp/database';
 import { requireMerchantContext } from '../../../lib/merchant-context';
 import { inr, humanizeAction, categoryLabel, timeAgo, statusTone } from '../../../lib/ui';
+import { Card } from '../../../components/ui/card';
+import { PageHeader, EmptyState } from '../../../components/ui/states';
+import type { ReactNode } from 'react';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,99 +61,112 @@ export default async function ActionsPage() {
     ok = false;
   }
 
+  function Badge({ kind, children }: { kind: 'warning' | 'success' | 'accent' | 'muted'; children: ReactNode }) {
+    const tones = {
+      warning: 'border-warning/30 bg-warning/10 text-warning-ink',
+      success: 'border-success/30 bg-success/10 text-success-ink',
+      accent: 'border-accent/30 bg-accent/10 text-accent-ink',
+      muted: 'border-edge bg-surface-2 text-ink-3',
+    };
+    return (
+      <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-medium ${tones[kind]}`}>
+        {children}
+      </span>
+    );
+  }
+
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-      <h1 className="text-xl sm:text-2xl font-bold text-slate-100">Recovery Actions</h1>
-      <p className="mt-1 text-sm text-slate-400">
-        Every intervention the AI agent decided, its policy status, and the verified outcome.
-      </p>
+    <div className="mx-auto max-w-6xl">
+      <PageHeader
+        title="Recovery Actions"
+        subtitle="Every intervention the AI agent decided, its policy status, and the verified outcome."
+      />
 
       {!ok && (
-        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
-          Database unreachable.
+        <div className="mb-4 rounded-lg border border-warning-pill bg-warning-pill/[0.08] px-4 py-3 text-sm text-warning-ink">
+          Database unreachable. Showing nothing until the store comes back.
         </div>
       )}
 
       {ok && rows.length === 0 && (
-        <p className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-6 text-sm text-slate-400 shadow-sm">
-          No actions yet — run the{' '}
-          <Link href="/demo-lab" className="font-medium text-emerald-400 hover:underline">
-            Demo Lab
-          </Link>
-          .
-        </p>
+        <EmptyState
+          title="No actions yet"
+          message={
+            <>
+              Run the{' '}
+              <Link href="/demo-lab" className="font-medium text-accent hover:underline">
+                Demo Lab
+              </Link>{' '}
+              to generate recovery actions.
+            </>
+          }
+        />
       )}
 
-      {rows.length > 0 && (
-        <div className="mt-6 overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-slate-800 bg-slate-900 text-xs uppercase tracking-wide text-slate-400">
+      {ok && rows.length > 0 && (
+        <Card className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="border-b border-edge bg-surface-2 text-xs uppercase tracking-wide text-ink-3">
               <tr>
-                <th className="px-4 py-3">Case</th>
-                <th className="px-4 py-3">Amount</th>
-                <th className="px-4 py-3">Failure</th>
-                <th className="px-4 py-3">AI Decision</th>
-                <th className="px-4 py-3">Approval</th>
-                <th className="px-4 py-3">Execution</th>
-                <th className="px-4 py-3">Outcome</th>
+                <th className="px-5 py-3">Case</th>
+                <th className="px-5 py-3">Amount</th>
+                <th className="px-5 py-3">Failure</th>
+                <th className="px-5 py-3">AI Decision</th>
+                <th className="px-5 py-3">Approval</th>
+                <th className="px-5 py-3">Execution</th>
+                <th className="px-5 py-3">Outcome</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-edge bg-surface">
               {rows.map(({ action, caseRef, amount, category, outcome }) => (
-                <tr key={action.id} className="hover:bg-slate-900">
-                  <td className="px-4 py-3">
-                    <Link href={`/cases/${(action as any).caseId}`} className="font-mono font-medium text-emerald-300 hover:underline">
+                <tr key={action.id} className="transition hover:bg-surface-2">
+                  <td className="px-5 py-3">
+                    <Link href={`/cases/${(action as any).caseId}`} className="font-mono font-medium text-accent hover:underline">
                       {caseRef}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 font-medium text-slate-100">{inr(amount)}</td>
-                  <td className="px-4 py-3 capitalize text-slate-400">{categoryLabel(category)}</td>
-                  <td className="px-4 py-3 text-slate-200">
+                  <td className="px-5 py-3 font-medium text-ink">{inr(amount)}</td>
+                  <td className="px-5 py-3 capitalize text-ink-2">{categoryLabel(category)}</td>
+                  <td className="px-5 py-3 text-ink">
                     {humanizeAction(action.actionType)}
-                    <div className="text-xs text-slate-500">exp. net {inr(action.expectedNetRecovery)}</div>
+                    <div className="text-xs text-ink-3">exp. net {inr(action.expectedNetRecovery)}</div>
                   </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded border px-2 py-0.5 text-xs ${
+                  <td className="px-5 py-3">
+                    <Badge
+                      kind={
                         action.approvalStatus === 'pending'
-                          ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                          ? 'warning'
                           : action.approvalStatus === 'approved'
-                            ? 'border-blue-500/30 bg-blue-500/10 text-blue-300'
-                            : 'border-slate-700 bg-slate-900 text-slate-400'
-                      }`}
+                            ? 'accent'
+                            : 'muted'
+                      }
                     >
                       {action.approvalStatus.replace(/_/g, ' ')}
-                    </span>
+                    </Badge>
                   </td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded border px-2 py-0.5 text-xs ${statusTone(
+                  <td className="px-5 py-3">
+                    <span className={`rounded border px-2 py-0.5 text-xs font-medium ${statusTone(
                       action.executionStatus === 'EXECUTED' ? 'RECOVERY_IN_PROGRESS' : 'EVALUATED'
                     )}`}>
                       {(action as any).executionStatus}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-3">
                     {outcome ? (
-                      outcome.result === 'RECOVERED' ? (
-                        <span className="font-medium text-emerald-300">
-                          ✓ Recovered {inr(outcome.recoveredAmount)}
-                        </span>
-                      ) : outcome.result === 'ADMIN_CONFIRMED_RECOVERY' ? (
-                        <span className="font-medium text-emerald-300">
-                          ✓ Recovered (admin-confirmed) {inr(outcome.recoveredAmount)}
-                        </span>
+                      outcome.result === 'RECOVERED' || outcome.result === 'ADMIN_CONFIRMED_RECOVERY' ? (
+                        <Badge kind="success">Recovered {inr(outcome.recoveredAmount)}</Badge>
                       ) : (
-                        <span className="text-slate-400">Not recovered</span>
+                        <span className="text-ink-2">Not recovered</span>
                       )
                     ) : (
-                      <span className="text-slate-500">{timeAgo((action as any).createdAt)}</span>
+                      <span className="text-ink-3">{timeAgo((action as any).createdAt)}</span>
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </div>
   );

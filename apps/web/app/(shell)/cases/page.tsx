@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { prisma } from '@rp/database';
 import { requireMerchantContext } from '../../../lib/merchant-context';
 import { inr, categoryLabel, statusTone, timeAgo, SOURCE_LABELS } from '../../../lib/ui';
+import { PageHeader, EmptyState } from '../../../components/ui/states';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,71 +23,73 @@ export default async function CasesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-      <h1 className="text-xl sm:text-2xl font-bold text-slate-100">Recovery Cases</h1>
-      <p className="mt-1 text-sm text-slate-400">
-        Every failed payment gets an AI investigation: diagnosis → probability → policy-checked
-        decision → bounded action → verified outcome.
-      </p>
+    <div className="mx-auto max-w-6xl">
+      <PageHeader
+        title="Recovery Cases"
+        subtitle="Every failed payment gets an AI investigation: diagnosis → probability → policy-checked decision → bounded action → verified outcome."
+      />
 
       {!ok && (
-        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
-          Database unreachable.
+        <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning-ink">
+          Database unreachable. Showing nothing until the store comes back.
         </div>
       )}
 
       {ok && cases.length === 0 && (
-        <div className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-6 text-sm text-slate-400 shadow-sm">
-          No cases yet. Run a batch in the{' '}
-          <Link href="/demo-lab" className="font-medium text-emerald-400 hover:underline">
-            Demo Lab
-          </Link>{' '}
-          or send a webhook to <code>/api/webhooks/razorpay</code>.
-        </div>
+        <EmptyState
+          title="No cases yet"
+          message={
+            <>
+              Run a batch in the{' '}
+              <Link href="/demo-lab" className="font-medium text-accent hover:underline">
+                Demo Lab
+              </Link>{' '}
+              or send a webhook to <code className="font-mono text-[11px]">/api/webhooks/razorpay</code>.
+            </>
+          }
+        />
       )}
 
-      <div className="mt-6 space-y-2">
-        {cases.map((c) => {
-          const diag = (c.diagnosis ?? {}) as Record<string, unknown>;
-          const source = String(
-            ((c as any).transaction?.paymentMethodDetails as any)?.source ?? 'webhook'
-          );
-          return (
-            <Link
-              key={c.id}
-              href={`/cases/${c.id}`}
-              className="block rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm transition hover:border-emerald-400 hover:shadow"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm font-semibold text-emerald-300">
-                    {c.ref || c.id.slice(-6)}
-                  </span>
-                  <span className="font-semibold text-slate-100">{inr(c.amountAtRisk)}</span>
-                  <span className={`rounded border px-2 py-0.5 text-xs font-medium ${statusTone(c.status)}`}>
-                    {c.status.replace(/_/g, ' ')}
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    {SOURCE_LABELS[source] ?? '🔵 Webhook'}
-                  </span>
+      {ok && cases.length > 0 && (
+        <div className="space-y-2">
+          {cases.map((c) => {
+            const diag = (c.diagnosis ?? {}) as Record<string, unknown>;
+            const source = String(
+              ((c as any).transaction?.paymentMethodDetails as any)?.source ?? 'webhook'
+            );
+            return (
+              <Link
+                key={c.id}
+                href={`/cases/${c.id}`}
+                className="block rounded-xl border border-edge bg-surface p-4 shadow-sm transition hover:border-accent hover:shadow"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-sm font-semibold text-accent">
+                      {c.ref || c.id.slice(-6)}
+                    </span>
+                    <span className="font-semibold text-ink">{inr(c.amountAtRisk)}</span>
+                    <span className={`rounded border px-2 py-0.5 text-xs font-medium ${statusTone(c.status)}`}>
+                      {c.status.replace(/_/g, ' ')}
+                    </span>
+                    <span className="text-xs text-ink-3">{SOURCE_LABELS[source] ?? 'Webhook'}</span>
+                  </div>
+                  <div className="text-xs text-ink-2">
+                    {timeAgo(c.createdAt)} · priority score {c.priority} · {c.attemptCount} attempt
+                    {c.attemptCount === 1 ? '' : 's'}
+                  </div>
                 </div>
-                <div className="text-xs text-slate-400">
-                  {timeAgo(c.createdAt)} · priority score {c.priority} · {c.attemptCount} attempt
-                  {c.attemptCount === 1 ? '' : 's'}
+                <div className="mt-1 text-sm capitalize text-ink-2">
+                  {categoryLabel(String(diag.primaryCategory || 'unknown'))}
+                  {diag.failureCode ? (
+                    <span className="ml-2 font-mono text-xs text-ink-3">{String(diag.failureCode)}</span>
+                  ) : null}
                 </div>
-              </div>
-              <div className="mt-1 text-sm capitalize text-slate-400">
-                {categoryLabel(String(diag.primaryCategory || 'unknown'))}
-                {diag.failureCode ? (
-                  <span className="ml-2 font-mono text-xs text-slate-500">
-                    {String(diag.failureCode)}
-                  </span>
-                ) : null}
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

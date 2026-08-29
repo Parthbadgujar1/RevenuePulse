@@ -1,9 +1,11 @@
 // Case detail — plain-language view of a single failed payment
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import { prisma } from '@rp/database';
 import { requireMerchantContext } from '../../../../lib/merchant-context';
 import { inr, humanizeAction, statusTone, timeAgo, SOURCE_LABELS } from '../../../../lib/ui';
+import { PageHeader } from '../../../../components/ui/states';
 import {
   plainFailureExplanation,
   plainActionExplanation,
@@ -125,24 +127,28 @@ export default async function CaseDetailPage({
   );
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-      <Link href="/cases" className="text-sm text-emerald-400 hover:underline">
-        ← All cases
+    <div className="mx-auto max-w-6xl">
+      <Link href="/cases" className="inline-flex items-center gap-1.5 text-sm text-ink-2 transition hover:text-accent-ink">
+        <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+        All cases
       </Link>
 
       {/* Header — plain language */}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-100">
-            {inr(revenueCase.amountAtRisk)} payment from{' '}
-            {tx?.customerName || 'customer'}
-          </h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Case {revenueCase.ref || 'new'} · {tx?.paymentMethod ? `paid via ${tx.paymentMethod}` : 'payment'}{' '}
-            {tx?.occurredAt ? `${timeAgo(tx.occurredAt)}` : ''}
-          </p>
-        </div>
-        <StatusBadge status={revenueCase.status} />
+      <div className="mt-3">
+        <PageHeader
+          title={
+            <>
+              {inr(revenueCase.amountAtRisk)} payment from {tx?.customerName || 'customer'}
+            </>
+          }
+          subtitle={
+            <>
+              Case {revenueCase.ref || 'new'} · {tx?.paymentMethod ? `paid via ${tx.paymentMethod}` : 'payment'}{' '}
+              {tx?.occurredAt ? `${timeAgo(tx.occurredAt)}` : ''}
+            </>
+          }
+          actions={<StatusBadge status={revenueCase.status} />}
+        />
       </div>
 
       {/* What happened — plain English */}
