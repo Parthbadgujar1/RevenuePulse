@@ -95,7 +95,7 @@ export default function ReceivablesDashboard() {
 
   async function handleDeleteInvoice(id: string) {
     try {
-      const res = await csrfFetch(`/api/receivables/invoices/${id}`, { method: 'DELETE' });
+      const res = await csrfFetch(`/api/receivables/invoices?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
       if (!res.ok) {
         const j = await res.json();
         throw new Error(j.error || `Delete failed (${res.status})`);

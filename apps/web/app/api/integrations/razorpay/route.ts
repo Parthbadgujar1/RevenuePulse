@@ -174,9 +174,11 @@ export async function POST(req: NextRequest) {
       connected: true,
       mode: (conn as any).mode,
       displayName: (conn as any).displayName,
-      // Configure this in the Razorpay Dashboard -> Webhooks so live
-      // payment.failed events are HMAC-verified end to end.
-      webhookSecret: (conn as any).webhookSecret,
+      // The freshly generated HMAC secret for THIS connection. The merchant
+      // pastes it into Razorpay Dashboard -> Settings -> Webhooks (alongside
+      // webhookUrl) so live payment events are HMAC-verified end to end.
+      // We only ever hand it back once, at connect time.
+      webhookSecret,
       webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/webhooks/razorpay`,
     });
   }

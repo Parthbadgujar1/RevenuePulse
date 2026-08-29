@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { timeAgo } from '../lib/ui';
 import { csrfFetch } from '../lib/csrf-client';
@@ -17,6 +17,11 @@ interface Status {
   totalEvents: number;
 }
 
+interface WebhookSetup {
+  secret: string;
+  url: string;
+}
+
 export default function ConnectRazorpayCard({ initial }: { initial: Status | null }) {
   const router = useRouter();
   const [status, setStatus] = useState<Status | null>(initial);
@@ -24,12 +29,29 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
   const [keySecret, setKeySecret] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
+  const [webhookSetup, setWebhookSetup] = useState<WebhookSetup | null>(null);
+  const [copied, setCopied] = useState<'secret' | 'url' | null>(null);
 
-  async function refresh() {
-    const res = await fetch('/api/integrations/razorpay');
-    setStatus(await res.json());
-    router.refresh();
+  async function refresh(options?: { soft?: boolean }) {
+    try {
+      const res = await fetch('/api/integrations/razorpay');
+      const j = await res.json();
+      setStatus(j);
+      // Soft refreshes (10s poll) skip the RSC re-render; explicit calls after
+      // connect/disconnect/sync refresh server-rendered neighbors too.
+      if (!options?.soft) router.refresh();
+    } catch {
+      // transient — keep the last known state; next poll retries
+    }
   }
+
+  // Live polling: surface inbound webhook events and sync results without
+  // forcing the merchant to refresh the page.
+  useEffect(() => {
+    void refresh({ soft: true });
+    const t = setInterval(() => void refresh({ soft: true }), 10_000);
+    return () => clearInterval(t);
+  }, []);
 
   async function post(payload: Record<string, unknown>, busyLabel: string) {
     setBusy(busyLabel);
@@ -50,7 +72,7 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
 
   async function connect(live: boolean) {
     try {
-      await post(
+      const j = await post(
         {
           action: 'connect',
           live,
@@ -59,6 +81,9 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
         },
         live ? 'connect-live' : 'connect-demo'
       );
+      if (j.webhookSecret && j.webhookUrl) {
+        setWebhookSetup({ secret: j.webhookSecret, url: j.webhookUrl });
+      }
       setMessage({
         tone: 'ok',
         text: live
@@ -76,6 +101,7 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
   async function disconnect() {
     try {
       await post({ action: 'disconnect' }, 'disconnect');
+      setWebhookSetup(null);
       setMessage({ tone: 'ok', text: 'Disconnected.' });
       await refresh();
     } catch (e) {
@@ -171,6 +197,60 @@ export default function ConnectRazorpayCard({ initial }: { initial: Status | nul
               ? `${window.location.origin}/api/webhooks/razorpay`
               : '/api/webhooks/razorpay'}
           </code>
+
+          {/* One-time webhook config values (URL + HMAC secret) returned at
+              connect time. Pasting both into the Razorpay dashboard is what
+              turns this on for live payment events. */}
+          {webhookSetup && (
+            <div className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs">
+              <p className="font-medium text-emerald-800">
+                Live webhook setup — paste both into Razorpay Dashboard →
+                Settings → Webhooks
+              </p>
+              <div className="mt-2 space-y-2">
+                <div>
+                  <p className="text-gray-500">URL</p>
+                  <div className="mt-0.5 flex items-center gap-1">
+                    <code className="block min-w-0 flex-1 truncate rounded bg-white px-2 py-1 font-mono text-emerald-700">
+                      {webhookSetup.url}
+                    </code>
+                    <CopyButton
+                      label="url"
+                      value={webhookSetup.url}
+                      copied={copied === 'url'}
+                      onCopy={() => {
+                        setCopied('url');
+                        setTimeout(() => setCopied(null), 1500);
+                      }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-gray-500">Secret (shown once — store it)</p>
+                  <div className="mt-0.5 flex items-center gap-1">
+                    <code className="block min-w-0 flex-1 truncate rounded bg-white px-2 py-1 font-mono text-emerald-700">
+                      {webhookSetup.secret}
+                    </code>
+                    <CopyButton
+                      label="secret"
+                      value={webhookSetup.secret}
+                      copied={copied === 'secret'}
+                      onCopy={() => {
+                        setCopied('secret');
+                        setTimeout(() => setCopied(null), 1500);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <p className="mt-2 text-gray-500">
+                Subscribe to <code>payment.failed</code>,{' '}
+                <code>payment.captured</code>, <code>payment.authorized</code>{' '}
+                and <code>subscription.charged</code>. Events are HMAC-verified
+                against this secret and deduplicated by event id.
+              </p>
+            </div>
+          )}
 
           {/* Listening checklist */}
           <p className="mt-4 text-xs font-medium uppercase tracking-wide text-gray-400">
@@ -329,5 +409,24 @@ function Arrow({ label, active }: { label: string; active: boolean }) {
       <span>↓</span>
       <span>{label}</span>
     </div>
+  );
+}
+
+function CopyButton({ label, value, copied, onCopy }: {
+  label: string;
+  value: string;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <button
+      onClick={() => {
+        void navigator.clipboard?.writeText(value).catch(() => {});
+        onCopy();
+      }}
+      className="shrink-0 rounded border border-emerald-300 bg-white px-2 py-1 font-medium text-emerald-700 hover:bg-emerald-100"
+    >
+      {copied ? '✓ copied' : label}
+    </button>
   );
 }

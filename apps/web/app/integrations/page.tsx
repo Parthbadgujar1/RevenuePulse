@@ -13,10 +13,14 @@ async function loadStatus() {
       where: { merchantId, provider: 'razorpay' },
       orderBy: { id: 'desc' },
     });
-    const lastEvents = await prisma.webhookEvent.findMany({
-      orderBy: { receivedAt: 'desc' as const },
-      take: 5,
-    });
+    const [lastEvents, totalEvents] = await Promise.all([
+      prisma.webhookEvent.findMany({
+        where: { merchantId },
+        orderBy: { receivedAt: 'desc' as const },
+        take: 5,
+      }),
+      prisma.webhookEvent.count({ where: { merchantId } }),
+    ]);
     return {
       connected: Boolean(conn && conn.status === 'active'),
       mode: 'demo',
@@ -38,7 +42,7 @@ async function loadStatus() {
         status: e.status,
         receivedAt: e.receivedAt.toISOString(),
       })),
-      totalEvents: await prisma.webhookEvent.count(),
+      totalEvents,
     };
   } catch {
     return null;
