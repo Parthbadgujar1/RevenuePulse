@@ -170,9 +170,23 @@ export class DecisionEngine {
       const definition = INTERVENTIONS[interventionType];
       if (!definition) continue;
 
-      // Check prerequisites
+      // Intervention-specific effectiveness lift on the predicted probability.
+      // Sourced from intervention-lifts.ts (single source of truth shared
+      // with the ground-truth simulator and the training-data generator).
+      // v4: the model now predicts the *intervention-agnostic* base (feature
+      // intervention=none), so the effective probability is what this action
+      // would actually achieve — prerequisite gates MUST use it.
+      const effectiveProbability = Math.min(
+        0.95,
+        Math.max(0.01, resolved.recoveryProbability + getInterventionLift(interventionType, features.failureCategory))
+      );
+
+      // Check prerequisites against the effective probability for this
+      // intervention (not the raw base), so high-lift actions on otherwise
+      // low-base failures (e.g. card-update on expired instruments) are not
+      // wrongly blocked before their economics are evaluated.
       const prerequisitesMet = definition.prerequisites({
-        probability: resolved.recoveryProbability,
+        probability: effectiveProbability,
         amount: features.amount,
         policy,
         features,
@@ -198,14 +212,6 @@ export class DecisionEngine {
         blockedAlternatives.push({ action: interventionType, reason: allowedResult.reason });
         continue;
       }
-
-      // Intervention-specific effectiveness lift on the predicted probability.
-      // Sourced from intervention-lifts.ts (single source of truth shared
-      // with the ground-truth simulator and the training-data generator).
-      const effectiveProbability = Math.min(
-        0.95,
-        Math.max(0.01, resolved.recoveryProbability + getInterventionLift(interventionType, features.failureCategory))
-      );
 
       // Calculate economics for this intervention
       const interventionEconomics = calculateEconomics(

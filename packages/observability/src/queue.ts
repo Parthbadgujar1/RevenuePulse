@@ -477,6 +477,14 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
       merchantHistoricalRate: 0.5,
       failureCategoryHistoricalRate: 0.4,
       amountPercentile: Math.min(1, revenueCase.amountAtRisk / 500000),
+      // v4 context-aware features: what can be derived from persisted data;
+      // everything else falls back to defaults in toMlFeatures.
+      dayOfWeek: occurredAt.getDay(),
+      merchantVertical: (revenueCase as any).merchantVertical || 'other',
+      planTier: (revenueCase as any).planTier ?? 0,
+      customerTenureDays: (revenueCase as any).customerTenureDays ?? 365,
+      contactChannel: (revenueCase as any).contactChannel || 'none',
+      intervention: 'none',
     };
 
     const engine = new DecisionEngine(await getMerchantPolicy(revenueCase.merchantId));

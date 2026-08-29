@@ -53,6 +53,13 @@ export function toMlFeatures(features: RecoveryFeatures) {
     merchant_historical_rate: features.merchantHistoricalRate,
     failure_category_historical_rate: features.failureCategoryHistoricalRate,
     amount_percentile: features.amountPercentile,
+    // v4 context-aware features (defaulted so legacy callers map cleanly)
+    intervention: features.intervention ?? 'none',
+    contact_channel: features.contactChannel ?? 'none',
+    merchant_vertical: features.merchantVertical ?? 'other',
+    day_of_week: features.dayOfWeek ?? 2,
+    customer_tenure_days: features.customerTenureDays ?? 365,
+    plan_tier: features.planTier ?? 0,
   };
 }
 

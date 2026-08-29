@@ -130,7 +130,11 @@ const ml = toMlFeatures(features);
 assert((ml as any).failure_category === 'insufficient_funds', 'mapping failure_category');
 assert((ml as any).number_of_previous_failures === 1, 'mapping number_of_previous_failures');
 assert((ml as any).amount_percentile === 0.7, 'mapping amount_percentile');
-assert(Object.keys(ml as any).length === 12, 'exactly 12 ML features', Object.keys(ml as any));
+assert((ml as any).intervention === 'none', 'default intervention maps to none');
+assert((ml as any).day_of_week === 2, 'default day_of_week maps to Wed');
+assert((ml as any).contact_channel === 'none', 'default contact_channel maps to none');
+assert((ml as any).merchant_vertical === 'other', 'default merchant_vertical maps to other');
+assert(Object.keys(ml as any).length === 18, 'exactly 18 ML features', Object.keys(ml as any));
 
 // ---------------------------------------------------------------------------
 // 7. Live-outcome classification (Razorpay payment status -> outcome bucket)

@@ -1,50 +1,50 @@
 {
   "task": "recovery_probability_prediction",
   "label_definition": "recovered=1 if intervention recovered money else 0",
-  "model_version": "baseline-recovery-v3.1.1",
+  "model_version": "baseline-recovery-v4.0.0",
   "selected_model": "logistic_regression",
-  "dataset_rows": 60603,
-  "train_rows": 48482,
-  "test_rows": 12121,
-  "positive_rate_train": 0.456,
+  "dataset_rows": 80603,
+  "train_rows": 64482,
+  "test_rows": 16121,
+  "positive_rate_train": 0.3658,
   "test_metrics": {
     "name": "logistic_regression",
-    "roc_auc": 0.7565,
-    "pr_auc": 0.7073,
-    "brier": 0.1989,
-    "accuracy": 0.6817,
-    "precision": 0.6502,
-    "recall": 0.6535,
-    "f1": 0.6519
+    "roc_auc": 0.7741,
+    "pr_auc": 0.6578,
+    "brier": 0.1825,
+    "accuracy": 0.7174,
+    "precision": 0.6488,
+    "recall": 0.4958,
+    "f1": 0.5621
   },
   "model_selection": {
     "candidates": {
       "logistic_regression": {
         "name": "logistic_regression",
-        "roc_auc": 0.7565,
-        "pr_auc": 0.7073,
-        "brier": 0.1989,
-        "accuracy": 0.6817,
-        "precision": 0.6502,
-        "recall": 0.6535,
-        "f1": 0.6519
+        "roc_auc": 0.7741,
+        "pr_auc": 0.6578,
+        "brier": 0.1825,
+        "accuracy": 0.7174,
+        "precision": 0.6488,
+        "recall": 0.4958,
+        "f1": 0.5621
       },
       "gradient_boosting": {
         "name": "gradient_boosting",
-        "roc_auc": 0.7533,
-        "pr_auc": 0.7066,
-        "brier": 0.2,
-        "accuracy": 0.6821,
-        "precision": 0.6559,
-        "recall": 0.6371,
-        "f1": 0.6464
+        "roc_auc": 0.7716,
+        "pr_auc": 0.6526,
+        "brier": 0.1834,
+        "accuracy": 0.7143,
+        "precision": 0.648,
+        "recall": 0.4792,
+        "f1": 0.551
       }
     },
     "selection_rule": "held-out ROC-AUC; gradient boosting must win by >0.01 to displace logistic regression"
   },
   "calibration": {
-    "brier_selected": 0.1989,
-    "brier_uncalibrated_lr": 0.1999
+    "brier_selected": 0.1825,
+    "brier_uncalibrated_lr": 0.1945
   },
   "benchmark_sources": [
     "Recurly Research - subscription payment decline & recovery benchmarks (https://recurly.com/blog/subscription-benchmarks-top-payment-decline-reasons/)",

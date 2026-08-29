@@ -17,6 +17,13 @@ export interface RecoveryFeatures {
   merchantHistoricalRate: number; // merchant's overall recovery rate (0-1)
   failureCategoryHistoricalRate: number; // historical success for this failure type (0-1)
   amountPercentile: number; // percentile of amount for this merchant (0-1)
+  // v4 context-aware features (optional, defaulted for legacy callers)
+  intervention?: string; // recovery intervention applied
+  contactChannel?: string; // outreach channel (email|sms|whatsapp|phone|none)
+  merchantVertical?: string; // business vertical (saas|ecommerce|b2b|fintech|other)
+  dayOfWeek?: number; // 0=Mon .. 6=Sun
+  customerTenureDays?: number; // account age in days
+  planTier?: number; // 0=basic,1=standard,2=premium
 }
 
 // Baseline model prediction result

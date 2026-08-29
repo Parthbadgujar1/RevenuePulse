@@ -67,8 +67,8 @@ def require_internal_token(authorization: str = Header(default="")) -> None:
 
 app = FastAPI(
     title="RevenuePulse Recovery Prediction API",
-    description="Recovery probability for failed payments (calibrated logistic regression)",
-    version="3.1.1",
+    description="Recovery probability for failed payments (calibrated logistic regression, v4 context-aware)",
+    version="4.0.0",
 )
 
 
@@ -85,6 +85,14 @@ class RecoveryFeatures(BaseModel):
     merchant_historical_rate: float = Field(..., ge=0, le=1)
     failure_category_historical_rate: float = Field(..., ge=0, le=1)
     amount_percentile: float = Field(..., ge=0, le=1)
+    # v4 context-aware features (all optional with safe defaults so legacy
+    # callers and pre-v4 models keep working).
+    intervention: str = Field(default="none", description="Recovery intervention applied")
+    contact_channel: str = Field(default="none", description="Outreach channel used")
+    merchant_vertical: str = Field(default="other", description="Merchant business vertical")
+    day_of_week: int = Field(default=2, ge=0, le=6, description="0=Mon .. 6=Sun")
+    customer_tenure_days: float = Field(default=365, ge=0, description="Account age in days")
+    plan_tier: float = Field(default=0, ge=0, le=2, description="0=basic,1=standard,2=premium")
 
 
 class PredictionRequest(BaseModel):
@@ -174,6 +182,8 @@ async def predict(request: PredictionRequest):
             for k in (
                 "amount", "failure_category", "payment_method",
                 "historical_success_rate", "retry_count", "is_subscription",
+                "intervention", "contact_channel", "merchant_vertical",
+                "day_of_week", "customer_tenure_days", "plan_tier",
             )
         },
     )
@@ -204,9 +214,11 @@ async def model_info():
         "feature_count": _meta["feature_count"],
         "failure_categories": FAILURE_CATEGORIES,
         "payment_methods": PAYMENT_METHODS,
+        "context_features": "v4: category, method, intervention, contact channel, merchant vertical, "
+                            "day-of-week, account tenure, plan tier",
         "held_out_test_metrics": m,
         "limitations": [
-            "Linear baseline - no feature interactions",
+            "Linear baseline - no explicit feature interactions (additive logit)",
             "Trained on synthetic + production data",
             "Calibration valid within training distribution",
         ],
@@ -318,6 +330,11 @@ async def log_training_data(
         "merchant_historical_rate": f["merchant_historical_rate"],
         "failure_category_historical_rate": f["failure_category_historical_rate"],
         "amount_percentile": f["amount_percentile"],
+        "day_of_week": f["day_of_week"],
+        "customer_tenure_days": f["customer_tenure_days"],
+        "plan_tier": f["plan_tier"],
+        "contact_channel": f["contact_channel"],
+        "merchant_vertical": f["merchant_vertical"],
         "intervention": point.intervention,
         "recovered": 1 if point.recovered else 0,
         "source": point.source,

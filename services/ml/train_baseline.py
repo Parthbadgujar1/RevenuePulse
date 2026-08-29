@@ -152,8 +152,9 @@ def main():
     print("Training histogram gradient boosting (calibrated)...")
     gb_cal = CalibratedClassifierCV(
         HistGradientBoostingClassifier(
-            max_iter=300, learning_rate=0.08, max_leaf_nodes=31,
-            l2_regularization=1.0, random_state=RANDOM_STATE,
+            max_iter=500, learning_rate=0.04, max_leaf_nodes=63,
+            min_samples_leaf=40, l2_regularization=1.0,
+            random_state=RANDOM_STATE,
         ),
         method="isotonic", cv=5,
     ).fit(X_tr, y_tr)

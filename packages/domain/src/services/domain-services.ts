@@ -42,6 +42,13 @@ export function calculateRecoveryProbability(
     merchantHistoricalRate: 0.35, // strong positive predictor
     failureCategoryHistoricalRate: 0.3,
     amountPercentile: 0.05,
+    // v4 context features (heuristic fallback: neutral defaults)
+    intervention: 0, // handled via intervention lift table
+    contactChannel: 0.02, // richer channels (whatsapp/phone) slightly better
+    merchantVertical: 0.02, // B2B/SaaS accounts slightly stickier
+    dayOfWeek: 0.01, // midweek/payday window lift
+    customerTenureDays: 0.001, // established accounts slightly better
+    planTier: 0.05, // premium plans get white-glove handling
   };
 
   // Category adjustments to base probability
@@ -74,6 +81,14 @@ export function calculateRecoveryProbability(
   logit += weights.retryCount * features.retryCount;
   logit += weights.isSubscription * (features.isSubscription ? 1 : 0);
   logit += weights.amountPercentile * features.amountPercentile;
+
+  // v4 context features (defaulted so legacy callers contribute nothing)
+  logit += weights.customerTenureDays * Math.log1p(features.customerTenureDays ?? 0) / 100;
+  logit += weights.planTier * (features.planTier ?? 0);
+  logit += weights.dayOfWeek * ((features.dayOfWeek ?? 3) - 3) / 10;
+  logit += weights.contactChannel * ((features.contactChannel === 'phone' || features.contactChannel === 'whatsapp') ? 1 : 0);
+  logit += weights.merchantVertical * ((features.merchantVertical === 'saas' || features.merchantVertical === 'b2b') ? 1 : 0);
+  logit += weights.intervention * (features.intervention ? 0 : 0); // lift applied by engine
 
   // Sigmoid: probability = 1 / (1 + e^-logit)
   const probability = 1 / (1 + Math.exp(-logit));
