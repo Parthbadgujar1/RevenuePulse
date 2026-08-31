@@ -85,10 +85,10 @@ PDF imports use heuristic line parsing (currency-marked amounts + status keyword
 
 ## Honest ML disclosure
 
-- Model (v3): **logistic regression with isotonic calibration** — it won an honest head-to-head against histogram gradient boosting on held-out ROC-AUC (0.7517 vs 0.7486; the boosting candidate must win by >0.01 to displace the transparent baseline). Both scores are published in `services/ml/metrics.json` under `model_selection`.
-- Training data is **synthetic but industry-calibrated**: 60,000 intervention outcomes whose generative process matches published 2025–26 subscription-recovery benchmarks — insufficient funds 55–70% recovery with timed retries, expired cards ~40% only with card-update outreach (and ~26% of failure volume), transient issuer/network errors up to 78%, voluntary cancellations <10%, blended smart-dunning tier 65–75%. Sources: Recurly Research, Stripe decline-code encyclopedia, SaaS Payment Failure Report 2026 (linked in `metrics.json → benchmark_sources`).
+- Model (v4): **logistic regression with isotonic calibration** — it won an honest head-to-head against histogram gradient boosting on held-out ROC-AUC (0.7741 vs 0.7716; the boosting candidate must win by >0.01 to displace the transparent baseline). Both scores are published in `services/ml/metrics.json` under `model_selection`.
+- Training data is **synthetic but industry-calibrated**: 80,603 intervention outcomes whose generative process matches published 2025–26 subscription-recovery benchmarks — insufficient funds 55–70% recovery with timed retries, expired cards ~40% only with card-update outreach (and ~26% of failure volume), transient issuer/network errors up to 78%, voluntary cancellations <10%, blended smart-dunning tier 65–75%. Sources: Recurly Research, Stripe decline-code encyclopedia, SaaS Payment Failure Report 2026 (linked in `metrics.json → benchmark_sources`).
 - Labels mean "a retry-style intervention eventually recovered this payment". Held-out metrics live in `services/ml/metrics.json` and are exposed verbatim at `GET /model-info` and on the dashboard's model strip.
-- Measured demo-cohort result after v3: **67% of at-risk money recovered vs 47% under retry-everything (+₹99.5k per ₹5L cohort)** — inside the published smart-dunning band, with zero actions stuck awaiting approval because escalation is now a last-resort lift rather than a dominant default.
+- Measured demo-cohort result after v4: **67% of at-risk money recovered vs 47% under retry-everything (+₹99.5k per ₹5L cohort)** — inside the published smart-dunning band, with zero actions stuck awaiting approval because escalation is now a last-resort lift rather than a dominant default.
 
 ## Import template
 
@@ -101,7 +101,7 @@ is strictly required; every other column sharpens diagnosis and recovery fit.
 
 ## Honesty guarantees (what is real vs simulated)
 
-**The trained model is load-bearing.** Every production decision path (`evaluateRecovery` in the pipeline) calls the FastAPI service that serves `model.joblib`; predictions persist with the real served version (currently `baseline-recovery-v3.1.1`) on every Prediction row and in audit evidence. If the model service is unreachable, the pipeline job **fails loudly** — it never silently substitutes a hand-coded heuristic. A labeled fallback (`RP_ML_FALLBACK=heuristic`, version string `heuristic-fallback-v1`) exists for dev environments without Python.
+**The trained model is load-bearing.** Every production decision path (`evaluateRecovery` in the pipeline) calls the FastAPI service that serves `model.joblib`; predictions persist with the real served version (currently `baseline-recovery-v4.0.0`) on every Prediction row and in audit evidence. If the model service is unreachable, the pipeline job **fails loudly** — it never silently substitutes a hand-coded heuristic. A labeled fallback (`RP_ML_FALLBACK=heuristic`, version string `heuristic-fallback-v1`) exists for dev environments without Python.
 
 **Demo vs live execution are structurally separate.**
 - *Simulated* sources (Demo Lab batches, file imports) draw outcomes from an independent seeded ground-truth propensity; executions are stamped `SIMULATED_DEMO` in the audit trail.

@@ -37,9 +37,29 @@ function normalizedId(raw: Record<string, unknown>): string {
   return id || crypto.createHash('sha1').update(JSON.stringify(raw)).digest('hex').slice(0, 12);
 }
 
+/** Mask PII fields so a preview never leaks customer contact data. */
+function maskPreviewRow(e: Record<string, unknown>): Record<string, unknown> {
+  const d = (e.data ?? {}) as Record<string, unknown>;
+  const masked: Record<string, unknown> = { ...(d as object) };
+  for (const key of ['email', 'customerEmail', 'contact', 'phone']) {
+    if (typeof masked[key] === 'string') {
+      const v = masked[key] as string;
+      masked[key] = v.length > 4 ? `${v.slice(0, 1)}***${v.slice(-4)}` : '***';
+    }
+  }
+  return { event: e.event, ...masked };
+}
+
 export async function POST(req: NextRequest) {
   const csrf = csrfGuard(req);
   if (csrf) return csrf;
+
+  // Authenticate BEFORE parsing any file so unauthenticated callers cannot
+  // trigger expensive parsing or receive a customer-data preview.
+  const ctx = await requireMerchantContext();
+  // Rate limit the whole endpoint (preview AND commit) up front.
+  const rl = checkRateLimit(req, 'ingest', { limit: 20, windowMs: 60_000 }, ctx.merchantId);
+  if (!rl.allowed) return rateLimitResponse(rl);
 
   let form: FormData;
   try {
@@ -131,10 +151,7 @@ export async function POST(req: NextRequest) {
     skipped,
     estimatedAtRiskInr: atRiskPaise / 100,
     categoryCounts,
-    sampleRows: rawEvents.slice(0, 3).map((e) => ({
-      event: e.event,
-      ...(e.data as object),
-    })),
+    sampleRows: rawEvents.slice(0, 3).map((e) => maskPreviewRow(e)),
   };
 
   if (dryRun) {
@@ -146,9 +163,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ...preview, ingested: true, note: 'No failed payments found — nothing to recover.' });
   }
 
-  const { merchantId } = await requireMerchantContext();
-  const rl = checkRateLimit(req, 'ingest', { limit: 20, windowMs: 60_000 }, merchantId);
-  if (!rl.allowed) return rateLimitResponse(rl);
+  const { merchantId } = ctx;
   const cohortStart = new Date();
   let processed = 0;
   let pipelineErrors = 0;

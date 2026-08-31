@@ -94,7 +94,6 @@ model ProviderConnection {
   status            String   @default("active")
   mode              String?  // "test_demo" (simulated) | "live"
   displayName       String?  // Masked key id, e.g. rzp_test_****1234
-  webhookSecret     String?  // Legacy plaintext webhook secret (kept for backward compat)
   webhookSecretEncrypted String? // AES-256-GCM encrypted webhook secret (never returned to client)
   createdAt         DateTime
   updatedAt         DateTime @updatedAt
@@ -258,7 +257,7 @@ model EvaluationRun {
 
 model CheckoutSession {
   id                String   @id @default(cuid())
-  sessionId         String   @unique // Provider checkout/order ID
+  sessionId         String   // Provider checkout/order ID
   merchantId        String
   customerEmail     String?
   customerPhone     String?
@@ -275,6 +274,7 @@ model CheckoutSession {
   createdAt         DateTime
   updatedAt         DateTime @updatedAt
   merchant          Merchant @relation(fields: [merchantId], references: [id])
+  @@unique([merchantId, sessionId])
   @@index([merchantId, status])
   @@index([sessionId])
 }
@@ -283,7 +283,7 @@ model CheckoutSession {
 
 model Invoice {
   id                String   @id @default(cuid())
-  invoiceNumber     String   @unique
+  invoiceNumber     String
   merchantId        String
   customerName      String
   customerEmail     String?
@@ -302,6 +302,7 @@ model Invoice {
   updatedAt         DateTime @updatedAt
   merchant          Merchant @relation(fields: [merchantId], references: [id])
   promises          PromiseToPay[]
+  @@unique([merchantId, invoiceNumber])
   @@index([merchantId, status])
   @@index([merchantId, overdueDays])
 }

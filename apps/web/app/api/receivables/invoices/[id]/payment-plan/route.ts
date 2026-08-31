@@ -31,8 +31,16 @@ export async function POST(
   }
 
   const body = await req.json().catch(() => null);
-  if (!body || typeof body.installments !== 'number' || body.installments < 2) {
-    return NextResponse.json({ error: '"installments" must be a number >= 2' }, { status: 400 });
+  const rawInstallments = body?.installments;
+  if (
+    !Number.isInteger(rawInstallments) ||
+    rawInstallments < 2 ||
+    rawInstallments > 24
+  ) {
+    return NextResponse.json(
+      { error: '"installments" must be an integer between 2 and 24' },
+      { status: 400 },
+    );
   }
 
   const { installments, startDate } = body as { installments: number; startDate?: string };

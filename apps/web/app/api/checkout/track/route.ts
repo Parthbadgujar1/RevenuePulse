@@ -31,30 +31,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '"amount" must be a positive number (paise)' }, { status: 400 });
   }
 
-  const session = await prisma.checkoutSession.upsert({
-    where: { sessionId },
-    update: {
-      customerEmail: customerEmail ?? undefined,
-      customerPhone: customerPhone ?? undefined,
-      amount: Math.round(amount),
-      currency: currency ?? 'INR',
-      items: (items as any) ?? undefined,
-      status: 'abandoned',
-      abandonmentReason: abandonmentReason ?? undefined,
-    },
-    create: {
-      sessionId,
-      merchantId: ctx.merchantId,
-      customerEmail: customerEmail ?? null,
-      customerPhone: customerPhone ?? null,
-      amount: Math.round(amount),
-      currency: currency ?? 'INR',
-      items: (items as any) ?? undefined,
-      status: 'abandoned',
-      abandonmentReason: abandonmentReason ?? null,
-      createdAt: new Date(),
-    },
+  // Tenant-safe upsert: find existing session scoped to this merchant first.
+  // The global `sessionId` unique constraint prevents cross-tenant collisions,
+  // but we must not let merchant B update merchant A's row.
+  const existing = await prisma.checkoutSession.findFirst({
+    where: { sessionId, merchantId: ctx.merchantId },
   });
+
+  let session;
+  if (existing) {
+    session = await prisma.checkoutSession.update({
+      where: { id: existing.id },
+      data: {
+        customerEmail: customerEmail ?? undefined,
+        customerPhone: customerPhone ?? undefined,
+        amount: Math.round(amount),
+        currency: currency ?? 'INR',
+        items: (items as any) ?? undefined,
+        status: 'abandoned',
+        abandonmentReason: abandonmentReason ?? undefined,
+      },
+    });
+  } else {
+    session = await prisma.checkoutSession.create({
+      data: {
+        sessionId,
+        merchantId: ctx.merchantId,
+        customerEmail: customerEmail ?? null,
+        customerPhone: customerPhone ?? null,
+        amount: Math.round(amount),
+        currency: currency ?? 'INR',
+        items: (items as any) ?? undefined,
+        status: 'abandoned',
+        abandonmentReason: abandonmentReason ?? null,
+        createdAt: new Date(),
+      },
+    });
+  }
 
   await prisma.auditLog.create({
     data: {

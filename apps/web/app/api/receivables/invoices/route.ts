@@ -82,28 +82,46 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date();
+    // Invoice numbers are unique per merchant (scoped unique constraint).
+    // Prefix with a short merchant-stable id + attempt counter so two
+    // merchants never collide and concurrent creates retry cleanly.
+    const merchantKey = ctx.merchantId.slice(0, 6);
     const invoiceCount = await prisma.invoice.count({ where: { merchantId: ctx.merchantId } });
-    const invoiceNumber = `INV-${String(invoiceCount + 1).padStart(5, '0')}`;
     const due = dueDate ? new Date(dueDate) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const overdueDays = Math.max(0, Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)));
 
-    const invoice = await prisma.invoice.create({
-      data: {
-        invoiceNumber,
-        merchantId: ctx.merchantId,
-        customerName,
-        customerEmail: customerEmail ?? null,
-        customerPhone: customerPhone ?? null,
-        amount: Math.round(amount),
-        currency: currency ?? 'INR',
-        dueDate: due,
-        issuedAt: now,
-        status: overdueDays > 0 ? 'overdue' : 'pending',
-        overdueDays,
-        agingBucket: computeAgingBucket(overdueDays),
-        createdAt: now,
-      },
-    });
+    let invoice;
+    let invoiceNumber = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      invoiceNumber = `INV-${merchantKey}-${String(invoiceCount + 1 + attempt).padStart(5, '0')}`;
+      try {
+        invoice = await prisma.invoice.create({
+          data: {
+            invoiceNumber,
+            merchantId: ctx.merchantId,
+            customerName,
+            customerEmail: customerEmail ?? null,
+            customerPhone: customerPhone ?? null,
+            amount: Math.round(amount),
+            currency: currency ?? 'INR',
+            dueDate: due,
+            issuedAt: now,
+            status: overdueDays > 0 ? 'overdue' : 'pending',
+            overdueDays,
+            agingBucket: computeAgingBucket(overdueDays),
+            createdAt: now,
+          },
+        });
+        break;
+      } catch (err: any) {
+        if (err?.code === 'P2002' && err?.meta?.target?.includes('invoiceNumber')) {
+          // Concurrent create grabbed the number — retry with the next one.
+          continue;
+        }
+        throw err;
+      }
+    }
+    if (!invoice) throw new Error('Could not allocate a unique invoice number');
 
     await prisma.auditLog.create({
       data: {

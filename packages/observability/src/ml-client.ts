@@ -128,7 +128,7 @@ async function callPredict(features: RecoveryFeatures, caseId?: string) {
     try {
       const res = await fetch(`${ML_SERVICE_URL}/predict`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...adminHeaders() },
         body: JSON.stringify({ features: toMlFeatures(features), case_id: caseId }),
         signal: AbortSignal.timeout(ML_TIMEOUT_MS),
       });
@@ -296,6 +296,7 @@ export async function triggerRetrain(force: boolean = false): Promise<void> {
 export async function observeDriftMetrics(): Promise<void> {
   try {
     const res = await fetch(`${ML_SERVICE_URL}/drift`, {
+      headers: adminHeaders(),
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return;
@@ -322,6 +323,7 @@ export async function observeDriftMetrics(): Promise<void> {
 export async function observeModelMetadata(): Promise<void> {
   try {
     const res = await fetch(`${ML_SERVICE_URL}/retrain-status`, {
+      headers: adminHeaders(),
       signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) return;

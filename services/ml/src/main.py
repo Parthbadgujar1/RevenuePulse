@@ -134,7 +134,7 @@ def load_model():
 
 
 @app.post("/predict", response_model=PredictionResponse)
-async def predict(request: PredictionRequest):
+async def predict(request: PredictionRequest, _auth: None = Depends(require_internal_token)):
     load_model()
 
     f = request.features.model_dump()
@@ -203,7 +203,7 @@ async def health():
 
 
 @app.get("/model-info")
-async def model_info():
+async def model_info(_auth: None = Depends(require_internal_token)):
     load_model()
     m = _meta["metrics"]["test_metrics"]
     return {
@@ -228,7 +228,7 @@ async def model_info():
 # ── Drift detection ──────────────────────────────────────────────────────────
 
 @app.get("/drift")
-async def drift_report():
+async def drift_report(_auth: None = Depends(require_internal_token)):
     """Data drift report: PSI per feature, overall status."""
     try:
         from drift import compute_drift

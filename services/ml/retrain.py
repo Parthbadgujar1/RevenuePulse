@@ -10,7 +10,7 @@ Quality gates:
   Only when ALL gates pass does the new model replace the production artifact.
 
 Model versioning:
-  v3.1.1 -> v3.1.2 -> v3.1.3 -> ... (patch increments on production retrains)
+  v4.0.0 -> v4.0.1 -> v4.0.2 -> ... (patch increments on production retrains)
   Minor/major bumps are manual (via --version flag).
 
 CLI:
@@ -87,7 +87,8 @@ def load_retrain_state() -> dict:
     if os.path.exists(RETRAIN_STATE_PATH):
         with open(RETRAIN_STATE_PATH) as f:
             return json.load(f)
-    return {"last_retrain_at": None, "last_retrain_rows": 0, "retrain_count": 0, "current_version": "baseline-recovery-v3.1.1"}
+    return {"last_retrain_at": None, "last_retrain_rows": 0, "retrain_count": 0, 
+"current_version": "baseline-recovery-v4.0.0"}
 
 
 def save_retrain_state(state: dict):
@@ -107,7 +108,7 @@ def load_current_model_meta() -> dict | None:
 
 
 def bump_version(version: str) -> str:
-    """Increment patch version: v3.1.1 -> v3.1.2"""
+    """Increment patch version: v4.0.0 -> v4.0.1"""
     parts = version.replace("baseline-recovery-v", "").split(".")
     if len(parts) == 3:
         parts[2] = str(int(parts[2]) + 1)
@@ -212,7 +213,7 @@ def retrain(force: bool = False, dry_run: bool = False) -> dict:
         print(msg)
         return {"status": "skipped", "message": msg, "new_samples": new_samples}
 
-    new_version = bump_version(state.get("current_version", "baseline-recovery-v3.1.1"))
+    new_version = bump_version(state.get("current_version", "baseline-recovery-v4.0.0"))
     print(f"Training model {new_version}...")
     metrics, artifact, chosen_model = train_model(X, y, new_version)
 

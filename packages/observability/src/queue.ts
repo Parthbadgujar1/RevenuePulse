@@ -153,6 +153,17 @@ async function getProducerBoss(): Promise<any> {
       }, 300_000);
       if (typeof promiseCheckInterval.unref === 'function') promiseCheckInterval.unref();
 
+      // Consume due retry schedules every 5 minutes so failed recovery
+      // actions are retried per the backoff policy instead of stalling.
+      const retryConsumeInterval = setInterval(async () => {
+        try {
+          await consumeRetrySchedules();
+        } catch {
+          // retry consumption must never break the queue
+        }
+      }, 300_000);
+      if (typeof retryConsumeInterval.unref === 'function') retryConsumeInterval.unref();
+
       return boss;
     });
   }
@@ -272,11 +283,28 @@ async function processTransactionEvent(payload: any): Promise<JobResult> {
       await ensureDemoMerchant(prisma, merchantId);
     }
 
-    // 3. Persist transaction (idempotent on providerTransactionId)
+    // 3. Persist transaction (idempotent on providerTransactionId).
+    //    Stale-event guard: if the provider already told us this payment was
+    //    captured, a late out-of-order payment_failed must NOT regress it back
+    //    to a failed state. Webhooks arrive out of order, so we only apply a
+    //    failed status when the transaction isn't already a terminal success.
+    const existingTx = await prisma.transaction.findUnique({
+      where: { providerTransactionId },
+    });
+    const existingStatus = existingTx?.status?.toUpperCase();
+    const isAlreadyCaptured =
+      existingStatus === 'CAPTURED' || existingStatus === 'AUTHORIZED';
+    const incomingIsFailed = String(meta.status ?? '').toUpperCase().includes('FAILED');
+    // Only overwrite the status when it isn't a stale failure overriding a success
+    const safeStatus =
+      existingTx && incomingIsFailed && isAlreadyCaptured
+        ? existingTx.status
+        : (meta.status ?? 'unknown');
+
     const transaction = await prisma.transaction.upsert({
       where: { providerTransactionId },
       update: {
-        status: meta.status ?? 'unknown',
+        status: safeStatus,
         failureCode: meta.failureCode ?? null,
         failureCategory: meta.failureCategory ?? null,
         failureMessage: meta.failureMessage ?? null,
@@ -399,15 +427,13 @@ async function processTransactionEvent(payload: any): Promise<JobResult> {
       });
     }
 
-    // LIVE outcome verification: a real payment.captured/authorized event can
-    // resolve cases whose recovery action is awaiting a provider outcome.
-    if (
-      event.eventType === 'payment_captured' ||
-      event.eventType === 'payment_authorized'
-    ) {
+    // LIVE outcome verification: only payment_captured resolves a pending case
+    // as RECOVERED. payment_authorized means the bank approved the hold but has
+    // NOT yet captured funds — marking it recovered would be financially wrong.
+    if (event.eventType === 'payment_captured') {
       const resolvedCount = await resolvePendingLiveOutcomes(merchantId, meta);
       if (resolvedCount > 0) {
-        console.log(`Resolved ${resolvedCount} pending live outcome(s) from ${event.eventType}`);
+        console.log(`Resolved ${resolvedCount} pending live outcome(s) from payment_captured`);
       }
     }
 
@@ -719,16 +745,29 @@ async function executeAction(payload: any): Promise<JobResult> {
   const { actionId, simulated, groundTruthSeed } = payload;
 
   try {
-    const action = await prisma.recoveryAction.findUnique({
-      where: { id: actionId },
+    // ── Atomic claim: PENDING → EXECUTING ────────────────────────────────────
+    // Use an atomic updateMany with a WHERE guard instead of read→check→write
+    // to prevent two workers from concurrently executing the same action.
+    const claimed = await prisma.recoveryAction.updateMany({
+      where: { id: actionId, executionStatus: 'PENDING' },
+      data: { executionStatus: 'EXECUTING' },
     });
-    if (!action) {
-      return { success: false, error: 'Recovery action not found' };
-    }
-    if (action.executionStatus !== 'PENDING') {
+    if (claimed.count === 0) {
+      // Either already executed/executing or action doesn't exist
+      const existing = await prisma.recoveryAction.findUnique({ where: { id: actionId } });
+      if (!existing) return { success: false, error: 'Recovery action not found' };
       return { success: true, result: 'already_executed' };
     }
+
+    const action = await prisma.recoveryAction.findUnique({ where: { id: actionId } });
+    if (!action) return { success: false, error: 'Recovery action not found' };
+
     if (action.approvalStatus === 'pending') {
+      // Roll back the claim — action needs human approval
+      await prisma.recoveryAction.updateMany({
+        where: { id: actionId, executionStatus: 'EXECUTING' },
+        data: { executionStatus: 'PENDING' },
+      });
       return { success: false, error: 'Action awaiting human approval' };
     }
 
@@ -889,8 +928,12 @@ async function executeAction(payload: any): Promise<JobResult> {
       const retryWindow = RETRY_WINDOWS[category];
       if (retryWindow) {
         const schedule = calculateNextRetryTime(retryWindow, revenueCase.attemptCount);
-        await prisma.retrySchedule.create({
-          data: {
+        // Use upsert: RetrySchedule.caseId is UNIQUE, so a second failed
+        // attempt on the same case must update the existing schedule rather
+        // than creating a duplicate (which would hit a constraint violation).
+        await prisma.retrySchedule.upsert({
+          where: { caseId: revenueCase.id },
+          create: {
             caseId: revenueCase.id,
             merchantId: revenueCase.merchantId,
             failureCategory: category,
@@ -900,6 +943,13 @@ async function executeAction(payload: any): Promise<JobResult> {
             nextRetryAt: new Date(schedule.retryAt),
             status: 'scheduled',
             createdAt: new Date(),
+          },
+          update: {
+            currentRetry: schedule.attempt,
+            maxRetries: retryWindow.maxRetries,
+            nextRetryAt: new Date(schedule.retryAt),
+            status: 'scheduled',
+            lastRetryAt: new Date(),
           },
         });
         await prisma.auditLog.create({
@@ -944,16 +994,21 @@ async function executeAction(payload: any): Promise<JobResult> {
 
 /**
  * LIVE outcome verification, driven by REAL provider events.
- * When a payment.captured / payment.authorized webhook arrives, match it to
- * open OUTCOME_PENDING cases and record a verified RECOVERED outcome
- * referencing the real provider transaction.
+ * When a payment.captured webhook arrives, match it to open OUTCOME_PENDING
+ * cases and record a verified RECOVERED outcome referencing the real provider
+ * transaction.
  *
- * Matching policy:
- *   - PRIMARY: exact join Transaction.providerTransactionId === event payment
- *     id — unambiguous regardless of amount collisions.
- *   - FALLBACK (events without a payment id): oldest single case for the
- *     merchant with the same amountAtRisk. Never more than one case is
- *     resolved from an ambiguous match.
+ * Matching policy (tried in order, first match wins):
+ *   1. RecoveryAction.providerActionId — the Payment Link id (plink_xxx)
+ *      stored when the live action was dispatched. A customer paying through
+ *      a recovery Payment Link produces a NEW providerTransactionId, so
+ *      exact transaction id matching would miss it. Razorpay includes the
+ *      Payment Link id in payment_link webhook payloads; we also accept it
+ *      from the event metadata if present.
+ *   2. Exact join Transaction.providerTransactionId === event payment id.
+ *   3. Fallback (events without a payment id): oldest single case for the
+ *      merchant with the same amountAtRisk. Never more than one case is
+ *      resolved from an ambiguous match.
  */
 export async function resolvePendingLiveOutcomes(
   merchantId: string,
@@ -961,10 +1016,47 @@ export async function resolvePendingLiveOutcomes(
     providerTransactionId?: string;
     amount?: number;
     occurredAt?: string | number;
+    paymentLinkId?: string;
   }
 ): Promise<number> {
   if (!meta.amount || meta.amount <= 0) return 0;
 
+  let resolved = 0;
+
+  // ── 1. Match by Payment Link id (most specific for recovery-initiated payments) ──
+  if (meta.paymentLinkId && resolved === 0) {
+    const plinkCases = await prisma.revenueCase.findMany({
+      where: {
+        merchantId,
+        status: 'OUTCOME_PENDING',
+        currentActionId: { not: null },
+      },
+      take: 10,
+    });
+    for (const c of plinkCases) {
+      const actionId = (c as any).currentActionId;
+      if (!actionId) continue;
+      const action = await prisma.recoveryAction.findUnique({ where: { id: actionId } });
+      if (!action || action.executionStatus !== 'EXECUTED') continue;
+      if (action.providerActionId !== meta.paymentLinkId) continue;
+      const execAudit = await prisma.auditLog.findFirst({
+        where: {
+          action: 'recovery_action_executed',
+          entityType: 'recovery_action',
+          entityId: action.id,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      if ((execAudit?.evidence as any)?.mode !== 'PROVIDER_LIVE') continue;
+      if (await prisma.outcome.findUnique({ where: { actionId: action.id } })) continue;
+
+      await recordRecoveredOutcome(merchantId, c, action, meta.providerTransactionId);
+      resolved++;
+    }
+    if (resolved > 0) return resolved;
+  }
+
+  // ── 2. Match by exact Transaction.providerTransactionId ──
   const exactMatch = Boolean(meta.providerTransactionId);
   const pending = await prisma.revenueCase.findMany({
     where: {
@@ -975,18 +1067,14 @@ export async function resolvePendingLiveOutcomes(
         : { amountAtRisk: meta.amount }),
     },
     orderBy: { createdAt: 'asc' },
-    // Exact id match may legitimately fan out (defensive); ambiguous amount
-    // matching must stay single-case.
     take: exactMatch ? 5 : 1,
   });
 
-  let resolved = 0;
   for (const c of pending) {
     const actionId = (c as any).currentActionId;
     if (!actionId) continue;
     const action = await prisma.recoveryAction.findUnique({ where: { id: actionId } });
     if (!action || action.executionStatus !== 'EXECUTED') continue;
-    // Execution mode is recorded in the execution audit entry's evidence.
     const execAudit = await prisma.auditLog.findFirst({
       where: {
         action: 'recovery_action_executed',
@@ -998,48 +1086,58 @@ export async function resolvePendingLiveOutcomes(
     if ((execAudit?.evidence as any)?.mode !== 'PROVIDER_LIVE') continue;
     if (await prisma.outcome.findUnique({ where: { actionId: action.id } })) continue;
 
-    const outcome = await prisma.outcome.create({
-      data: {
-        actionId: action.id,
-        recoveredAmount: c.amountAtRisk,
-        result: 'RECOVERED',
-        recoveryTimestamp: new Date(),
-        measuredCost: action.expectedCost,
-        verificationRef: meta.providerTransactionId ?? null,
-        notes: 'Verified from real provider event (payment captured)',
-        verifiedAt: new Date(),
-      },
-    });
-    await prisma.recoveryAction.update({
-      where: { id: action.id },
-      data: { outcomeId: outcome.id, completedAt: new Date() },
-    });
-    await prisma.revenueCase.update({
-      where: { id: c.id },
-      data: { status: 'RECOVERED', stoppedReason: null },
-    });
-    await prisma.auditLog.create({
-      data: {
-        merchantId,
-        actorType: 'system',
-        actorId: 'outcome-verifier',
-        action: 'recovery_outcome_verified',
-        entityType: 'recovery_action',
-        entityId: action.id,
-        reason: `Recovered ${(c.amountAtRisk / 100).toLocaleString('en-IN')} — confirmed by live provider event`,
-        evidence: {
-          mode: 'PROVIDER_LIVE',
-          providerTransactionId: meta.providerTransactionId ?? null,
-          outcomeId: outcome.id,
-        } as any,
-        beforeState: { status: 'OUTCOME_PENDING' } as any,
-        afterState: { status: 'RECOVERED', outcomeId: outcome.id } as any,
-        createdAt: new Date(),
-      },
-    });
+    await recordRecoveredOutcome(merchantId, c, action, meta.providerTransactionId);
     resolved++;
   }
   return resolved;
+}
+
+/** Persist a verified recovered outcome + audit trail for a matched case. */
+async function recordRecoveredOutcome(
+  merchantId: string,
+  revenueCase: any,
+  action: { id: string; expectedCost: number },
+  providerTransactionId?: string
+): Promise<void> {
+  const outcome = await prisma.outcome.create({
+    data: {
+      actionId: action.id,
+      recoveredAmount: revenueCase.amountAtRisk,
+      result: 'RECOVERED',
+      recoveryTimestamp: new Date(),
+      measuredCost: action.expectedCost,
+      verificationRef: providerTransactionId ?? null,
+      notes: 'Verified from real provider event (payment captured)',
+      verifiedAt: new Date(),
+    },
+  });
+  await prisma.recoveryAction.update({
+    where: { id: action.id },
+    data: { outcomeId: outcome.id, completedAt: new Date() },
+  });
+  await prisma.revenueCase.update({
+    where: { id: revenueCase.id },
+    data: { status: 'RECOVERED', stoppedReason: null },
+  });
+  await prisma.auditLog.create({
+    data: {
+      merchantId,
+      actorType: 'system',
+      actorId: 'outcome-verifier',
+      action: 'recovery_outcome_verified',
+      entityType: 'recovery_action',
+      entityId: action.id,
+      reason: `Recovered ${(revenueCase.amountAtRisk / 100).toLocaleString('en-IN')} — confirmed by live provider event`,
+      evidence: {
+        mode: 'PROVIDER_LIVE',
+        providerTransactionId: providerTransactionId ?? null,
+        outcomeId: outcome.id,
+      } as any,
+      beforeState: { status: 'OUTCOME_PENDING' } as any,
+      afterState: { status: 'RECOVERED', outcomeId: outcome.id } as any,
+      createdAt: new Date(),
+    },
+  });
 }
 
 // Verify outcome of a recovery action and measure recovered money
@@ -1182,17 +1280,76 @@ async function scheduleRetry(payload: any): Promise<JobResult> {
   
   const backoffMs = Math.pow(2, originalAttempt) * 30000; // 30s, 1min, 2min, ...
   
-  // Enqueue a retry-scheduled job
-  // await enqueueProcessingJob({
-  //   type: JobType.RETRY_SCHEDULED,
-  //   payload: { caseId, originalAttempt, maxAttempts },
-  //   options: { delay: backoffMs },
-  // });
-  
   return {
     success: true,
     result: { caseId, retryInMs: backoffMs },
   };
+}
+
+/**
+ * Consume due RetrySchedule rows: for each case whose nextRetryAt has passed
+ * and status is still "scheduled", create a fresh recovery evaluation job
+ * (evaluating with the updated attempt count).
+ *
+ * Called periodically by the pg-boss startup interval (every 5 minutes).
+ */
+export async function consumeRetrySchedules(): Promise<{ checked: number; dispatched: number }> {
+  const now = new Date();
+  const due = await prisma.retrySchedule.findMany({
+    where: { status: 'scheduled', nextRetryAt: { lte: now } },
+    take: 50,
+  });
+
+  let dispatched = 0;
+  for (const schedule of due) {
+    if (schedule.currentRetry >= schedule.maxRetries) {
+      // Exhausted — mark as done and stop the case
+      await prisma.retrySchedule.update({
+        where: { id: schedule.id },
+        data: { status: 'exhausted' },
+      });
+      await prisma.revenueCase.updateMany({
+        where: { id: schedule.caseId, status: { in: ['FAILED', 'OUTCOME_PENDING'] } },
+        data: { status: 'STOPPED', stoppedReason: 'retry_exhausted' },
+      });
+      continue;
+    }
+
+    // Mark as executing so duplicate consumers skip it
+    const claimed = await prisma.retrySchedule.updateMany({
+      where: { id: schedule.id, status: 'scheduled' },
+      data: { status: 'executing' },
+    });
+    if (claimed.count === 0) continue;
+
+    // Re-evaluate the case — the pipeline will create a new action if the
+    // model and policy still recommend one.
+    setImmediate(() => {
+      void processJob({} as Boss, JobType.EVALUATE_RECOVERY, {
+        caseId: schedule.caseId,
+        groundTruthSeed: Date.now(),
+      })
+        .then((r) => {
+          if (!r.success) console.error(`retry evaluate-recovery ${schedule.caseId} failed:`, r.error);
+          // Mark schedule complete regardless — the evaluation created a new
+          // action (or stopped the case) if appropriate.
+          prisma.retrySchedule.update({
+            where: { id: schedule.id },
+            data: { status: 'completed' },
+          }).catch(() => {});
+        })
+        .catch((err) => {
+          console.error(`retry evaluate-recovery ${schedule.caseId} threw:`, err);
+          prisma.retrySchedule.update({
+            where: { id: schedule.id },
+            data: { status: 'scheduled' }, // Reset so it can be retried
+          }).catch(() => {});
+        });
+    });
+    dispatched++;
+  }
+
+  return { checked: due.length, dispatched };
 }
 
 // Run retention cleanup (remove old data per policy)

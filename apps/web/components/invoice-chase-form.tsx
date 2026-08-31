@@ -35,7 +35,7 @@ export default function InvoiceChaseForm({
       if (!res.ok) {
         throw new Error(j.error || `Request failed (${res.status})`);
       }
-      setResult({ ok: true, text: 'Payment reminder sent successfully.' });
+      setResult({ ok: true, text: 'Payment reminder queued (demo simulation).' });
       onSuccess?.();
     } catch (e) {
       setResult({ ok: false, text: (e as Error).message });

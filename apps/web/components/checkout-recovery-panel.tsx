@@ -50,7 +50,7 @@ export default function CheckoutRecoveryPanel({ sessionId }: { sessionId?: strin
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `Request failed (${res.status})`);
       }
-      setSuccess('Recovery email sent successfully.');
+      setSuccess('Recovery outreach queued (demo simulation).');
       setSession((s) => (s ? { ...s, status: 'recovery_sent' } : s));
     } catch (e) {
       setError((e as Error).message);

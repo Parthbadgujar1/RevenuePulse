@@ -208,11 +208,12 @@ export class RazorpayProvider implements PaymentProvider {
   }
 
   async retryPayment(params: RetryParams): Promise<RetryResult> {
-    // In production, this would call Razorpay's retry endpoint
-    // For MVP, throw error indicating misconfiguration
+    // Razorpay has no generic "retry a previous payment" endpoint — recovery
+    // is performed by creating a fresh Payment Link, dispatchLiveAction() in
+    // @rp/observability. This method intentionally fails rather than
+    // fabricate a provider reference.
     throw new Error(
-      'RazorpayProvider not configured. Set RAZORPAY_API_KEY and RAZORPAY_API_SECRET, ' +
-      'or use SimulationProvider as default.'
+      'RazorpayProvider.retryPayment is not implemented — use Payment Link creation (dispatchLiveAction) instead.'
     );
   }
 
@@ -222,24 +223,23 @@ export class RazorpayProvider implements PaymentProvider {
     currency: string;
     failureCode?: string;
   }> {
-    // Query Razorpay API for payment status
-    throw new Error('RazorpayProvider not fully implemented in MVP');
+    // Fail closed rather than claim an unverified status. Callers that need
+    // a live payment lookup should use the Payments API directly.
+    throw new Error('RazorpayProvider.getPaymentStatus is not implemented — use the Razorpay Payments API directly.');
   }
 
   async createPaymentLink(params: PaymentLinkParams): Promise<PaymentLinkResult> {
-    // Call Razorpay API to create payment link
-    throw new Error('RazorpayProvider not fully implemented in MVP');
+    // Fail closed rather than fabricate a payment link. dispatchLiveAction in
+    // @rp/observability performs the real Payment Link creation with stored
+    // (encrypted) credentials.
+    throw new Error('RazorpayProvider.createPaymentLink is not implemented — use dispatchLiveAction() in @rp/observability.');
   }
 
   verifyWebhookSignature(payload: string, signature: string): boolean {
-    // Verify Razorpay webhook signature using HMAC SHA256
-    // const expectedSig = crypto
-    //   .createHmac('sha256', this.apiSecret)
-    //   .update(payload)
-    //   .digest('hex');
-    // return expectedSig === signature;
-    // For MVP, return true if not configured
-    return true;
+    // Fail closed. Signature verification is performed by
+    // verifyRazorpaySignature() with a real HMAC-SHA256 against the raw body
+    // and the connection secret — never return true here.
+    return false;
   }
 }
 
@@ -553,7 +553,9 @@ export interface NormalizedProviderEvent {
  */
 export function normalizeRazorpayEvent(event: any): NormalizedProviderEvent {
   const type = event.event_type || event.event;
-  const data = event.data || {};
+  // Real Razorpay webhooks use `payload`; simulation/legacy uses `data`.
+  // Both are normalised here so callers never see the difference.
+  const data = event.data || event.payload || {};
 
   const entity =
     data.payment?.entity ??

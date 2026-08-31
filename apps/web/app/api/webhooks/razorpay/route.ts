@@ -43,13 +43,12 @@ export async function POST(request: NextRequest) {
     if (!verification.valid && verification.mode === 'live') {
       const connections = await prisma.providerConnection.findMany({
         where: { provider: 'razorpay', status: 'active' },
-        select: { merchantId: true, webhookSecret: true, webhookSecretEncrypted: true },
+        select: { merchantId: true, webhookSecretEncrypted: true },
       });
       for (const candidate of connections) {
-        // Prefer the AES-256-GCM encrypted secret; fall back to the legacy
-        // plaintext column for connections created before encryption.
-        const secret = decryptSecret(candidate.webhookSecretEncrypted ?? '') ??
-          candidate.webhookSecret;
+        // Only the AES-256-GCM encrypted webhook secret is trusted. The
+        // legacy plaintext column has been dropped — fail closed otherwise.
+        const secret = decryptSecret(candidate.webhookSecretEncrypted ?? '');
         if (!secret) continue;
         const attempt = verifyRazorpaySignature(body, signature, {
           secret,
@@ -66,12 +65,20 @@ export async function POST(request: NextRequest) {
       return new NextResponse('Invalid signature', { status: 401 });
     }
 
-    // 2. Validate schema - check required fields
+    // 2. Validate schema — accept both Razorpay's `payload` structure and
+    //    the legacy/simulation `data` structure so signed live webhooks and
+    //    demo events both pass through.
     let eventData: any;
     try {
       eventData = JSON.parse(body);
       if (!eventData.event_type && !eventData.event) {
         return new NextResponse('Invalid event schema', { status: 400 });
+      }
+      // Real Razorpay webhooks nest resources under `payload` (e.g.
+      // payload.payment.entity). Simulation / legacy events use `data`.
+      // Normalise both to `eventData.data` so downstream code is uniform.
+      if (!eventData.data && eventData.payload) {
+        eventData.data = eventData.payload;
       }
       if (!eventData.data) {
         return new NextResponse('Invalid event schema', { status: 400 });
