@@ -62,7 +62,7 @@ Demo sign-in: `owner@revenuepulse.dev` / `demo1234`
 
 ## Measured results (batch experiment, N=100, seeded)
 
-Seed 20260823, 100 synthetic failures (~₹5.0L at risk): RevenuePulse recovers **67.1% of at-risk money (₹3.36L net)** vs **47.2% for retry-everything (+₹99.5k uplift)** — inside the published 65–75% "smart dunning" band. Funnel: 100 diagnosed → 100 decided → 100 executed → 64 recovered; zero stopped by policy, zero awaiting approval. The experiment reports the honest funnel, money funnel and strategy comparison against no-intervention and retry-all baselines using the same ground-truth simulator.
+Seed 20260823, 100 synthetic failures (~₹5.0L at risk): RevenuePulse recovers **gross ₹3.36L (67.1% of at-risk money)** vs **47.2% for retry-everything (+₹99.5k gross uplift)** — inside the published 65–75% "smart dunning" band. Net figures subtract measured action cost (gross − cost − incentive = net), reported separately in the Demo Lab money funnel; incentive cost is ₹0 in the default policy. Funnel: 100 diagnosed → 100 decided → 100 executed → 64 recovered; zero stopped by policy, zero awaiting approval. The experiment reports the honest funnel, money funnel and strategy comparison against no-intervention and retry-all baselines using the same ground-truth simulator.
 
 ## Key endpoints
 
@@ -88,7 +88,7 @@ PDF imports use heuristic line parsing (currency-marked amounts + status keyword
 - Model (v4): **logistic regression with isotonic calibration** — it won an honest head-to-head against histogram gradient boosting on held-out ROC-AUC (0.7741 vs 0.7716; the boosting candidate must win by >0.01 to displace the transparent baseline). Both scores are published in `services/ml/metrics.json` under `model_selection`.
 - Training data is **synthetic but industry-calibrated**: 80,603 intervention outcomes whose generative process matches published 2025–26 subscription-recovery benchmarks — insufficient funds 55–70% recovery with timed retries, expired cards ~40% only with card-update outreach (and ~26% of failure volume), transient issuer/network errors up to 78%, voluntary cancellations <10%, blended smart-dunning tier 65–75%. Sources: Recurly Research, Stripe decline-code encyclopedia, SaaS Payment Failure Report 2026 (linked in `metrics.json → benchmark_sources`).
 - Labels mean "a retry-style intervention eventually recovered this payment". Held-out metrics live in `services/ml/metrics.json` and are exposed verbatim at `GET /model-info` and on the dashboard's model strip.
-- Measured demo-cohort result after v4: **67% of at-risk money recovered vs 47% under retry-everything (+₹99.5k per ₹5L cohort)** — inside the published smart-dunning band, with zero actions stuck awaiting approval because escalation is now a last-resort lift rather than a dominant default.
+- Measured demo-cohort result after v4: **gross ₹3.36L of ₹5L at-risk money (67%) recovered vs ₹2.36L (47%) under retry-everything (+₹99.5k gross uplift)** — inside the published smart-dunning band, with zero actions stuck awaiting approval because escalation is now a last-resort lift rather than a dominant default. Net (gross − action cost − incentive) is reported separately in the Demo Lab money funnel.
 
 ## Import template
 

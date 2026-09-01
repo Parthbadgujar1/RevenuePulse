@@ -6,6 +6,7 @@
   "dataset_rows": 80603,
   "train_rows": 64482,
   "test_rows": 16121,
+  "dataset_source": "synthetic/benchmark-calibrated (generated_payment_outcomes.jsonl via generate_synthetic.py; regenerable, not production data)",
   "positive_rate_train": 0.3658,
   "test_metrics": {
     "name": "logistic_regression",

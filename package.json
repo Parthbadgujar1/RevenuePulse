@@ -20,7 +20,9 @@
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "ml:train": "python services/ml/data/generate_synthetic.py && python services/ml/train_baseline.py",
-    "experiment": "tsx scripts/batch-experiment.ts 100"
+    "experiment": "tsx scripts/batch-experiment.ts 100",
+    "seed": "tsx scripts/seed-demo-data.ts",
+    "demo": "prisma db push && prisma generate && python services/ml/data/generate_synthetic.py && python services/ml/train_baseline.py && tsx scripts/seed-demo-data.ts && tsx scripts/batch-experiment.ts 100"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -30,6 +32,7 @@
     "pg": "^8.23.0",
     "pg-boss": "^12.27.0",
     "prisma": "^7.9.1",
+    "tsx": "^4.19.2",
     "turbo": "^1.13.4",
     "typescript": "^7.0.2"
   },

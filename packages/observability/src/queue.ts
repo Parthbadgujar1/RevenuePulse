@@ -13,6 +13,7 @@ import { DecisionEngine, DEFAULT_MERCHANT_POLICY } from '../../policies/src';
 import type { MerchantPolicy } from '../../policies/src';
 import { getInterventionLift } from '../../policies/src/intervention-lifts';
 import { predictRecoveryProbability, logTrainingData, triggerRetrain, observeDriftMetrics } from './ml-client';
+import { AgentOrchestrator } from '../../agent/src/orchestrator';
 import { dispatchLiveAction } from './razorpay-live';
 import { setQueueDepth } from './metrics';
 import { RETRY_WINDOWS, calculateNextRetryTime } from '../../domain/src/services/retry-sequencer';
@@ -523,8 +524,49 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
       revenueCase.id,
       features,
       undefined,
-      mlPrediction
+      mlPrediction,
+      {
+        attemptCount: revenueCase.attemptCount,
+        contactCount: revenueCase.attemptCount,
+        caseAgeHours: Math.max(
+          0,
+          (Date.now() - new Date(revenueCase.createdAt).getTime()) / 3600000
+        ),
+        lastAttemptAt: revenueCase.lastAttemptAt ?? null,
+        customerDeclined:
+          revenueCase.stoppedReason === 'customer_declined' || Boolean((revenueCase as any).customerDeclined),
+        repeatedFailures: revenueCase.attemptCount >= 3,
+      }
     );
+
+    // The Revenue Recovery Agent orchestrates the reasoning phases for this
+    // case: diagnose → retrieve context → score (real model prediction) →
+    // propose → explain. It NEVER executes money actions — the deterministic
+    // DecisionEngine (above) is the authoritative gate and the executor (below)
+    // is what touches the provider. The agent's output is persisted as the
+    // explainable diagnosis + audit evidence.
+    let agentReasoning: {
+      diagnosis: { category: string; confidence: number; evidence: string[] };
+      prediction: any;
+      proposedAction: string;
+      rationale: string;
+      toolCalls: string[];
+    } | null = null;
+    try {
+      const agent = new AgentOrchestrator(await getMerchantPolicy(revenueCase.merchantId));
+      agentReasoning = await agent.orchestrate({
+        caseId: revenueCase.id,
+        merchantId: revenueCase.merchantId,
+        features: features as any,
+        externalPrediction: mlPrediction,
+        failureMessage: (tx?.failureMessage as string) || undefined,
+        rawDiagnosis: { primaryCategory: category, confidence: mlPrediction?.confidence ?? 0 },
+      });
+    } catch (err) {
+      // Orchestration is advisory; a failure here must never block the bounded
+      // deterministic recovery loop.
+      console.error(`agent.orchestrate failed for ${revenueCase.id}:`, err);
+    }
 
     // Persist the prediction + decision for the audit trail
     const predictionRow = await prisma.prediction.upsert({
@@ -565,6 +607,33 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
         createdAt: new Date(),
       },
     });
+
+    // Agent-orchestrated reasoning is persisted as auditable evidence. The
+    // agent proposes and explains; the deterministic engine decides and the
+    // executor acts — so this entry records the AI's recommendation for the
+    // audit trail without conferring any authority to move money.
+    if (agentReasoning) {
+      await prisma.auditLog.create({
+        data: {
+          merchantId: revenueCase.merchantId,
+          actorType: 'agent',
+          actorId: 'revenue-recovery-agent',
+          action: 'agent_orchestrated',
+          entityType: 'revenue_case',
+          entityId: revenueCase.id,
+          reason: agentReasoning.rationale,
+          evidence: {
+            proposedAction: agentReasoning.proposedAction,
+            finalDecision: decision.decision.action,
+            toolCalls: agentReasoning.toolCalls,
+            diagnosis: agentReasoning.diagnosis,
+            policyAllowed: decision.policy.allowed,
+            violations: decision.policy.violations,
+          } as any,
+          createdAt: new Date(),
+        },
+      });
+    }
 
     const doNothing = decision.decision.action === ('DO_NOTHING' as any) || (decision.decision.action as any).toString().toLowerCase() === 'do_nothing';
 
@@ -1330,19 +1399,56 @@ export async function consumeRetrySchedules(): Promise<{ checked: number; dispat
         groundTruthSeed: Date.now(),
       })
         .then((r) => {
-          if (!r.success) console.error(`retry evaluate-recovery ${schedule.caseId} failed:`, r.error);
-          // Mark schedule complete regardless — the evaluation created a new
-          // action (or stopped the case) if appropriate.
+          if (r.success) {
+            // Evaluation completed (an action was created, or the case was
+            // intentionally stopped). The schedule has served its purpose.
+            prisma.retrySchedule.update({
+              where: { id: schedule.id },
+              data: { status: 'completed' },
+            }).catch(() => {});
+            return;
+          }
+          // Evaluation FAILED loudly (e.g. ML service unreachable) — this is a
+          // TRANSIENT, RECOVERABLE failure, not a terminal outcome. Re-arm the
+          // schedule so the retry is attempted again later instead of being
+          // silently dropped. Respect maxRetries: each re-arm increments
+          // currentRetry and backs off exponentially.
+          const attempt = schedule.currentRetry + 1;
+          const backoffHours = Math.min(24, 1 * Math.pow(2, attempt - 1));
+          const exhausted = attempt >= schedule.maxRetries;
           prisma.retrySchedule.update({
             where: { id: schedule.id },
-            data: { status: 'completed' },
+            data: {
+              status: exhausted ? 'exhausted' : 'scheduled',
+              currentRetry: attempt,
+              nextRetryAt: new Date(Date.now() + backoffHours * 3600_000),
+            },
           }).catch(() => {});
+          if (exhausted) {
+            prisma.revenueCase.updateMany({
+              where: { id: schedule.caseId, status: { in: ['FAILED', 'OUTCOME_PENDING'] } },
+              data: { status: 'STOPPED', stoppedReason: 'retry_exhausted' },
+            }).catch(() => {});
+          } else {
+            console.error(
+              `retry evaluate-recovery ${schedule.caseId} returned failure; re-armed for retry in ${backoffHours}h`
+            );
+          }
         })
         .catch((err) => {
+          // An exception while evaluating — reset to scheduled (with backoff)
+          // so it can be retried, mirroring the recoverable-failure path.
           console.error(`retry evaluate-recovery ${schedule.caseId} threw:`, err);
+          const attempt = schedule.currentRetry + 1;
+          const backoffHours = Math.min(24, 1 * Math.pow(2, attempt - 1));
+          const exhausted = attempt >= schedule.maxRetries;
           prisma.retrySchedule.update({
             where: { id: schedule.id },
-            data: { status: 'scheduled' }, // Reset so it can be retried
+            data: {
+              status: exhausted ? 'exhausted' : 'scheduled',
+              currentRetry: attempt,
+              nextRetryAt: new Date(Date.now() + backoffHours * 3600_000),
+            },
           }).catch(() => {});
         });
     });

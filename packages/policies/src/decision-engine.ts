@@ -102,6 +102,20 @@ export interface DecisionResult {
   timestamp: Date;
 }
 
+// Live policy-enforcement context for a case. These are NOT model features;
+// they describe the case's persisted state so merchant guardrails (attempt /
+// contact limits, case lifetime, cooldown, declined/repeated-failure stops)
+// are evaluated against real data rather than the hardcoded defaults that the
+// old policy gate used.
+export interface PolicyContext {
+  attemptCount?: number;
+  contactCount?: number;
+  caseAgeHours?: number;
+  lastAttemptAt?: Date | null;
+  customerDeclined?: boolean;
+  repeatedFailures?: boolean;
+}
+
 // Decision engine class
 export class DecisionEngine {
   private policy: MerchantPolicy;
@@ -129,7 +143,8 @@ export class DecisionEngine {
     caseId: string,
     features: RecoveryFeatures,
     existingPolicy?: MerchantPolicy,
-    prediction?: BaselinePrediction
+    prediction?: BaselinePrediction,
+    context: PolicyContext = {}
   ): Promise<DecisionResult> {
     const policy = existingPolicy || this.policy;
 
@@ -146,11 +161,21 @@ export class DecisionEngine {
       0  // no incentive by default
     );
 
-    // Step 3: Check policy compliance
+    // Step 3: Check policy compliance using the real model prediction and the
+    // case's live state (attempts, contacts, age, cooldown, customer signals).
     const policyCheck = isInterventionAllowed(
-      InterventionType.DO_NOTHING, // we'll check all interventions
+      InterventionType.DO_NOTHING,
       policy,
-      features
+      features,
+      {
+        probability: resolved.recoveryProbability,
+        attemptCount: context.attemptCount,
+        contactCount: context.contactCount,
+        caseAgeHours: context.caseAgeHours ?? 0,
+        lastAttemptAt: context.lastAttemptAt ?? null,
+        customerDeclined: Boolean(context.customerDeclined),
+        repeatedFailures: Boolean(context.repeatedFailures),
+      }
     );
 
     // Step 4: Evaluate all interventions.
@@ -200,11 +225,22 @@ export class DecisionEngine {
         continue;
       }
 
-      // Check if intervention is allowed under policy
+      // Check if intervention is allowed under policy, using the effective
+      // (intervention-adjusted) probability and the case's live state so the
+      // real model output + guardrails gate money actions.
       const allowedResult = isInterventionAllowed(
         interventionType,
         policy,
-        features
+        features,
+        {
+          probability: effectiveProbability,
+          attemptCount: context.attemptCount,
+          contactCount: context.contactCount,
+          caseAgeHours: context.caseAgeHours ?? 0,
+          lastAttemptAt: context.lastAttemptAt ?? null,
+          customerDeclined: Boolean(context.customerDeclined),
+          repeatedFailures: Boolean(context.repeatedFailures),
+        }
       );
 
       if (!allowedResult.allowed) {

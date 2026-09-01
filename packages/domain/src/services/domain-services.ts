@@ -188,19 +188,68 @@ export function getInterventionDefinition(
   return INTERVENTIONS[type];
 }
 
-// Check if intervention is allowed given policy and context
+// Check if intervention is allowed given policy and context.
+// `probability` MUST be the real recovery probability (model prediction /
+// effective intervention probability) — never a hardcoded default — so the
+// merchant's policy thresholds and economics are evaluated against ground
+// truth, not a placeholder. This is the bounded, gated gateway for money
+// actions.
 export function isInterventionAllowed(
   type: InterventionType,
   policy: MerchantPolicyConfig,
-  features: RecoveryFeatures
+  features: RecoveryFeatures,
+  options: {
+    probability?: number;
+    attemptCount?: number;
+    contactCount?: number;
+    caseAgeHours?: number;
+    lastAttemptAt?: Date | null;
+    customerDeclined?: boolean;
+    repeatedFailures?: boolean;
+  } = {}
 ): { allowed: boolean; reason: string } {
   const definition = INTERVENTIONS[type];
   if (!definition) {
     return { allowed: false, reason: 'Unknown intervention type' };
   }
 
-  // Default probability until an actual prediction is available
-  const probability = 0.5;
+  // Guard against a missing/NaN probability: fail closed to DO_NOTHING rather
+  // than silently treat a broken prediction as permissible.
+  const probability =
+    typeof options.probability === 'number' && !Number.isNaN(options.probability)
+      ? options.probability
+      : 0;
+
+  // ----- Hard stops (customer-driven) -----
+  if (policy.stopOnCustomerDecline && options.customerDeclined) {
+    return { allowed: false, reason: 'Customer has declined; recovery stopped' };
+  }
+  if (policy.stopOnRepeatedFailure && options.repeatedFailures) {
+    return { allowed: false, reason: 'Repeated failures; recovery stopped' };
+  }
+
+  // ----- Attempt / contact limits -----
+  if (policy.maximumRetryCount > 0 && (options.attemptCount ?? 0) >= policy.maximumRetryCount) {
+    return { allowed: false, reason: 'Maximum retry count reached' };
+  }
+  if (policy.maximumContactCount > 0 && (options.contactCount ?? 0) >= policy.maximumContactCount) {
+    return { allowed: false, reason: 'Maximum contact count reached' };
+  }
+
+  // ----- Case lifetime (maximumCaseLifetime is expressed in DAYS) / cooldown -----
+  if (
+    policy.maximumCaseLifetime > 0 &&
+    (options.caseAgeHours ?? 0) > policy.maximumCaseLifetime * 24
+  ) {
+    return { allowed: false, reason: 'Case exceeds maximum lifetime' };
+  }
+  if (
+    policy.cooldownPeriod > 0 &&
+    options.lastAttemptAt &&
+    Date.now() - options.lastAttemptAt.getTime() < policy.cooldownPeriod * 3600_000
+  ) {
+    return { allowed: false, reason: 'Cooldown period not yet elapsed' };
+  }
 
   const prerequisitesMet = definition.prerequisites({
     probability,
@@ -213,14 +262,15 @@ export function isInterventionAllowed(
     return { allowed: false, reason: 'Prerequisites not met for this intervention' };
   }
 
-  // Check minimum recovery probability
+  // ----- Minimum recovery probability (real prediction) -----
   if (probability < policy.minimumRecoveryProbability) {
     return { allowed: false, reason: 'Recovery probability below minimum threshold' };
   }
-  // Check minimum expected net recovery
+
+  // ----- Minimum expected net recovery (real probability) -----
   const economics = calculateEconomics(
     features.amount,
-    0.5, // use default probability
+    probability,
     definition.expectedCost,
     0 // no incentive for policy check
   );
@@ -229,7 +279,7 @@ export function isInterventionAllowed(
     return { allowed: false, reason: 'Expected net recovery below minimum threshold' };
   }
 
-  // Check maximum limits
+  // ----- Maximum recovery value -----
   if (features.amount > policy.maximumRecoveryValue) {
     return { allowed: false, reason: 'Recovery value exceeds merchant maximum' };
   }

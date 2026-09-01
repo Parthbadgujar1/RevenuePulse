@@ -5,6 +5,8 @@ import {
   ensureDemoMerchant,
   registerWebhookEvent,
   hashPayload,
+  markWebhookProcessing,
+  markWebhookFailed,
 } from '@rp/database';
 import { decryptSecret } from '../../../../lib/crypto';
 import { normalizeRazorpayEvent } from '@rp/razorpay';
@@ -129,24 +131,50 @@ export async function POST(request: NextRequest) {
     // 4. Normalize to internal event format
     const normalizedEvent = normalizeRazorpayEvent(eventData);
 
-    // 5. Enqueue async processing job (worker records completion)
-    const jobId = await enqueueProcessingJob(
-      {
-        type: JobType.PROCESS_TRANSACTION_EVENT,
-        payload: {
-          merchantId,
-          event: normalizedEvent,
-          eventRef: registration.id,
-          webhookEventId: registration.id,
+    // 5. Enqueue async processing job (worker records completion).
+    //    If enqueueing fails the event has NOT been durably accepted for
+    //    processing. Record the failure and return a non-2xx so Razorpay
+    //    redelivers — a 200 here would silently drop a payment_captured event
+    //    that should have become a verified recovery outcome.
+    let jobId: string;
+    try {
+      jobId = await enqueueProcessingJob(
+        {
+          type: JobType.PROCESS_TRANSACTION_EVENT,
+          payload: {
+            merchantId,
+            event: normalizedEvent,
+            eventRef: registration.id,
+            webhookEventId: registration.id,
+            source: 'webhook',
+            simulated: verification.simulated,
+          },
           source: 'webhook',
-          simulated: verification.simulated,
         },
-        source: 'webhook',
-      },
-      { timeout: 300000 }
-    );
+        { timeout: 300000 }
+      );
+    } catch (error) {
+      console.error('Webhook enqueue failed:', error);
+      // Advance the state machine to FAILED (retryCount incremented) and ask
+      // Razorpay to retry delivery. State is RECEIVED -> FAILED here because
+      // the worker never ran.
+      await markWebhookFailed(prisma, registration.id, 'enqueue_failed').catch(() => {});
+      incWebhookEvent('error', eventData.event_type);
+      return new NextResponse(
+        JSON.stringify({
+          status: 'error',
+          error: 'Processing queue unavailable; retry delivery',
+        }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // 6. Acknowledge webhook safely (return 200 immediately)
+    // 6. Mark RECEIVED -> PROCESSING once the job is durably enqueued.
+    //    (Any failure here is non-fatal: the worker also transitions on start,
+    //    and the durable row still owns completion.)
+    await markWebhookProcessing(prisma, registration.id).catch(() => {});
+
+    // 7. Acknowledge webhook safely (return 200 immediately)
     incWebhookEvent('accepted', eventData.event_type);
     return new NextResponse(
       JSON.stringify({
@@ -162,11 +190,18 @@ export async function POST(request: NextRequest) {
       }
     );
   } catch (error) {
+    // Unexpected error BEFORE durable registration (signature/schema handled
+    // above). There is no event row we own here, and no hint the provider
+    // should hold off — return non-2xx so Razorpay retries delivery rather
+    // than silently acknowledging an event we never persisted.
     console.error('Webhook processing error:', error);
-    // Return 200 to avoid Razorpay retry storms; job system handles retries
+    incWebhookEvent('error', 'unknown');
     return new NextResponse(
-      JSON.stringify({ status: 'error', error: 'Webhook processing error' }),
-      { status: 200 }
+      JSON.stringify({
+        status: 'error',
+        error: 'Webhook processing error',
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }

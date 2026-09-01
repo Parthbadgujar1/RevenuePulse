@@ -20,6 +20,8 @@ import { processJob, JobType } from '@rp/observability';
 import { hasPermission } from '@rp/auth';
 import { requirePermission, apiErrorStatus } from '../apps/web/lib/merchant-context';
 import { RETRY_WINDOWS, shouldRetry } from '../packages/domain/src/services/retry-sequencer';
+import { DecisionEngine } from '../packages/policies/src/decision-engine';
+import type { RecoveryFeatures } from '../packages/domain/src';
 
 let passed = 0;
 let failed = 0;
@@ -259,6 +261,76 @@ async function main() {
         typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2002';
     }
     assert(doubleScheduleBlocked, 'RetrySchedule unique-per-case blocks duplicate scheduling');
+  }
+
+  // ── 6. Policy rejection — guardrails stop a money action ─────────────────
+  {
+    const { caseId } = await createCase(merchantA, 'policyblock');
+    const engine = new DecisionEngine();
+    const features: RecoveryFeatures = {
+      amount: 250000,
+      failureCategory: 'network_timeout' as RecoveryFeatures['failureCategory'],
+      paymentMethod: 'card',
+      historicalSuccessRate: 0.6,
+      numberOfPreviousFailures: 2,
+      timeSinceFailureHours: 30,
+      transactionHour: 12,
+      retryCount: 3,
+      isSubscription: false,
+      merchantHistoricalRate: 0.5,
+      failureCategoryHistoricalRate: 0.4,
+      amountPercentile: 0.5,
+    } as any;
+
+    // Customer declined + retry count at the max => hard stop => DO_NOTHING.
+    const blocked = await engine.makeDecision(
+      caseId,
+      features,
+      undefined,
+      { recoveryProbability: 0.9, expectedRecoveryValue: 225000, featureWeights: {}, featureSnapshot: features, confidence: 0.9, modelVersion: 'test' } as any,
+      { attemptCount: 3, customerDeclined: true }
+    );
+    assert(blocked.policy.allowed === false,
+      'policy-rejected case is not allowed', blocked.policy);
+    assert(blocked.decision.action === 'do_nothing',
+      'blocked case decides DO_NOTHING', blocked.decision.action);
+    const actionsCreated = await prisma.recoveryAction.count({ where: { caseId } });
+    assert(actionsCreated === 0,
+      'no RecoveryAction is created for a policy-blocked case', { actionsCreated });
+
+    // Contrast: an allowed case with a healthy state may proceed.
+    const allowed = await engine.makeDecision(
+      caseId,
+      { ...features, retryCount: 0 },
+      undefined,
+      { recoveryProbability: 0.8, expectedRecoveryValue: 200000, featureWeights: {}, featureSnapshot: features, confidence: 0.9, modelVersion: 'test' } as any,
+      { attemptCount: 0 }
+    );
+    assert(allowed.policy.allowed === true,
+      'clean-state case is policy-allowed', allowed.policy);
+    assert(allowed.decision.action !== 'do_nothing',
+      'clean-state case picks a real intervention', allowed.decision.action);
+  }
+
+  // ── 7. Cross-tenant webhook attribution stays isolated ────────────────────
+  {
+    // A webhook registered under merchant A must never be retrievable by B.
+    const rawBody = JSON.stringify({ event: 'payment.failed', data: {} });
+    const reg = await registerWebhookEvent(prisma, {
+      providerEventId: 'evt_it_tenant_1',
+      eventType: 'payment.failed',
+      rawBody,
+      merchantId: merchantA,
+    });
+    assert(reg.duplicate === false, 'tenant webhook registered');
+    const seenByB = await prisma.webhookEvent.findFirst({
+      where: { id: reg.id, merchantId: merchantB },
+    });
+    assert(seenByB === null, 'tenant B cannot see tenant A webhook row');
+    const seenByA = await prisma.webhookEvent.findFirst({
+      where: { id: reg.id, merchantId: merchantA },
+    });
+    assert(seenByA !== null, 'tenant A sees its own webhook row');
   }
 
   await cleanup();

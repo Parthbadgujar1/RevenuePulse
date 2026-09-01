@@ -391,5 +391,126 @@ assert(PROMISE_KEEPING_RATES['phone'] > PROMISE_KEEPING_RATES['sms'],
 assert(PROMISE_KEEPING_RATES['whatsapp'] > PROMISE_KEEPING_RATES['email'],
   'whatsapp has higher keeping rate than email');
 
+// ---------------------------------------------------------------------------
+// 11. ADVERSARIAL — policy guardrails (isInterventionAllowed) + economics
+//     net consistency. These pin the money-action gateway to fail CLOSED on
+//     broken inputs and to enforce every merchant guardrail with the REAL
+//     probability/context, never a hardcoded default.
+// ---------------------------------------------------------------------------
+import {
+  isInterventionAllowed,
+  calculateEconomics,
+  InterventionType,
+} from '../packages/domain/src';
+import { DEFAULT_MERCHANT_POLICY } from '../packages/policies/src/decision-engine';
+
+const pol = DEFAULT_MERCHANT_POLICY as any;
+const advFeatures: RecoveryFeatures = {
+  amount: 100000,
+  failureCategory: 'insufficient_funds' as RecoveryFeatures['failureCategory'],
+  paymentMethod: 'card',
+  historicalSuccessRate: 0.6,
+  numberOfPreviousFailures: 0,
+  timeSinceFailureHours: 3,
+  transactionHour: 12,
+  retryCount: 0,
+  isSubscription: false,
+  merchantHistoricalRate: 0.5,
+  failureCategoryHistoricalRate: 0.4,
+  amountPercentile: 0.5,
+} as any;
+
+const allowRetry = (opts?: any) =>
+  isInterventionAllowed(InterventionType.RETRY_LATER, pol, advFeatures, opts);
+
+// Fail-closed: NO probability supplied must never be treated as allowed.
+{
+  const r = allowRetry(undefined);
+  assert(r.allowed === false, 'missing probability fails closed (do nothing)');
+}
+{
+  const r = allowRetry({ probability: Number.NaN });
+  assert(r.allowed === false, 'NaN probability fails closed');
+}
+
+// Customer decline hard stop.
+{
+  const r = allowRetry({ probability: 0.9, customerDeclined: true });
+  assert(r.allowed === false && /declined/i.test(r.reason),
+    'stopOnCustomerDecline blocks when customer declined', r);
+}
+// Repeated failures hard stop.
+{
+  const r = allowRetry({ probability: 0.9, repeatedFailures: true });
+  assert(r.allowed === false, 'stopOnRepeatedFailure blocks repeated failures', r);
+}
+// Max retry count gate (default maximumRetryCount=3): attemptCount 3 is blocked.
+{
+  const ok = allowRetry({ probability: 0.9, attemptCount: 2 });
+  assert(ok.allowed === true, 'retry allowed at attemptCount 2 (< max 3)');
+  const blocked = allowRetry({ probability: 0.9, attemptCount: 3 });
+  assert(blocked.allowed === false && /retry count/i.test(blocked.reason),
+    'retry blocked at attemptCount 3 (>= max 3)', blocked);
+}
+// Max contact count gate (default maximumContactCount=2).
+{
+  const blocked = allowRetry({ probability: 0.9, contactCount: 2 });
+  assert(blocked.allowed === false, 'contact count 2 (>= max 2) blocked', blocked);
+}
+// Case lifetime gate (default maximumCaseLifetime=30 days -> 720h).
+{
+  const ok = allowRetry({ probability: 0.9, caseAgeHours: 719 });
+  assert(ok.allowed === true, 'case at 719h (< 30d) allowed');
+  const blocked = allowRetry({ probability: 0.9, caseAgeHours: 721 });
+  assert(blocked.allowed === false, 'case at 721h (> 30d) blocked', blocked);
+}
+// Cooldown gate (default cooldownPeriod=24h).
+{
+  const blocked = allowRetry({
+    probability: 0.9,
+    lastAttemptAt: new Date(Date.now() - 60 * 60 * 1000), // 1h ago
+  });
+  assert(blocked.allowed === false, 'retry within 24h cooldown blocked', blocked);
+  const ok = allowRetry({
+    probability: 0.9,
+    lastAttemptAt: new Date(Date.now() - 25 * 60 * 60 * 1000), // 25h ago
+  });
+  assert(ok.allowed === true, 'retry after >24h cooldown allowed');
+}
+// Minimum recovery probability (default minimumRecoveryProbability=0.2):
+// retry_later prerequisite also requires probability >= 0.3.
+{
+  const blocked = allowRetry({ probability: 0.25 });
+  assert(blocked.allowed === false, 'probability below retry prerequisite (0.3) blocked', blocked);
+  const ok = allowRetry({ probability: 0.5 });
+  assert(ok.allowed === true, 'probability 0.5 allowed');
+}
+// Maximum recovery value gate (default maximumRecoveryValue=2500000).
+{
+  const bigFeatures = { ...advFeatures, amount: 3_000_000 };
+  const r = isInterventionAllowed(InterventionType.RETRY_LATER, pol, bigFeatures as any, {
+    probability: 0.8,
+  });
+  assert(r.allowed === false && /exceeds merchant maximum/i.test(r.reason),
+    'amount above maximumRecoveryValue blocked', r);
+}
+
+// ── Economics net formula: net = expectedRecoveryValue - actionCost - incentiveCost
+{
+  const e = calculateEconomics(100000, 0.5, 2000, 8000);
+  assert(e.expectedRecoveryValue === 50000, 'expectedRecoveryValue = amount * probability');
+  assert(e.expectedNetRecovery === 50000 - 2000 - 8000,
+    'net = gross - actionCost - incentiveCost',
+    { gross: e.expectedRecoveryValue, cost: 2000, incentive: 8000, net: e.expectedNetRecovery });
+  assert(e.expectedNetRecovery === 40000,
+    'net arithmetic exact', e.expectedNetRecovery);
+  assert(e.policyEligible === true, 'positive-net case is policy eligible');
+
+  const negative = calculateEconomics(10000, 0.1, 2000, 3000);
+  assert(negative.expectedNetRecovery === 10000 * 0.1 - 2000 - 3000,
+    'negative net computed correctly', negative.expectedNetRecovery);
+  assert(negative.policyEligible === false, 'negative-net case ineligible');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

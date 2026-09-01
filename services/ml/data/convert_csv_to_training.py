@@ -1,5 +1,12 @@
 """
-Convert real-world payment CSV to the JSONL training format used by train_baseline.py.
+Convert a synthetic (industry-calibrated) payment sample CSV to the JSONL
+training format used by train_baseline.py.
+
+The input CSV is a GENERATED sample (synthetic_payment_sample_500.csv), not real
+production data — @example.com emails, sequential pay_xxxx ids, and benchmark-
+calibrated failure mixes. It is used to bootstrap/prototype the feature
+pipeline; production retraining instead accumulates real verified outcomes in
+data/production_training.jsonl (gitignored, regenerated from the live pipeline).
 
 The CSV contains raw transaction data (status, method, amount, error_code, etc.).
 This script:
@@ -164,7 +171,7 @@ def convert(csv_path: str, output_path: str, seed: int = 42) -> dict:
             recovered = int(rng.random() < base_rate)
 
         record = {
-            "case_id": f"rw_{row.get('payment_id', 'unknown')}",
+            "case_id": f"synthetic_{row.get('payment_id', 'unknown')}",
             "amount": amount_paise,
             "failure_category": category,
             "payment_method": method,
@@ -179,7 +186,7 @@ def convert(csv_path: str, output_path: str, seed: int = 42) -> dict:
             "amount_percentile": amount_percentile,
             "intervention": "retry_later" if status == "failed" else "none",
             "recovered": recovered,
-            "source": "real_world_500",
+            "source": "synthetic_payment_sample_500",
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
         output_rows.append(record)
@@ -214,6 +221,6 @@ def convert(csv_path: str, output_path: str, seed: int = 42) -> dict:
 
 
 if __name__ == "__main__":
-    csv_path = sys.argv[1] if len(sys.argv) > 1 else "services/ml/data/real_world_500.csv"
-    output_path = sys.argv[2] if len(sys.argv) > 2 else "services/ml/data/real_world_training.jsonl"
+    csv_path = sys.argv[1] if len(sys.argv) > 1 else "services/ml/data/synthetic_payment_sample_500.csv"
+    output_path = sys.argv[2] if len(sys.argv) > 2 else "services/ml/data/synthetic_training.jsonl"
     convert(csv_path, output_path)
