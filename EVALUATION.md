@@ -6,24 +6,22 @@ computed from committed artifacts (`services/ml/metrics.json`,
 `services/ml/model/baseline_model.json`) or from a seeded, reproducible
 experiment run — nothing is hardcoded in the dashboard.
 
-## Model metrics (v4.0.0)
+## Model metrics (v4)
 
-Served as `baseline-recovery-v4.0.0`. Held-out test metrics from
+Served as `baseline-recovery-v4.0.1`. Held-out test metrics from
 `services/ml/metrics.json`:
 
 | Metric | Value |
 | --- | --- |
 | Model | logistic regression, isotonic calibration |
-| Dataset rows | 80,603 (synthetic / benchmark-calibrated) |
-| Train / test | 64,482 / 16,121 |
-| ROC-AUC | 0.7741 |
-| PR-AUC | 0.6578 |
-| Brier score | 0.1825 |
-| Accuracy | 0.7174 |
-| Precision / Recall / F1 | 0.6488 / 0.4958 / 0.5621 |
+| Dataset rows | 80,769 (synthetic / benchmark-calibrated) |
+| Train / test | 64,615 / 16,154 |
+| ROC-AUC | 0.7738 |
+| Brier score | 0.1826 |
+| Accuracy | 0.7176 |
 
 The model won an honest head-to-head against histogram gradient boosting
-(0.7741 vs 0.7716); boosting must win by > 0.01 to displace the transparent
+(0.774 vs 0.771); boosting must win by > 0.01 to displace the transparent
 baseline (`metrics.json → model_selection.selection_rule`).
 
 ## Dataset provenance
@@ -53,20 +51,22 @@ pipeline after each verified outcome) and re-fits on demand.
 
 ## Headline result
 
-Seed 20260823, 100 synthetic failures (~₹5.0L at risk): RevenuePulse recovers
-**gross ₹3.36L (67.1%)** vs 47.2% for retry-everything
-(**+₹99.5k gross uplift**) — inside the published 65–75% smart-dunning band.
-Funnel: 100 diagnosed → 100 decided → 100 executed → 64 recovered; zero stopped
-by policy, zero awaiting approval. Net figures subtract measured action cost
-(`gross − cost − incentive = net`); incentive cost is ₹0 under the default
-policy.
+Seed 20260823, **500 synthetic failures** (~₹25.5L at risk) through the real
+production pipeline (committed in `evidence/batch-report.json`): RevenuePulse
+recovers **gross ₹15.3L (59.9%)**, **net +₹2.05L vs retry-everything**
+(₹15.28L vs ₹13.23L net; the no-intervention baseline is ₹0). Funnel: 500
+diagnosed → 500 decided → 500 executed → 500 outcomes verified → 296 recovered;
+zero stopped by policy, zero awaiting approval.
 
 To reproduce:
 
 ```powershell
-$env:DATABASE_URL="postgresql://postgres:password@localhost:5432/revenuepulse?schema=public"
-npx tsx scripts/batch-experiment.ts 100
+# From a clean-state DB (starts the ML service on :8001, seeds, runs 500 cases)
+npm run demo:500
 ```
+
+A quick smoke run with 100 cases:
+`npx tsx scripts/batch-experiment.ts 100` (requires a running ML service).
 
 ## Limits & honesty
 

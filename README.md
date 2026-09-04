@@ -2,13 +2,15 @@
 
 AI revenue-recovery platform for subscription businesses. RevenuePulse watches payment webhooks (Razorpay), diagnoses why each payment failed against a failure taxonomy, predicts recovery probability with a calibrated ML model, and orchestrates recovery actions — retries, reminders, instrument upgrades, human escalation — under per-merchant policy guardrails. Every action is executed, its outcome verified, and the recovered money measured.
 
+A short deep-dive on the genuine AI agent (ML predicts, LLM reasons, policy gates, executor acts) lives in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 ## Architecture
 
 | Piece | Stack |
 |---|---|
 | Dashboard / API | Next.js (App Router) + Tailwind CSS — `apps/web` |
 | Background worker | pg-boss consumer over PostgreSQL — `apps/worker` (enable with `RP_USE_QUEUE=1` on the web process, then `npm run worker`; default runs jobs inline in the web process) |
-| Core packages | domain (taxonomy, features), policies (decision engine), observability (pipeline + queue), agent (tool registry + orchestrator), providers/razorpay (demo-first adapters) — `packages/*` |
+| Core packages | domain (taxonomy, features), policies (decision engine), observability (pipeline + queue), agent (orchestrator + multi-model LLM reasoning), providers/razorpay (demo-first adapters) — `packages/*` |
 | Database | Prisma 7 + PostgreSQL (driver adapter `@prisma/adapter-pg`) — `packages/database` (canonical schema: `packages/database/prisma/schema.prisma`) |
 | ML service | FastAPI + scikit-learn calibrated logistic regression — `services/ml` |
 
@@ -16,10 +18,19 @@ AI revenue-recovery platform for subscription businesses. RevenuePulse watches p
 
 ```
 webhook → durable WebhookEvent row (idempotent) → Transaction + RevenueCase
-        → ML score (model.joblib) → decision under policy guardrails
-        → RecoveryAction → execution → Outcome verification
-        → ₹ recovered / cost / net measured per case
+        → ML score (model.joblib) → LLM reasoning (diagnose + recommend + explain)
+        → decision under policy guardrails (authoritative)
+        → RecoveryAction → execution → Outcome verification → ₹ recovered measured
 ```
+
+The AI layer is explicit about who does what:
+
+> **AI recommends. Policy authorizes. Razorpay executes. Evidence verifies.**
+
+- The **ML model** scores recovery probability with a calibrated logistic regression served by FastAPI (fails loudly if unreachable — never silently swaps in a heuristic).
+- The **LLM reasoning layer** (`packages/agent/src/llm`) proposes a diagnosis, a preferred action, and a human-readable rationale — with multi-key, multi-provider failover (Gemini + Groq via their OpenAI-compatible endpoints). The LLM **never moves money**: its output is advisory and the deterministic DecisionEngine always wins.
+- The **DecisionEngine** is the authoritative gate, enforcing per-merchant policy (max retries, cooldown, approval threshold, stopping rules).
+- The **executor** (`dispatchLiveAction`) is the only thing that touches Razorpay — in live mode it creates real Payment Links and resolves outcomes only from real provider events.
 
 In demo mode (`RAZORPAY_MODE=demo`, the default) unsigned webhooks are accepted and action outcomes are simulated by drawing from an **independent ground-truth propensity** (category base rate + retry fatigue + intervention fit) — deliberately not from the model's own score, so measured results are not circular.
 
@@ -36,8 +47,13 @@ npm install
 DATABASE_URL="postgresql://postgres:password@localhost:5432/revenuepulse?schema=public"
 NEXTAUTH_SECRET="<any-long-random-string>"
 NEXTAUTH_URL="http://localhost:3000"
+ML_SERVICE_URL="http://127.0.0.1:8001"
+ML_INTERNAL_TOKEN="<shared secret for the ML service admin endpoints>"
 #    Optional live mode:
 #    RAZORPAY_MODE=live and RAZORPAY_WEBHOOK_SECRET=<from Razorpay dashboard>
+#    Optional LLM reasoning (multi-key failover; deterministic fallback if unset):
+#    GEMINI_API_KEY=...  GEMINI_API_KEY_2=...  GEMINI_API_KEY_3=...
+#    GROQ_API_KEY=...    GROQ_API_KEY_2=...
 
 # 3. Create schema + generate the Prisma client (both required)
 npx prisma db push
@@ -51,18 +67,48 @@ python services/ml/train_baseline.py
 # 5. Run everything
 npx next dev            # in apps/web — http://localhost:3000
 npx tsx apps/worker/index.ts   # pipeline worker
-uvicorn src.main:app --port 8001  # in services/ml (optional; batch script calls it)
+# in services/ml, with a matching ML_INTERNAL_TOKEN:
+#   $env:ML_INTERNAL_TOKEN="<shared secret>"; uvicorn src.main:app --port 8001
 
-# 6. Reproduce the headline numbers (N synthetic failures through the real pipeline)
-$env:DATABASE_URL="postgresql://postgres:password@localhost:5432/revenuepulse?schema=public"
-npx tsx scripts/batch-experiment.ts 100
+# 6. Reproduce the headline numbers (500 synthetic failures through the real pipeline)
+npm run demo:500
 ```
 
 Demo sign-in: `owner@revenuepulse.dev` / `demo1234`
 
-## Measured results (batch experiment, N=100, seeded)
+## Measured results (batch experiment, 500 cases, seeded)
 
-Seed 20260823, 100 synthetic failures (~₹5.0L at risk): RevenuePulse recovers **gross ₹3.36L (67.1% of at-risk money)** vs **47.2% for retry-everything (+₹99.5k gross uplift)** — inside the published 65–75% "smart dunning" band. Net figures subtract measured action cost (gross − cost − incentive = net), reported separately in the Demo Lab money funnel; incentive cost is ₹0 in the default policy. Funnel: 100 diagnosed → 100 decided → 100 executed → 64 recovered; zero stopped by policy, zero awaiting approval. The experiment reports the honest funnel, money funnel and strategy comparison against no-intervention and retry-all baselines using the same ground-truth simulator.
+`npm run demo:500` runs **500** synthetic Razorpay failures through the real production pipeline (`processJob → evaluateRecovery → dispatchLiveAction → verifyOutcome`) and writes a machine-readable report to `evidence/batch-report.json`. Seed 20260823 — deterministic, reproducible.
+
+Latest run (committed in `evidence/batch-report.json`):
+
+- 500 failed payments ingested, 500 diagnosed, 500 decided & executed, **500 outcomes verified**, 296 recovered.
+- Total at risk **₹25.5L** → gross **₹15.3L recovered (59.9% by amount)**, measured action cost ₹165.
+- **RevenuePulse net ₹15.28L vs retry-everything net ₹13.23L → +₹2.05L uplift**, and vs ₹0 for no intervention.
+- The retry-all baseline runs through the **same seeded ground-truth simulator** — not an expected-value shortcut, so the comparison is honest.
+
+```powershell
+# Reproduce from a clean-state DB (starts ML service on :8001, seeds, runs 500 cases)
+npm run demo:500
+```
+
+(For a quick N=100 smoke run: `npm run experiment` or `npx tsx scripts/batch-experiment.ts 100`.)
+
+## Deploy
+
+Containerized. Three images built from the monorepo root, orchestrated by `docker-compose.yml`:
+
+- **web** — Next.js `output: 'standalone'` (`apps/web/Dockerfile`)
+- **worker** — pg-boss job consumer (`apps/worker/Dockerfile`; optional — set `RP_USE_QUEUE=1` on the web process to route jobs to it)
+- **ml** — FastAPI prediction service (`services/ml/Dockerfile`)
+
+No Redis is required: the job queue (pg-boss) and all persistence live in PostgreSQL. `ML_INTERNAL_TOKEN` must be set identically on the ML service and on any web/worker process that calls it (the service fails closed without it). LLM keys are optional (deterministic fallback otherwise).
+
+```powershell
+docker compose up -d --build   # db + ml + worker + web on :3000
+```
+
+For Railway, see `railway.toml` (single-managed-Postgres topology; set `DATABASE_URL`, `NEXTAUTH_SECRET`, `ML_SERVICE_URL`, `ML_INTERNAL_TOKEN`, optional `GEMINI_API_KEY*` / `GROQ_API_KEY*`).
 
 ## Key endpoints
 
@@ -85,10 +131,10 @@ PDF imports use heuristic line parsing (currency-marked amounts + status keyword
 
 ## Honest ML disclosure
 
-- Model (v4): **logistic regression with isotonic calibration** — it won an honest head-to-head against histogram gradient boosting on held-out ROC-AUC (0.7741 vs 0.7716; the boosting candidate must win by >0.01 to displace the transparent baseline). Both scores are published in `services/ml/metrics.json` under `model_selection`.
-- Training data is **synthetic but industry-calibrated**: 80,603 intervention outcomes whose generative process matches published 2025–26 subscription-recovery benchmarks — insufficient funds 55–70% recovery with timed retries, expired cards ~40% only with card-update outreach (and ~26% of failure volume), transient issuer/network errors up to 78%, voluntary cancellations <10%, blended smart-dunning tier 65–75%. Sources: Recurly Research, Stripe decline-code encyclopedia, SaaS Payment Failure Report 2026 (linked in `metrics.json → benchmark_sources`).
+- Model (v4): **logistic regression with isotonic calibration** — it won an honest head-to-head against histogram gradient boosting on held-out ROC-AUC (0.774 vs 0.771; the boosting candidate must win by >0.01 to displace the transparent baseline). Both scores are published in `services/ml/metrics.json` under `model_selection`.
+- Training data is **synthetic but industry-calibrated**: 80,769 intervention outcomes whose generative process matches published 2025–26 subscription-recovery benchmarks — insufficient funds 55–70% recovery with timed retries, expired cards ~40% only with card-update outreach (and ~26% of failure volume), transient issuer/network errors up to 78%, voluntary cancellations <10%, blended smart-dunning tier 65–75%. Sources: Recurly Research, Stripe decline-code encyclopedia, SaaS Payment Failure Report 2026 (linked in `metrics.json → benchmark_sources`).
 - Labels mean "a retry-style intervention eventually recovered this payment". Held-out metrics live in `services/ml/metrics.json` and are exposed verbatim at `GET /model-info` and on the dashboard's model strip.
-- Measured demo-cohort result after v4: **gross ₹3.36L of ₹5L at-risk money (67%) recovered vs ₹2.36L (47%) under retry-everything (+₹99.5k gross uplift)** — inside the published smart-dunning band, with zero actions stuck awaiting approval because escalation is now a last-resort lift rather than a dominant default. Net (gross − action cost − incentive) is reported separately in the Demo Lab money funnel.
+- Measured 500-case result: **gross ₹15.3L of ₹25.5L at-risk money (59.9%) recovered vs ₹13.2L (51.9%) under retry-everything (+₹2.05L net uplift)** with zero actions stuck awaiting approval — reported in `evidence/batch-report.json`.
 
 ## Import template
 
@@ -101,7 +147,9 @@ is strictly required; every other column sharpens diagnosis and recovery fit.
 
 ## Honesty guarantees (what is real vs simulated)
 
-**The trained model is load-bearing.** Every production decision path (`evaluateRecovery` in the pipeline) calls the FastAPI service that serves `model.joblib`; predictions persist with the real served version (currently `baseline-recovery-v4.0.0`) on every Prediction row and in audit evidence. If the model service is unreachable, the pipeline job **fails loudly** — it never silently substitutes a hand-coded heuristic. A labeled fallback (`RP_ML_FALLBACK=heuristic`, version string `heuristic-fallback-v1`) exists for dev environments without Python.
+**The trained model is load-bearing.** Every production decision path (`evaluateRecovery` in the pipeline) calls the FastAPI service that serves `model.joblib`; predictions persist with the real served version (currently `baseline-recovery-v4.0.1` with 80,769 rows) on every Prediction row and in audit evidence. If the model service is unreachable, the pipeline job **fails loudly** — it never silently substitutes a hand-coded heuristic. A labeled fallback (`RP_ML_FALLBACK=heuristic`, version string `heuristic-fallback-v1`) exists for dev environments without Python.
+
+**The LLM is advisory, never authoritative.** The multi-model reasoning layer (`packages/agent/src/llm/client.ts`) proposes a diagnosis, recommended action, and rationale for each case, and its output (provider, model, recommendation) is recorded in the audit trail. It **cannot** move money: the deterministic DecisionEngine makes the only decision the executor is allowed to act on, so even a hallucinating LLM cannot cause an unauthorized charge. If no LLM key is configured (or every provider fails), the pipeline logs `succeeded:false` with a deterministic fallback and continues — the reasoning layer is strictly an enhancement to the audit trail.
 
 **Demo vs live execution are structurally separate.**
 - *Simulated* sources (Demo Lab batches, file imports) draw outcomes from an independent seeded ground-truth propensity; executions are stamped `SIMULATED_DEMO` in the audit trail.
@@ -128,3 +176,6 @@ npm test
 | `RP_VERIFY_POLL_SECONDS` | `300` | Background live-outcome poll interval inside the web server; `0` disables |
 | `RP_DEMO_FALLBACK` | on in dev, **off in production** | `1` allows the anonymous demo tenant in production; `0` forces it off everywhere |
 | `ML_SERVICE_URL` | `http://127.0.0.1:8001` | FastAPI service serving `model.joblib`; pipeline fails loudly without it |
+| `ML_INTERNAL_TOKEN` | — | Shared secret the web/worker send to ML admin endpoints; ML service fails closed (503) without it |
+| `GEMINI_API_KEY` / `_2` / `_3` | — | Gemini keys for the LLM reasoning layer (tried in order, failover on error) |
+| `GROQ_API_KEY` / `_2` | — | Groq keys for the LLM reasoning layer (tried in order, failover on error) |
