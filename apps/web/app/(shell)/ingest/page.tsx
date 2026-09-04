@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import IngestForm from '../../../components/ingest-form';
+import { QuickAddForm } from '../../../components/quick-add-form';
 
 export const metadata: Metadata = { title: 'Data Import · RevenuePulse' };
 
@@ -25,6 +26,9 @@ export default function IngestPage() {
           report. RevenuePulse auto-detects the columns and runs every failure through the
           same AI recovery pipeline as live webhooks.
         </p>
+
+        {/* 0. Manual quick-add */}
+        <QuickAddForm />
 
         {/* 1. Get the template */}
         <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-5">
