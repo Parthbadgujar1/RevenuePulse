@@ -1,109 +1,43 @@
-# Railway Deployment Configuration for RevenuePulse
-
-# Services configuration
-# Each service runs in its own container on Railway
-
-# 1. PostgreSQL Database
-# - Railway provides managed PostgreSQL
-# - Connection string available at: ${DATABASE_URL}
-# - Automatic backups and scaling
-
-# 2. Redis (for caching and queue)
-# - Managed Redis on Railway
-# - Connection string: ${REDIS_URL}
-
-# 3. ML Service (Python FastAPI)
-# - Entry point: uvicorn src.main:app
-# - Port: $PORT (Railway assigned)
-# - Environment variables:
-#   - DATABASE_URL from Railway PostgreSQL
-#   - REDIS_URL from Railway Redis
-#   - GEMINI_API_KEY or GROQ_API_KEY for LLM
-#   - ENVIRONMENT=production
-
-# 4. Worker Service (Node.js background jobs)
-# - Entry point: npm run worker:start
-# - Uses pg-boss for job queue with PostgreSQL backend
-# - Port: $PORT (Railway assigned)
-# - Environment variables:
-#   - DATABASE_URL from Railway PostgreSQL
-#   - REDIS_URL from Railway Redis (optional, can use pg-boss alone)
-#   - RAZORPAY_API_KEY and RAZORPAY_API_SECRET for production
-#   - Simulation mode defaults
-
-# 5. Web Application (Next.js)
-# - Entry point: npm run start
-# - Port: $PORT (Railway assigned)
-# - Environment variables:
-#   - DATABASE_URL from Railway PostgreSQL
-#   - NEXTAUTH_URL: https://your-app.railway.app
-#   - NEXTAUTH_SECRET: random secret for JWT signing
-#   - RAZORPAY_API_KEY and RAZORPAY_API_SECRET (optional, for production)
-#   - GEMINI_API_KEY or GROQ_API_KEY for LLM features
-#   - RAILWAY_ENVIRONMENT=production
-
-# Railway TOML config (optional, for Railway CLI)
-# railway.toml:
-# services:
-#   - name: web
-#     buildCommand: npm run build
-#     startCommand: npm run start
-#   - name: worker
-#     buildCommand: npm run build
-#     startCommand: npm run worker:start
-#   - name: ml
-#     buildCommand: pip install -r requirements.txt
-#     startCommand: python -m uvicorn src.main:app --host 0.0.0.0 --port $PORT
-
-# Environment Variables (.env.example)
-# These should be added to Railway dashboard as secrets:
+# Railway Deployment Configuration for RevenuePulse.
 #
-# DATABASE_URL="postgresql://postgres:password@containers-us-west-153.railway.psdb.cloud/revenuepulse"
-# REDIS_URL="redis://redis-us1-abc123.upstash.io:6379"
+# Stack: Next.js web + pg-boss worker (Node) + FastAPI ML service on top of
+# a single managed PostgreSQL instance. Redis is NOT used — the job queue and
+# all persistence live in Postgres (pg-boss).
 #
-# NEXTAUTH_URL="https://your-app.railway.app"
-# NEXTAUTH_SECRET="random-super-secret-string"
-#
-# RAZORPAY_API_KEY="rzp_test_XXX"
-# RAZORPAY_API_SECRET="XXX"
-#
-# GEMINI_API_KEY="your-gemini-key"  # or GROQ_API_KEY="your-groq-key"
-#
-# RAILWAY_ENVIRONMENT="production"
+# A minimal deploy can run everything inline in the web service
+# (RP_USE_QUEUE unset). For scale, deploy the `worker` and `ml` services too
+# and set the env vars shown below.
 
-# Development Commands
-# -------------------
-# docker-compose up -d       # Start all services locally
-# docker-compose down        # Stop all services
-# docker-compose exec web npm run dev  # Dev mode for web
-# docker-compose exec worker npm run worker:start  # Start worker
-# docker-compose exec ml python -m uvicorn src.main:app  # ML service
+[build]
+  # Build the Next.js web app from the repo root (npm workspaces).
+  builder = "nixpacks"
+  buildCommand = "npm install && cd packages/database && npx prisma generate && cd ../../apps/web && npm run build"
 
-# Production Deployment
-# -------------------
-# 1. Push code to git repository
-# 2. Connect repository to Railway
-# 3. Set environment variables in Railway dashboard
-# 4. Railway auto-detects and deploys all services
-# 5. Monitor logs and analytics in Railway dashboard
+[deploy]
+  startCommand = "npx prisma db push && node apps/web/.next/standalone/apps/web/server.js"
+  healthcheckPath = "/api/health"
+  healthcheckTimeout = 120
 
-# Database Migration
-# ----------------
-# Run migrations via Railway:
-# railway run prisma migrate deploy
-# Or locally:
-# npx prisma migrate deploy
+# Environment variables (set these in the Railway dashboard as secrets)
+#   DATABASE_URL            — Railway-managed PostgreSQL connection string
+#   NEXTAUTH_URL            — https://<your-app>.upstash.app or your domain
+#   NEXTAUTH_SECRET         — openssl rand -base64 32
+#   ML_SERVICE_URL          — URL of the ML service (http://ml:8000 or the
+#                             Railway `.railway.internal` hostname)
+#   ML_INTERNAL_TOKEN       — shared secret the worker sends to the ML service
+#   GEMINI_API_KEY[_2|_3]   — Gemini keys (multi-key failover, optional)
+#   GROQ_API_KEY[_2]        — Groq keys (multi-key failover, optional)
 
-# Health Checks
-# -----------
-# Each service should expose a /api/health endpoint:
-# - Web: /api/health
-# - ML: /health
-# - Worker: /api/health
+# Optional: run the pipeline through the pg-boss worker instead of inline.
+#   RP_USE_QUEUE=1
 
-# Scaling Notes
-# ------------
-# - PostgreSQL: Railway scales vertically automatically
-# - Redis: Consider Upstash or Redis Labs for higher throughput
-# - ML service: Can scale horizontally if needed
-# - Worker: pg-boss handles concurrency; monitor job queue length
+# Deploy the ML service as a separate Railway service (Python):
+#   build:   cd services/ml && pip install -r requirements.txt
+#   start:   uvicorn src.main:app --host 0.0.0.0 --port $PORT
+#   env:     ML_INTERNAL_TOKEN=<same as web/worker>
+
+# Deploy the worker as a separate Railway service (Node):
+#   build:   npm install && cd packages/database && npx prisma generate
+#   start:   npx tsx apps/worker/index.ts
+#   env:     DATABASE_URL, ML_SERVICE_URL, ML_INTERNAL_TOKEN, RP_USE_QUEUE=1,
+#            GEMINI_API_KEY*, GROQ_API_KEY*

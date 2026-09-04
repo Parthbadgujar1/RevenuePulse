@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "dataset": "synthetic_payment_sample_500.csv",
+    "sampleSize": 500,
+    "seed": 20260823,
+    "runAt": "2026-09-04T15:31:59.981Z",
+    "pipeline": "Production pipeline (queue.ts processJob → evaluateRecovery → dispatchLiveAction → verifyOutcome)",
+    "determinism": "Seeded RNG (mulberry32) — reproducible",
+    "mode": "simulated"
+  },
+  "funnel": {
+    "eventsIngested": 500,
+    "failuresDiagnosed": 500,
+    "eligibleForAction": 500,
+    "actionsExecuted": 500,
+    "awaitingApproval": 0,
+    "stoppedByPolicyOrEconomics": 0,
+    "outcomesVerified": 500,
+    "recoveries": 296
+  },
+  "money": {
+    "totalAtRisk": 255273414,
+    "totalAtRiskFormatted": "₹25,52,734",
+    "moneyRecovered": 152808075,
+    "moneyRecoveredFormatted": "₹15,28,081",
+    "recoveryRateByAmount": 0.598605521059079,
+    "actionCost": 16480,
+    "actionCostFormatted": "₹165",
+    "netRecovery": 152808075,
+    "netRecoveryFormatted": "₹15,28,081"
+  },
+  "comparison": {
+    "noInterventionNet": 0,
+    "retryAllNet": 132293312,
+    "retryAllRecovered": 132393312,
+    "retryAllCost": 100000,
+    "revenuePulseNet": 152808075,
+    "liftVsRetryAll": 20514763,
+    "liftVsRetryAllFormatted": "+₹2,05,148"
+  },
+  "wallTimeSeconds": 59.669
+}

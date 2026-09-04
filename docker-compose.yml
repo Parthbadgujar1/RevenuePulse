@@ -1,7 +1,11 @@
-version: '3.8'
+# RevenuePulse local orchestration.
+# PostgreSQL is the ONLY required backing store; the job queue (pg-boss) and
+# all persistence live in Postgres. Redis is NOT used. The ML service and the
+# worker are optional (the web app can run the pipeline inline), but included
+# here for a faithful full-stack local deployment.
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL — persistence + pg-boss job queue
   db:
     image: postgres:15-alpine
     container_name: revenuepulse-db
@@ -17,78 +21,68 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
-  # Redis (for caching, sessions, queue)
-  redis:
-    image: redis:7-alpine
-    container_name: revenuepulse-redis
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # ML Service (Python FastAPI)
+  # ML Service — FastAPI recovery probability prediction
   ml:
-    build: ./services/ml
+    build:
+      context: .
+      dockerfile: services/ml/Dockerfile
     container_name: revenuepulse-ml
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/revenuepulse
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      ML_INTERNAL_TOKEN: ${ML_INTERNAL_TOKEN:-}
     ports:
       - "8001:8000"
-    environment:
-      - ENVIRONMENT=development
+    restart: unless-stopped
 
-  # Worker Service (Node.js background jobs)
+  # Worker — consumes pg-boss waiter queue (optional if web runs inline)
   worker:
-    build: ./apps/worker
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
     container_name: revenuepulse-worker
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/revenuepulse
-      - REDIS_URL=redis://redis:6379
-      - RAZORPAY_API_KEY=${RAZORPAY_API_KEY}
-      - RAZORPAY_API_SECRET=${RAZORPAY_API_SECRET}
+      DATABASE_URL: postgresql://postgres:password@db:5432/revenuepulse?schema=public
+      ML_SERVICE_URL: http://ml:8000
+      ML_INTERNAL_TOKEN: ${ML_INTERNAL_TOKEN:-}
+      RP_USE_QUEUE: "1"
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_API_KEY_2: ${GEMINI_API_KEY_2:-}
+      GEMINI_API_KEY_3: ${GEMINI_API_KEY_3:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_API_KEY_2: ${GROQ_API_KEY_2:-}
     depends_on:
       db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./apps/worker:/usr/app
-
-  # Web Application (Next.js)
-  web:
-    build: ./apps/web
-    container_name: revenuepulse-web
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/revenuepulse
-      - REDIS_URL=redis://redis:6379
-      - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - RAZORPAY_API_KEY=${RAZORPAY_API_KEY}
-      - RAZORPAY_API_SECRET=${RAZORPAY_API_SECRET}
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       ml:
+        condition: service_started
+    restart: unless-stopped
+
+  # Web — Next.js application
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: revenuepulse-web
+    environment:
+      DATABASE_URL: postgresql://postgres:password@db:5432/revenuepulse?schema=public
+      ML_SERVICE_URL: http://ml:8000
+      ML_INTERNAL_TOKEN: ${ML_INTERNAL_TOKEN:-}
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-dev-only-secret-change-me}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_API_KEY_2: ${GEMINI_API_KEY_2:-}
+      GEMINI_API_KEY_3: ${GEMINI_API_KEY_3:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_API_KEY_2: ${GROQ_API_KEY_2:-}
+    depends_on:
+      db:
         condition: service_healthy
+      ml:
+        condition: service_started
     ports:
       - "3000:3000"
-    volumes:
-      - ./apps/web:/usr/app
-    # Hot reload for development
-    command: ["npm", "run", "dev"]
+    restart: unless-stopped
 
 volumes:
   postgres_data:

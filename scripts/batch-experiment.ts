@@ -12,7 +12,7 @@ import { prisma, ensureDemoMerchant } from '../packages/database';
 import { normalizeRazorpayEvent, categorizeFailure } from '../packages/razorpay/src/index';
 import { processJob, JobType, GROUND_TRUTH_BASE_RATES, simulateGroundTruthOutcome } from '../packages/observability/src/queue';
 
-const N = Number(process.argv[2] || 100);
+const N = Number(process.argv[2] || 500);
 const MERCHANT_ID = 'demo-merchant';
 
 const FAILURE_MIX: Array<{ code: string; desc: string; method: string }> = [
@@ -38,6 +38,7 @@ async function main() {
   await ensureDemoMerchant(prisma);
 
   // 0. Clean slate for this merchant's experiment
+  await prisma.refund.deleteMany({});
   await prisma.outcome.deleteMany({});
   await prisma.recoveryAction.deleteMany({});
   await prisma.prediction.deleteMany({});
@@ -172,6 +173,60 @@ async function main() {
   console.log(`RevenuePulse vs retry-all:  ${lift >= 0 ? '+' : ''}${fmt(lift)}`);
   console.log(`Pipeline wall time:         ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   console.log('==========================================================\n');
+
+  // ── Write machine-readable evidence report ────────────────────────────
+  const report = {
+    meta: {
+      dataset: 'synthetic_payment_sample_500.csv',
+      sampleSize: N,
+      seed: 20260823,
+      runAt: new Date().toISOString(),
+      pipeline: 'Production pipeline (queue.ts processJob → evaluateRecovery → dispatchLiveAction → verifyOutcome)',
+      determinism: 'Seeded RNG (mulberry32) — reproducible',
+      mode: 'simulated',
+    },
+    funnel: {
+      eventsIngested: processed,
+      failuresDiagnosed: diagnosed,
+      eligibleForAction: eligible,
+      actionsExecuted: executed.length,
+      awaitingApproval: approvalPending,
+      stoppedByPolicyOrEconomics: stoppedByPolicyOrEconomics,
+      outcomesVerified: outcomes.length,
+      recoveries: recoveredRows.length,
+    },
+    money: {
+      totalAtRisk: totalAtRisk,
+      totalAtRiskFormatted: fmt(totalAtRisk),
+      moneyRecovered: moneyRecovered,
+      moneyRecoveredFormatted: fmt(moneyRecovered),
+      recoveryRateByAmount: totalAtRisk ? moneyRecovered / totalAtRisk : 0,
+      actionCost: totalCost,
+      actionCostFormatted: fmt(totalCost),
+      netRecovery: rpNet,
+      netRecoveryFormatted: fmt(rpNet),
+    },
+    comparison: {
+      noInterventionNet: baselineNoneNet,
+      retryAllNet: retryAllNet,
+      retryAllRecovered: retryAllRecovered,
+      retryAllCost: retryAllCost,
+      revenuePulseNet: rpNet,
+      liftVsRetryAll: lift,
+      liftVsRetryAllFormatted: `${lift >= 0 ? '+' : ''}${fmt(lift)}`,
+    },
+    wallTimeSeconds: (Date.now() - t0) / 1000,
+  };
+
+  const fs = await import('fs');
+  const path = await import('path');
+  const outDir = path.resolve(process.cwd(), 'evidence');
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(outDir, 'batch-report.json'),
+    JSON.stringify(report, null, 2)
+  );
+  console.log(`\nEvidence report written to evidence/batch-report.json`);
 
   await prisma.$disconnect();
 }

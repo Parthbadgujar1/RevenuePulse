@@ -14,6 +14,7 @@ import type { MerchantPolicy } from '../../policies/src';
 import { getInterventionLift } from '../../policies/src/intervention-lifts';
 import { predictRecoveryProbability, logTrainingData, triggerRetrain, observeDriftMetrics } from './ml-client';
 import { AgentOrchestrator } from '../../agent/src/orchestrator';
+import { callLLMReasoning, type LLMCallResult } from '../../agent/src/llm/client';
 import { dispatchLiveAction } from './razorpay-live';
 import { setQueueDepth } from './metrics';
 import { RETRY_WINDOWS, calculateNextRetryTime } from '../../domain/src/services/retry-sequencer';
@@ -568,6 +569,53 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
       console.error(`agent.orchestrate failed for ${revenueCase.id}:`, err);
     }
 
+    // ── LLM reasoning layer ──────────────────────────────────────────────────
+    // The LLM proposes a diagnosis + recommendation + human-readable rationale.
+    // It NEVER moves money — the DecisionEngine result and the executor remain
+    // authoritative. If the LLM is unreachable or its output conflicts with
+    // the policy decision, the deterministic path wins and the audit records
+    // the override.
+    let llmResult: LLMCallResult | null = null;
+    let llmSucceeded = false;
+    try {
+      const merchantPolicy = await getMerchantPolicy(revenueCase.merchantId);
+      llmResult = await callLLMReasoning({
+        features: features as any,
+        mlProbability: decision.prediction.probability,
+        mlConfidence: decision.prediction.confidence,
+        modelVersion: decision.prediction.modelVersion,
+        failureMessage: (tx?.failureMessage as string) || undefined,
+        merchantPolicy: {
+          maxRetries: merchantPolicy.maximumRetryCount,
+          maxRetryDelayMs: merchantPolicy.cooldownPeriod * 3600000,
+          approvalThreshold: merchantPolicy.humanApprovalThreshold,
+          maxIncentive: merchantPolicy.maximumIncentiveAmount,
+        },
+      });
+      if (llmResult) llmSucceeded = true;
+    } catch (err) {
+      // LLM is advisory only — failure here is logged, not fatal.
+      console.error(`[llm] reasoning call failed for ${revenueCase.id}:`, (err as Error).message);
+    }
+
+    // Merge LLM output into agentReasoning. If the LLM provided a
+    // diagnosis or rationale, prefer it over the deterministic fallback
+    // for the audit trail. If the LLM's recommended action differs from
+    // the policy-approved action, the policy wins (always).
+    if (llmResult && agentReasoning) {
+      agentReasoning.rationale = llmResult.output.rationale || agentReasoning.rationale;
+      agentReasoning.diagnosis = llmResult.output.diagnosis;
+    } else if (llmResult && !agentReasoning) {
+      // Agent orchestration failed but LLM succeeded — synthesize agentReasoning
+      agentReasoning = {
+        diagnosis: llmResult.output.diagnosis,
+        prediction: mlPrediction,
+        proposedAction: llmResult.output.recommendedAction,
+        rationale: llmResult.output.rationale,
+        toolCalls: ['callLLMReasoning'],
+      };
+    }
+
     // Persist the prediction + decision for the audit trail
     const predictionRow = await prisma.prediction.upsert({
       where: { caseId: revenueCase.id },
@@ -629,6 +677,9 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
             diagnosis: agentReasoning.diagnosis,
             policyAllowed: decision.policy.allowed,
             violations: decision.policy.violations,
+            llm: llmSucceeded
+              ? { provider: llmResult!.provider, model: llmResult!.model, succeeded: true }
+              : { succeeded: false, fallback: 'deterministic' },
           } as any,
           createdAt: new Date(),
         },
