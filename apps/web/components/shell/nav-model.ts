@@ -1,4 +1,5 @@
 import {
+  Bell,
   CircleAlert,
   FlaskConical,
   Handshake,
@@ -6,10 +7,12 @@ import {
   LineChart,
   Plug,
   ReceiptIndianRupee,
+  ReceiptText,
   RotateCcw,
   Settings2,
   ShoppingBag,
   FileUp,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -30,6 +33,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Monitor',
     items: [
       { label: 'Revenue', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'Transactions', href: '/transactions', icon: ReceiptText },
       { label: 'Failed Payments', href: '/cases', icon: CircleAlert },
       { label: 'Checkout', href: '/checkout', icon: ShoppingBag },
     ],
@@ -55,6 +59,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'Import Data', href: '/ingest', icon: FileUp },
       { label: 'Integrations', href: '/integrations', icon: Plug },
       { label: 'Policies', href: '/settings', icon: Settings2 },
+      { label: 'Notifications', href: '/notifications', icon: Bell },
+      { label: 'Administration', href: '/admin', icon: ShieldCheck },
     ],
   },
 ];
@@ -65,6 +71,7 @@ export const FLAT_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) =>
 
 export function titleForPath(pathname: string): string {
   if (pathname === '/dashboard') return 'Revenue Command Center';
+  if (pathname === '/transactions') return 'Transactions';
   if (pathname === '/cases') return 'Failed Payments';
   if (pathname === '/actions') return 'Recovery Actions';
   if (pathname === '/checkout') return 'Checkout Abandonment';
@@ -75,6 +82,9 @@ export function titleForPath(pathname: string): string {
   if (pathname === '/ingest') return 'Import Data';
   if (pathname === '/integrations') return 'Integrations';
   if (pathname === '/settings') return 'Policies & Guardrails';
+  if (pathname === '/notifications') return 'Notifications';
+  if (pathname === '/admin') return 'Administration';
+  if (pathname.startsWith('/transactions/')) return 'Transaction Detail';
   if (pathname.startsWith('/cases/')) return 'Recovery Case';
   return 'RevenuePulse';
 }

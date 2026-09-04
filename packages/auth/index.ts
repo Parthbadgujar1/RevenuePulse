@@ -113,6 +113,74 @@ export function hasPermission(role: string | null | undefined, permission: strin
   return (rolePermissions[role as UserRole] || []).includes(permission);
 }
 
+/** Effective permission set for a role (defaults to the richest merchant role). */
+export function permissionsForRole(role: string | null | undefined): string[] {
+  if (!role) return [];
+  return rolePermissions[role as UserRole] || [];
+}
+
+/** All roles recognized by the RBAC model. */
+export const USER_ROLES: UserRole[] = [
+  'MERCHANT_OWNER',
+  'FINANCE_MANAGER',
+  'SUPPORT_OPERATOR',
+  'ADMIN',
+];
+
+// ---------------------------------------------------------------------------
+// Login brute-force rate limiting (S1.2 / Implementation Pack security §5).
+// In-process sliding window keyed by normalized email + a global shield so a
+// distributed attack cannot iterate accounts. Swap for Redis in multi-instance
+// deployments (see apps/web/lib/rate-limit.ts for the same pattern).
+// ---------------------------------------------------------------------------
+
+interface AttemptEntry {
+  timestamps: number[];
+}
+
+const LOGIN_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_EMAIL_ATTEMPTS = 10;
+const MAX_GLOBAL_ATTEMPTS = 120;
+
+const globalForLimiter = globalThis as unknown as {
+  __rpAuthLoginBuckets?: Map<string, AttemptEntry>;
+};
+const loginBuckets: Map<string, AttemptEntry> =
+  globalForLimiter.__rpAuthLoginBuckets ?? new Map();
+globalForLimiter.__rpAuthLoginBuckets = loginBuckets;
+
+let globalAttempts: number[] = [];
+let lastGlobalSweep = 0;
+
+function sweep(now: number): void {
+  globalAttempts = globalAttempts.filter((t) => now - t < LOGIN_WINDOW_MS);
+  if (now - lastGlobalSweep < 60_000) return;
+  lastGlobalSweep = now;
+  for (const [key, entry] of loginBuckets) {
+    if (entry.timestamps.length === 0) loginBuckets.delete(key);
+  }
+}
+
+/**
+ * Returns true when the attempt is allowed, false when rate-limited.
+ * Records the attempt for both the per-account and global buckets.
+ */
+export function isLoginRateLimited(email: string): boolean {
+  const now = Date.now();
+  sweep(now);
+  globalAttempts.push(now);
+
+  if (globalAttempts.length > MAX_GLOBAL_ATTEMPTS) return true;
+
+  const key = email.trim().toLowerCase();
+  const entry = loginBuckets.get(key) ?? { timestamps: [] };
+  entry.timestamps = entry.timestamps.filter((t) => now - t < LOGIN_WINDOW_MS);
+  const limited = entry.timestamps.length >= MAX_EMAIL_ATTEMPTS;
+  if (!limited) entry.timestamps.push(now);
+  loginBuckets.set(key, entry);
+  return limited;
+}
+
 export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/auth/signin',
@@ -131,6 +199,10 @@ export const authOptions: NextAuthOptions = {
 
         if (!email || !password) {
           throw new Error('Email and password are required');
+        }
+
+        if (isLoginRateLimited(email)) {
+          throw new Error('Too many login attempts. Please try again later.');
         }
 
         await ensureDemoOwner();

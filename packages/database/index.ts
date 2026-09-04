@@ -5,6 +5,7 @@ import { PrismaClient } from './prisma/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 export { PrismaClient } from './prisma/generated/prisma/client';
+export type * from './prisma/generated/prisma/models';
 export {
   ensureDemoMerchant,
   registerWebhookEvent,
@@ -14,6 +15,8 @@ export {
   hashPayload,
 } from './src/idempotency';
 export type { IdempotencyRecord, WebhookStatus } from './src/idempotency';
+export { writeNotification } from './src/notifications';
+export type { NotificationInput, NotificationSeverity } from './src/notifications';
 
 // Singleton PrismaClient (survives HMR in dev)
 const globalForPrisma = globalThis as unknown as { __revenuePulsePrisma?: InstanceType<typeof PrismaClient> };

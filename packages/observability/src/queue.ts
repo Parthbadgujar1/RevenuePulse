@@ -8,7 +8,7 @@ import {
   markWebhookProcessed,
   markWebhookFailed,
 } from '../../database/src/idempotency';
-import { prisma } from '../../database';
+import { prisma, writeNotification } from '../../database';
 import { DecisionEngine, DEFAULT_MERCHANT_POLICY } from '../../policies/src';
 import type { MerchantPolicy } from '../../policies/src';
 import { getInterventionLift } from '../../policies/src/intervention-lifts';
@@ -673,6 +673,18 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
         },
       });
 
+      if (skipExecution || decision.decision.requiresApproval) {
+        await writeNotification(prisma, {
+          merchantId: revenueCase.merchantId,
+          type: 'action_approval_required',
+          severity: 'warning',
+          title: 'Recovery action needs approval',
+          message: `Case ${revenueCase.ref ?? revenueCase.id.slice(-6)} is ${(revenueCase.amountAtRisk / 100).toLocaleString('en-IN')} at risk and has a proposed action queueing for review.`,
+          entityType: 'RevenueCase',
+          entityId: revenueCase.id,
+        });
+      }
+
       // Autonomous execution when approved-by-policy and policy allows it.
       // simulated flag comes from the ingestion source: webhook events in
       // live mode, Razorpay API syncs are REAL; demo-lab/upload events are
@@ -1294,6 +1306,19 @@ async function verifyOutcome(payload: any): Promise<JobResult> {  const { action
       },
     });
 
+    // ── In-app notification for the outcome ──────────────────────────────────
+    await writeNotification(prisma, {
+      merchantId: revenueCase.merchantId,
+      type: willRecover ? 'recovery_recovered' : 'recovery_failed',
+      severity: willRecover ? 'success' : 'danger',
+      title: willRecover ? 'Payment recovered' : 'Recovery attempt failed',
+      message: willRecover
+        ? `Recovered ${(recoveredAmount / 100).toLocaleString('en-IN')} from payment ${revenueCase.transactionId.slice(-6)}`
+        : `Could not recover payment ${revenueCase.transactionId.slice(-6)} — the attempt did not convert.`,
+      entityType: 'RevenueCase',
+      entityId: revenueCase.id,
+    });
+
     // ── Log production training data for continuous retraining ────────────────
     // After each verified outcome, record the features + label so the model
     // can be retrained on real production data.
@@ -1519,6 +1544,16 @@ async function processCheckoutRecovery(payload: any): Promise<JobResult> {
       return { success: true, result: { sessionId: session.id, alreadyRecovered: true } };
     }
 
+    await writeNotification(prisma, {
+      merchantId: session.merchantId,
+      type: 'checkout_recovery',
+      severity: 'info',
+      title: 'Checkout recovery in progress',
+      message: `An abandoned checkout worth ${(session.amount / 100).toLocaleString('en-IN')} has a recovery queued via ${session.recoveryChannel ?? 'a configured channel'}.`,
+      entityType: 'CheckoutSession',
+      entityId: session.id,
+    });
+
     return {
       success: true,
       result: {
@@ -1573,6 +1608,16 @@ async function processReceivablesChase(payload: any): Promise<JobResult> {
         } as any,
         createdAt: now,
       },
+    });
+
+    await writeNotification(prisma, {
+      merchantId: invoice.merchantId,
+      type: 'invoice_chased',
+      severity: 'info',
+      title: 'Invoice reminder sent',
+      message: `Chase sent to ${invoice.customerName ?? 'customer'} for invoice ${invoice.invoiceNumber} (${(invoice.amount / 100).toLocaleString('en-IN')}).`,
+      entityType: 'Invoice',
+      entityId: invoice.id,
     });
 
     return {
@@ -1633,6 +1678,15 @@ async function processPromiseCheck(payload: any): Promise<JobResult> {
             } as any,
             createdAt: now,
           },
+        });
+        await writeNotification(prisma, {
+          merchantId: promise.merchantId,
+          type: 'promise_broken',
+          severity: 'warning',
+          title: 'Promise to pay was broken',
+          message: `A promise of ${(promise.promisedAmount / 100).toLocaleString('en-IN')} for ${promise.customerEmail ?? 'a customer'} has been marked broken — escalation recommended.`,
+          entityType: 'PromiseToPay',
+          entityId: promise.id,
         });
         return {
           success: true,
