@@ -82,10 +82,10 @@ Demo sign-in: `owner@revenuepulse.dev` / `demo1234`
 
 Latest run (committed in `evidence/batch-report.json`):
 
-- 500 failed payments ingested, 500 diagnosed, 500 decided & executed, **500 outcomes verified**, 296 recovered.
-- Total at risk **₹25.5L** → gross **₹15.3L recovered (59.9% by amount)**, measured action cost ₹165.
-- **RevenuePulse net ₹15.28L vs retry-everything net ₹13.23L → +₹2.05L uplift**, and vs ₹0 for no intervention.
-- The retry-all baseline runs through the **same seeded ground-truth simulator** — not an expected-value shortcut, so the comparison is honest.
+- 500 failed payments ingested, 500 diagnosed, 500 decided & executed, **500 outcomes verified**, 309 recovered.
+- Total at risk **₹25.5L** → gross **₹16.0L recovered (62.7% by amount)**, measured action cost ₹165.
+- **RevenuePulse net ₹16.0L vs retry-everything net ₹13.0L → +₹3.01L uplift**, and vs ₹0 for no intervention.
+- The retry-all baseline runs through the **same seeded ground-truth simulator** — not an expected-value shortcut, so the comparison is honest. Every stage of the batch is seeded and the model artifact is pinned, so re-running `demo:500` reproduces these exact numbers.
 
 ```powershell
 # Reproduce from a clean-state DB (starts ML service on :8001, seeds, runs 500 cases)
@@ -134,7 +134,7 @@ PDF imports use heuristic line parsing (currency-marked amounts + status keyword
 - Model (v4): **logistic regression with isotonic calibration** — it won an honest head-to-head against histogram gradient boosting on held-out ROC-AUC (0.774 vs 0.771; the boosting candidate must win by >0.01 to displace the transparent baseline). Both scores are published in `services/ml/metrics.json` under `model_selection`.
 - Training data is **synthetic but industry-calibrated**: 80,769 intervention outcomes whose generative process matches published 2025–26 subscription-recovery benchmarks — insufficient funds 55–70% recovery with timed retries, expired cards ~40% only with card-update outreach (and ~26% of failure volume), transient issuer/network errors up to 78%, voluntary cancellations <10%, blended smart-dunning tier 65–75%. Sources: Recurly Research, Stripe decline-code encyclopedia, SaaS Payment Failure Report 2026 (linked in `metrics.json → benchmark_sources`).
 - Labels mean "a retry-style intervention eventually recovered this payment". Held-out metrics live in `services/ml/metrics.json` and are exposed verbatim at `GET /model-info` and on the dashboard's model strip.
-- Measured 500-case result: **gross ₹15.3L of ₹25.5L at-risk money (59.9%) recovered vs ₹13.2L (51.9%) under retry-everything (+₹2.05L net uplift)** with zero actions stuck awaiting approval — reported in `evidence/batch-report.json`.
+- Measured 500-case result: **gross ₹16.0L of ₹25.5L at-risk money (62.7%) recovered vs ₹13.0L (51.0%) under retry-everything (+₹3.01L net uplift)** with zero actions stuck awaiting approval — reported in `evidence/batch-report.json`. Fully reproducible: seeded cohort, stable per-payment tx-ids, seeded outcome draws, pinned model artifact.
 
 ## Import template
 
@@ -177,5 +177,6 @@ npm test
 | `RP_DEMO_FALLBACK` | on in dev, **off in production** | `1` allows the anonymous demo tenant in production; `0` forces it off everywhere |
 | `ML_SERVICE_URL` | `http://127.0.0.1:8001` | FastAPI service serving `model.joblib`; pipeline fails loudly without it |
 | `ML_INTERNAL_TOKEN` | — | Shared secret the web/worker send to ML admin endpoints; ML service fails closed (503) without it |
+| `RP_AUTO_RETRAIN` | off | `1` enables background auto-retrain every 25 verified outcomes; default off keeps the demo/evidence reproducible against the pinned artifact |
 | `GEMINI_API_KEY` / `_2` / `_3` | — | Gemini keys for the LLM reasoning layer (tried in order, failover on error) |
 | `GROQ_API_KEY` / `_2` | — | Groq keys for the LLM reasoning layer (tried in order, failover on error) |

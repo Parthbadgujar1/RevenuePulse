@@ -53,10 +53,12 @@ pipeline after each verified outcome) and re-fits on demand.
 
 Seed 20260823, **500 synthetic failures** (~₹25.5L at risk) through the real
 production pipeline (committed in `evidence/batch-report.json`): RevenuePulse
-recovers **gross ₹15.3L (59.9%)**, **net +₹2.05L vs retry-everything**
-(₹15.28L vs ₹13.23L net; the no-intervention baseline is ₹0). Funnel: 500
-diagnosed → 500 decided → 500 executed → 500 outcomes verified → 296 recovered;
-zero stopped by policy, zero awaiting approval.
+recovers **gross ₹16.0L (62.7%)**, **net +₹3.01L vs retry-everything**
+(₹16.02L vs ₹13.00L net; the no-intervention baseline is ₹0). Funnel: 500
+diagnosed → 500 decided → 500 executed → 500 outcomes verified → 309 recovered;
+zero stopped by policy, zero awaiting approval. Re-running `npm run demo:500`
+reproduces these numbers exactly (seeded cohort, stable tx-ids, seeded
+ground-truth draws, pinned model artifact).
 
 To reproduce:
 

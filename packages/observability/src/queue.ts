@@ -535,7 +535,12 @@ async function evaluateRecovery(payload: any): Promise<JobResult> {
         ),
         lastAttemptAt: revenueCase.lastAttemptAt ?? null,
         customerDeclined:
-          revenueCase.stoppedReason === 'customer_declined' || Boolean((revenueCase as any).customerDeclined),
+          revenueCase.stoppedReason === 'customer_declined' ||
+          // A customer_cancellation diagnosis IS the customer walking away —
+          // respect it via the stopOnCustomerDecline guardrail instead of
+          // chasing a declined payment.
+          category === 'customer_cancellation' ||
+          Boolean((revenueCase as any).customerDeclined),
         repeatedFailures: revenueCase.attemptCount >= 3,
       }
     );
@@ -1402,11 +1407,16 @@ async function verifyOutcome(payload: any): Promise<JobResult> {  const { action
     }
 
     // ── Periodic retrain trigger ──────────────────────────────────────────────
-    // After every 25 verified outcomes, trigger a background retrain check.
-    const g = globalThis as unknown as { __rpOutcomeCounter?: number };
-    g.__rpOutcomeCounter = (g.__rpOutcomeCounter ?? 0) + 1;
-    if (g.__rpOutcomeCounter % 25 === 0) {
-      triggerRetrain().catch(() => {});
+    // After every 25 verified outcomes, optionally trigger a background retrain
+    // check. OFF by default so the demo/evidence pipeline stays fully
+    // reproducible against the pinned committed artifact — set RP_AUTO_RETRAIN=1
+    // to enable continuous self-improving retrains in a production deployment.
+    if (process.env.RP_AUTO_RETRAIN === '1') {
+      const g = globalThis as unknown as { __rpOutcomeCounter?: number };
+      g.__rpOutcomeCounter = (g.__rpOutcomeCounter ?? 0) + 1;
+      if (g.__rpOutcomeCounter % 25 === 0) {
+        triggerRetrain().catch(() => {});
+      }
     }
 
     return {

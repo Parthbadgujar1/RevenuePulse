@@ -153,7 +153,12 @@ export const INTERVENTIONS: Record<InterventionType, InterventionDefinition> = {
   },
   [InterventionType.CHECKOUT_RECOVERY]: {
     type: InterventionType.CHECKOUT_RECOVERY,
-    prerequisites: (ctx) => false, // not implemented in MVP
+    // Checkout recovery targets abandoned one-time checkouts (not subscription
+    // renewals). It is not a generic auto-retry: it is scheduled by the
+    // dedicated checkout-recovery path (JobType.CHECKOUT_RECOVERY), so the
+    // generic DecisionEngine only considers it for non-subscription cases with
+    // meaningful value and a realistic chance to convert.
+    prerequisites: (ctx) => !ctx.features.isSubscription && ctx.probability >= 0.2 && ctx.amount >= 5000,
     expectedCost: 75,
     maxAttempts: 1,
     cooldownHours: 0,

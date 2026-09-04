@@ -35,6 +35,7 @@ const FAILURE_TYPES: Array<{ code: string; desc: string; method: string }> = [
   { code: 'CARD_EXPIRED', desc: 'Card expired', method: 'card' },
   { code: 'TIMEOUT', desc: 'Network connection timeout', method: 'upi' },
   { code: 'REPEATED_ATTEMPT', desc: 'Repeated failure detected', method: 'wallet' },
+  { code: 'CUSTOMER_CANCELLED', desc: 'Customer cancelled the payment', method: 'card' },
 ];
 
 const RETRY_COST_PAISE = 200;

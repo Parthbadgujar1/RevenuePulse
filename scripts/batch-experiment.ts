@@ -14,6 +14,7 @@ import { processJob, JobType, GROUND_TRUTH_BASE_RATES, simulateGroundTruthOutcom
 
 const N = Number(process.argv[2] || 500);
 const MERCHANT_ID = 'demo-merchant';
+const SEED = 20260823;
 
 const FAILURE_MIX: Array<{ code: string; desc: string; method: string }> = [
   { code: 'INSUFFICIENT_FUNDS', desc: 'Insufficient funds in account', method: 'card' },
@@ -34,7 +35,7 @@ function mulberry32(seed: number) {
 }
 
 async function main() {
-  const rng = mulberry32(20260823);
+  const rng = mulberry32(SEED);
   await ensureDemoMerchant(prisma);
 
   // 0. Clean slate for this merchant's experiment
@@ -52,7 +53,10 @@ async function main() {
   let processed = 0;
   for (let i = 0; i < N; i++) {
     const f = FAILURE_MIX[Math.floor(rng() * FAILURE_MIX.length)];
-    const providerTransactionId = `batch_${Date.now()}_${i}`;
+    // Stable provider transaction id (dataset + index) so the seeded outcome
+    // draws use the SAME key on every re-run — this is what makes the whole
+    // experiment reproducible (mirrors the demo-lab dataset prefix).
+    const providerTransactionId = `batch_${SEED}_${i}`;
     const rawEvent = {
       event: 'payment_failed',
       data: {
@@ -86,6 +90,7 @@ async function main() {
       webhookEventId: webhookRow.id,
       source: 'batch-experiment',
       simulated: true,
+      groundTruthSeed: SEED,
     });
     if (!result.success) {
       console.error(`event ${i} failed:`, result.error);
@@ -111,7 +116,9 @@ async function main() {
 
   // 3. Measure results from the database
   const [cases, actions, outcomes] = await Promise.all([
-    prisma.revenueCase.findMany(),
+    prisma.revenueCase.findMany({
+      include: { transaction: { select: { providerTransactionId: true } } },
+    }),
     prisma.recoveryAction.findMany(),
     prisma.outcome.findMany(),
   ]);
@@ -135,7 +142,14 @@ async function main() {
   const RETRY_COST_PAISE = 200; // per retry
   let retryAllRecovered = 0;
   let retryAllCost = 0;
-  for (const c of cases) {
+  // Iterate in a STABLE order (by provider transaction id) so the seeded
+  // mulberry32 draws align with the same cases on every re-run.
+  const orderedCases = [...cases].sort((a, b) =>
+    String((a as any).transaction?.providerTransactionId).localeCompare(
+      String((b as any).transaction?.providerTransactionId)
+    )
+  );
+  for (const c of orderedCases) {
     const cat =
       ((c.diagnosis as Record<string, unknown>)?.primaryCategory as string) || 'unknown';
     const p = simulateGroundTruthOutcome(cat, 'retry_later', 0);
@@ -182,7 +196,7 @@ async function main() {
       seed: 20260823,
       runAt: new Date().toISOString(),
       pipeline: 'Production pipeline (queue.ts processJob → evaluateRecovery → dispatchLiveAction → verifyOutcome)',
-      determinism: 'Seeded RNG (mulberry32) — reproducible',
+      determinism: 'Fully reproducible: seeded cohort (mulberry32), stable provider-txid keys, seeded ground-truth draws, pinned model artifact',
       mode: 'simulated',
     },
     funnel: {

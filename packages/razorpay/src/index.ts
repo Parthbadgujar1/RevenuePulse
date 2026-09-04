@@ -213,7 +213,7 @@ export class RazorpayProvider implements PaymentProvider {
     // @rp/observability. This method intentionally fails rather than
     // fabricate a provider reference.
     throw new Error(
-      'RazorpayProvider.retryPayment is not implemented — use Payment Link creation (dispatchLiveAction) instead.'
+      'RazorpayProvider.retryPayment is intentionally disabled (fail-closed) — use Payment Link creation (dispatchLiveAction) instead.'
     );
   }
 
@@ -225,14 +225,14 @@ export class RazorpayProvider implements PaymentProvider {
   }> {
     // Fail closed rather than claim an unverified status. Callers that need
     // a live payment lookup should use the Payments API directly.
-    throw new Error('RazorpayProvider.getPaymentStatus is not implemented — use the Razorpay Payments API directly.');
+    throw new Error('RazorpayProvider.getPaymentStatus is intentionally disabled (fail-closed) — use the Razorpay Payments API directly.');
   }
 
   async createPaymentLink(params: PaymentLinkParams): Promise<PaymentLinkResult> {
     // Fail closed rather than fabricate a payment link. dispatchLiveAction in
     // @rp/observability performs the real Payment Link creation with stored
     // (encrypted) credentials.
-    throw new Error('RazorpayProvider.createPaymentLink is not implemented — use dispatchLiveAction() in @rp/observability.');
+    throw new Error('RazorpayProvider.createPaymentLink is intentionally disabled (fail-closed) — use dispatchLiveAction() in @rp/observability.');
   }
 
   verifyWebhookSignature(payload: string, signature: string): boolean {

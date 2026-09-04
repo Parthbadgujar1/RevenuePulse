@@ -15,13 +15,22 @@ and then step-by-step exploration of the dashboard.
 ## One command
 
 ```powershell
-npm run demo
+npm run demo:500
 ```
 
-This runs: schema push + Prisma generate → generate synthetic ML data → train
-the model → seed demo data → run the 100-case seeded batch experiment and print
-the funnel + money + strategy comparison. It reproduces the headline numbers
-(gross ₹3.36L / 67.1% vs 47.2% retry-all, +₹99.5k uplift).
+This runs: schema push + Prisma generate → seed demo data → run the **500-case**
+seeded batch experiment and print the funnel + money + strategy comparison. It
+is fully deterministic and reproduces the headline numbers — gross ₹16.0L of
+₹25.5L at risk (62.7%) vs ₹13.0L (51.0%) under retry-everything, **net +₹3.01L
+uplift** — and writes the machine-readable report to `evidence/batch-report.json`.
+
+The ML model is served from the committed artifact (`baseline-recovery-v4.0.1`,
+trained on 80,769 intervention outcomes). Re-train it explicitly when needed:
+`npm run ml:train` (regenerates synthetic data + retrains, bumping the model
+version and updating `services/ml/metrics.json`).
+
+(For a quick 100-case smoke run: `npm run demo` — same pipeline, smaller
+cohort.)
 
 ## Full interactive demo
 

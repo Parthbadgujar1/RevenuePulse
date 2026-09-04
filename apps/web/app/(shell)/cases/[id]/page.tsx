@@ -16,6 +16,7 @@ import ApproveButton from '../../../../components/approve-button';
 import AdminActions from '../../../../components/admin-actions';
 import VerifyOutcomeButton from '../../../../components/verify-outcome-button';
 import RetryScheduleViewer from '../../../../components/retry-schedule-viewer';
+import AiDecisionCard from '../../../../components/ai-decision-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,7 @@ const ACTION_LABELS: Record<string, { label: string; icon: string }> = {
   failure_diagnosed: { label: 'Diagnosed the failure', icon: '🔍' },
   recovery_predicted: { label: 'AI estimated recovery chance', icon: '🧠' },
   recovery_decision_made: { label: 'AI chose next step', icon: '⚖️' },
+  agent_orchestrated: { label: 'AI reasoned about recovery', icon: '🤖' },
   action_approved: { label: 'You approved the action', icon: '👤' },
   recovery_action_executed: { label: 'Recovery action ran', icon: '⚡' },
   recovery_outcome_verified: { label: 'Result confirmed', icon: '✅' },
@@ -125,6 +127,41 @@ export default async function CaseDetailPage({
     revenueCase.attemptCount,
     MAX_ATTEMPTS,
   );
+
+  // The agent-orchestrated audit entry carries the AI's reasoning: the LLM
+  // provider/model (when a real LLM responded), the proposed action, and the
+  // rationale. The recovery action's policy snapshot carries the guardrail
+  // verdict. Both are rendered in the AI Recovery Decision card.
+  const agentLog = auditLogs.find((l) => l.action === 'agent_orchestrated') ?? null;
+  const agentEvidence = (agentLog?.evidence ?? {}) as Record<string, unknown>;
+  const llmInfo = (agentEvidence.llm ?? null) as
+    | { provider: string; model: string; succeeded: boolean }
+    | null;
+  const agentDiagnosis = (agentEvidence.diagnosis ?? null) as
+    | { category: string; confidence: number; evidence?: string[] }
+    | null;
+  // DO_NOTHING cases never create a recovery action, so the guardrail verdict
+  // comes from the decision engine's audit entry (policyResult) instead.
+  const decisionLog = auditLogs.find((l) => l.action === 'recovery_decision_made') ?? null;
+  const decisionPolicy = ((decisionLog as any)?.policyResult ?? null) as
+    | { allowed?: boolean; violations?: string[]; stoppingRuleTriggered?: boolean }
+    | null;
+  const actionSnapshot = (latestAction?.policySnapshot ?? null) as
+    | {
+        probability?: number;
+        rationale?: string;
+        violations?: string[];
+        stoppingRuleTriggered?: boolean;
+        blockedAlternatives?: Array<{ action: string; reason: string }>;
+      }
+    | null;
+  const violations =
+    actionSnapshot?.violations ?? decisionPolicy?.violations ?? [];
+  const aiCardActionSnapshot = actionSnapshot ?? {
+    rationale: decisionLog?.reason ?? '',
+    violations,
+    stoppingRuleTriggered: !!decisionPolicy?.stoppingRuleTriggered,
+  };
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -290,9 +327,33 @@ export default async function CaseDetailPage({
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-5">
         {/* Left column: AI insight */}
         <section className="lg:col-span-3">
+          {/* AI Recovery Decision — the full reasoning chain */}
+          <AiDecisionCard
+            diag={diag}
+            prediction={
+              prediction
+                ? {
+                    probability: prediction.probability,
+                    confidence: prediction.confidence,
+                    modelVersion: prediction.modelVersion,
+                  }
+                : null
+            }
+            agentEntry={{
+              reason: agentLog?.reason ?? '',
+              diagnosis: agentDiagnosis ?? undefined,
+              proposedAction: (agentEvidence.proposedAction as string) ?? undefined,
+              finalDecision: (agentEvidence.finalDecision as string) ?? undefined,
+              policyAllowed: (agentEvidence.policyAllowed as boolean) ?? undefined,
+              violations,
+              llm: llmInfo ?? undefined,
+            }}
+            actionSnapshot={aiCardActionSnapshot}
+          />
+
           {/* AI suggestion — plain language */}
           {whatAiSuggests && (
-            <div className="mb-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+            <div className="mb-3 mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-emerald-400">AI recommendation</p>
               <p className="mt-1 text-sm text-emerald-900">{whatAiSuggests}</p>
               <p className="mt-1 text-xs text-emerald-400">
@@ -402,6 +463,25 @@ export default async function CaseDetailPage({
                 label: log.action.replace(/_/g, ' '),
                 icon: '•',
               };
+              const llmBadge =
+                log.action === 'agent_orchestrated'
+                  ? (() => {
+                      const ev = (log.evidence ?? {}) as { llm?: { provider?: string; succeeded?: boolean } };
+                      const llm = ev.llm;
+                      if (llm?.succeeded && llm.provider) {
+                        return (
+                          <span className="mt-1 inline-block rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-semibold text-purple-300">
+                            {llm.provider === 'gemini' ? 'Gemini' : llm.provider === 'groq' ? 'Groq' : llm.provider}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="mt-1 inline-block rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                          deterministic
+                        </span>
+                      );
+                    })()
+                  : null;
               return (
                 <li key={log.id} className="relative">
                   <span className="absolute -left-[27px] flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-xs ring-2 ring-emerald-500/30">
@@ -409,6 +489,7 @@ export default async function CaseDetailPage({
                   </span>
                   <p className="text-sm font-medium text-slate-100">{meta.label}</p>
                   <p className="text-xs text-slate-400">{log.reason}</p>
+                  {llmBadge}
                   <p className="mt-0.5 text-xs text-slate-500">
                     {new Date(log.createdAt).toLocaleTimeString()} ·{' '}
                     {log.actorType === 'system' || log.actorType === 'agent' ? 'AI' : log.actorId}

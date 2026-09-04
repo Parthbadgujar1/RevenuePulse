@@ -123,7 +123,9 @@ The `DecisionEngine` (`packages/policies/src`) is deterministically authoritativ
 **same seeded ground-truth simulator** — so the comparison is honest, never circular.
 
 See `evidence/batch-report.json` (committed) for the latest 500-case run:
-gross ₹15.3L recovered of ₹25.5L at risk (59.9%), net +₹2.05L vs retry-everything.
+gross ₹16.0L recovered of ₹25.5L at risk (62.7%), net +₹3.01L vs retry-everything.
+Re-running `demo:500` reproduces these numbers exactly (seeded cohort, stable
+per-payment tx-ids, seeded outcome draws, pinned model artifact).
 
 ## 5. Deployment
 

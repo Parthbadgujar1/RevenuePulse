@@ -23,8 +23,8 @@
     "experiment": "tsx scripts/batch-experiment.ts 100",
     "experiment:500": "tsx scripts/batch-experiment.ts 500",
     "seed": "tsx scripts/seed-demo-data.ts",
-    "demo": "prisma db push && prisma generate && python services/ml/data/generate_synthetic.py && python services/ml/train_baseline.py && tsx scripts/seed-demo-data.ts && tsx scripts/batch-experiment.ts 100",
-    "demo:500": "prisma db push && prisma generate && python services/ml/data/generate_synthetic.py && python services/ml/train_baseline.py && tsx scripts/seed-demo-data.ts && tsx scripts/batch-experiment.ts 500"
+    "demo": "prisma db push && prisma generate && tsx scripts/seed-demo-data.ts && tsx scripts/batch-experiment.ts 100",
+    "demo:500": "prisma db push && prisma generate && tsx scripts/seed-demo-data.ts && tsx scripts/batch-experiment.ts 500"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

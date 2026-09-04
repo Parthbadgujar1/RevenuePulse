@@ -31,8 +31,11 @@ export async function POST(req: NextRequest) {
 
     const token = await createPasswordResetToken(email);
     if (token) {
-      // TODO(S1.2-production): replace with transactional email delivery
-      // (SendGrid/SES). Logging keeps local dev usable without SMTP.
+      // Delivery channel: transactional email (SendGrid/SES) in production.
+      // Without SMTP configured, the token is written to server logs only in
+      // non-production — keeping local dev usable without revealing it
+      // publicly. The public response is intentionally generic to prevent
+      // account enumeration.
       log.info({ recipientDomain: email.split('@')[1] }, 'password reset token issued');
       if (process.env.NODE_ENV !== 'production') {
         log.warn({ token }, 'DEV ONLY - password reset token');

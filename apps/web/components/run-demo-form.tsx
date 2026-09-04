@@ -12,6 +12,7 @@ const FAILURE_OPTIONS = [
   { code: 'CARD_EXPIRED', label: 'Expired Payment Method' },
   { code: 'AUTH_ERROR', label: 'Authentication Failure' },
   { code: 'REPEATED_ATTEMPT', label: 'Repeated Failure' },
+  { code: 'CUSTOMER_CANCELLED', label: 'Customer Cancelled' },
 ];
 
 const PRESETS: Record<string, string[]> = {
@@ -19,6 +20,7 @@ const PRESETS: Record<string, string[]> = {
   'Insufficient Funds Recovery': ['INSUFFICIENT_FUNDS', 'TIMEOUT'],
   'Authentication Failure': ['AUTH_ERROR', 'CARD_EXPIRED'],
   'Network Timeout': ['TIMEOUT', 'RA0014'],
+  'Customer Declined — AI says NO': ['CUSTOMER_CANCELLED'],
 };
 
 interface StageState {
@@ -150,6 +152,13 @@ export default function RunDemoForm() {
             </button>
           ))}
         </div>
+        <p className="mt-2 text-[11px] text-slate-500">
+          Tip: run <span className="text-slate-300">“Customer Declined — AI says NO”</span> to see the
+          agent diagnose a cancelled payment and deliberately <span className="text-slate-300">DO NOTHING</span> — a
+          stopped case whose AI Recovery Decision card shows why chasing it would be uneconomic
+          (customer walked away, worst recovery odds). Every case page now renders the full AI
+          decision: diagnosis → ML probability → recommendation → policy verdict → final action.
+        </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div>
