@@ -22,5 +22,7 @@ COPY services/ml/drift.py ./drift.py
 WORKDIR /app/src
 EXPOSE 8000
 ENV RECOVERY_MODEL_PATH=/app/model/model.joblib
+ENV PORT=8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form so $PORT is expanded — Railway assigns its own port per service.
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT}

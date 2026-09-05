@@ -31,11 +31,38 @@ const ALL_INTERVENTIONS = [
   { value: 'human_escalation', label: 'Human escalation' },
 ];
 
+interface SimulationAggregate {
+  cases: number;
+  byAction: Record<string, number>;
+  requiresApproval: number;
+  stoppedByPolicy: number;
+  projectedNetRecovery: number;
+  projectedActions: number;
+}
+
+interface SimulationResult {
+  sampled: number;
+  evaluated: number;
+  current: SimulationAggregate;
+  candidate: SimulationAggregate;
+  delta: {
+    projectedNetRecovery: number;
+    requiresApproval: number;
+    stoppedByPolicy: number;
+    projectedActions: number;
+  };
+  flippedCases: { caseRef: string | null; from: string; to: string; amount: number }[];
+  flippedCount: number;
+}
+
 export default function PolicyForm() {
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [hasOverrides, setHasOverrides] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [simulating, setSimulating] = useState(false);
+  const [simError, setSimError] = useState<string | null>(null);
+  const [simulation, setSimulation] = useState<SimulationResult | null>(null);
 
   useEffect(() => {
     fetch('/api/settings/policy')
@@ -99,12 +126,39 @@ export default function PolicyForm() {
       } else {
         setPolicy(d.effectivePolicy);
         setHasOverrides(true);
+        setSimulation(null);
         setMessage({ ok: true, text: 'Policy saved — applied to every new decision immediately.' });
       }
     } catch {
       setMessage({ ok: false, text: 'Network error while saving.' });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function simulate() {
+    if (!policy) return;
+    setSimulating(true);
+    setSimError(null);
+    try {
+      const res = await csrfFetch('/api/settings/policy/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ policy, sampleSize: 200 }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        const details = Array.isArray(d.details) ? ` (${d.details.join('; ')})` : '';
+        setSimError(`${d.error ?? 'Simulation failed'}${details}`);
+        setSimulation(null);
+      } else {
+        setSimulation(d);
+      }
+    } catch {
+      setSimError('Network error while simulating.');
+      setSimulation(null);
+    } finally {
+      setSimulating(false);
     }
   }
 
@@ -122,6 +176,7 @@ export default function PolicyForm() {
       if (res.ok) {
         setPolicy(d.effectivePolicy);
         setHasOverrides(false);
+        setSimulation(null);
         setMessage({ ok: true, text: 'Restored platform defaults.' });
       } else {
         setMessage({ ok: false, text: d.error ?? 'Reset failed' });
@@ -271,13 +326,20 @@ export default function PolicyForm() {
         </div>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={save}
           disabled={saving || !policy}
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save policy'}
+        </button>
+        <button
+          onClick={simulate}
+          disabled={simulating || !policy}
+          className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-50"
+        >
+          {simulating ? 'Simulating…' : 'Simulate impact'}
         </button>
         {hasOverrides && (
           <button
@@ -290,6 +352,153 @@ export default function PolicyForm() {
         )}
         <span className="text-xs text-slate-500">Applied live — no redeploy needed.</span>
       </div>
+
+      <PolicySimulationPanel error={simError} result={simulation} />
+    </div>
+  );
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  retry_later: 'Retry later',
+  timed_reminder: 'Timed reminder',
+  payment_method_recovery: 'Payment-method recovery',
+  checkout_recovery: 'Checkout recovery',
+  subscription_recovery: 'Subscription recovery',
+  human_escalation: 'Human escalation',
+  do_nothing: 'Do nothing',
+};
+
+function humanizeAction(action: string): string {
+  return ACTION_LABELS[action] ?? action;
+}
+
+function signed(n: number): string {
+  return n > 0 ? `+${n}` : String(n);
+}
+
+function signedInr(paise: number): string {
+  const sign = paise > 0 ? '+' : paise < 0 ? '−' : '';
+  return `${sign}${inr(Math.abs(paise))}`;
+}
+
+function PolicySimulationPanel({
+  error,
+  result,
+}: {
+  error: string | null;
+  result: SimulationResult | null;
+}) {
+  if (error) {
+    return (
+      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+        {error}
+      </div>
+    );
+  }
+  if (!result) return null;
+
+  if (result.evaluated === 0) {
+    return (
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">
+        No scored cases yet to simulate against — run a Demo Lab batch or bring in real payment
+        data first, then preview policy changes here.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-5">
+      <p className="text-sm font-semibold text-slate-100">
+        What-if preview — replayed against your last {result.evaluated} scored cases
+      </p>
+      <p className="mt-1 text-xs text-slate-400">
+        Read-only: the decision engine re-runs on real, already-recorded predictions. Nothing is
+        executed or saved until you click &quot;Save policy&quot;.
+      </p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <SimStat
+          label="Projected net recovery"
+          value={signedInr(result.delta.projectedNetRecovery)}
+          positiveIsGood
+          delta={result.delta.projectedNetRecovery}
+        />
+        <SimStat
+          label="Cases needing approval"
+          value={signed(result.delta.requiresApproval)}
+          positiveIsGood={false}
+          delta={result.delta.requiresApproval}
+        />
+        <SimStat
+          label="Stopped by policy"
+          value={signed(result.delta.stoppedByPolicy)}
+          positiveIsGood={false}
+          delta={result.delta.stoppedByPolicy}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <ActionMix title="Current policy" aggregate={result.current} />
+        <ActionMix title="Candidate policy" aggregate={result.candidate} />
+      </div>
+
+      {result.flippedCount > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            {result.flippedCount} case{result.flippedCount === 1 ? '' : 's'} would change action
+          </p>
+          <ul className="mt-2 space-y-1 text-xs text-slate-400">
+            {result.flippedCases.map((f, i) => (
+              <li key={i}>
+                {f.caseRef ?? 'case'} · {inr(f.amount)} · {humanizeAction(f.from)} →{' '}
+                <span className="text-blue-300">{humanizeAction(f.to)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SimStat({
+  label,
+  value,
+  delta,
+  positiveIsGood,
+}: {
+  label: string;
+  value: string;
+  delta: number;
+  positiveIsGood: boolean;
+}) {
+  const neutral = delta === 0;
+  const good = positiveIsGood ? delta > 0 : delta < 0;
+  const color = neutral ? 'text-slate-300' : good ? 'text-emerald-300' : 'text-amber-300';
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-1 text-lg font-semibold ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+function ActionMix({ title, aggregate }: { title: string; aggregate: SimulationAggregate }) {
+  const entries = Object.entries(aggregate.byAction).sort((a, b) => b[1] - a[1]);
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+      <p className="text-xs font-semibold text-slate-300">{title}</p>
+      <ul className="mt-2 space-y-1 text-xs text-slate-400">
+        {entries.map(([action, count]) => (
+          <li key={action} className="flex justify-between">
+            <span>{humanizeAction(action)}</span>
+            <span className="text-slate-300">{count}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 border-t border-slate-800 pt-2 text-xs text-slate-500">
+        {aggregate.requiresApproval} need approval · {aggregate.stoppedByPolicy} stopped
+      </p>
     </div>
   );
 }
