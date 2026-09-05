@@ -1,12 +1,17 @@
-# Railway Deployment Configuration for RevenuePulse.
+# Railway Deployment Configuration for RevenuePulse — this file configures
+# the **web** service (Railway reads railway.toml at the repo root for the
+# service whose Root Directory is "/"). The worker and ML service are
+# separate Railway services in the same project, built from their own
+# Dockerfiles (see the bottom of this file and README.md → Deploy).
 #
 # Stack: Next.js web + pg-boss worker (Node) + FastAPI ML service on top of
 # a single managed PostgreSQL instance. Redis is NOT used — the job queue and
 # all persistence live in Postgres (pg-boss).
 #
-# A minimal deploy can run everything inline in the web service
-# (RP_USE_QUEUE unset). For scale, deploy the `worker` and `ml` services too
-# and set the env vars shown below.
+# Minimal deploy: this "web" service alone, with RP_USE_QUEUE unset (runs the
+# pipeline inline) — see the two options in the ML_SERVICE_URL note below.
+# Full deploy: add the `worker` and `ml` services described below and set
+# RP_USE_QUEUE=1 on web + worker.
 
 [build]
   # Build the Next.js web app from the repo root (npm workspaces).
@@ -17,27 +22,51 @@
   startCommand = "npx prisma db push && node apps/web/.next/standalone/apps/web/server.js"
   healthcheckPath = "/api/health"
   healthcheckTimeout = 120
+  restartPolicyType = "ON_FAILURE"
+  restartPolicyMaxRetries = 3
 
-# Environment variables (set these in the Railway dashboard as secrets)
-#   DATABASE_URL            — Railway-managed PostgreSQL connection string
-#   NEXTAUTH_URL            — https://<your-app>.upstash.app or your domain
-#   NEXTAUTH_SECRET         — openssl rand -base64 32
-#   ML_SERVICE_URL          — URL of the ML service (http://ml:8000 or the
-#                             Railway `.railway.internal` hostname)
-#   ML_INTERNAL_TOKEN       — shared secret the worker sends to the ML service
-#   GEMINI_API_KEY[_2|_3]   — Gemini keys (multi-key failover, optional)
-#   GROQ_API_KEY[_2]        — Groq keys (multi-key failover, optional)
+# ── Environment variables for the "web" service ─────────────────────────────
+# Set these in the Railway dashboard → web service → Variables.
+#   DATABASE_URL          — Railway auto-injects this if you add a Postgres
+#                           plugin to the project and reference it as
+#                           ${{Postgres.DATABASE_URL}}
+#   NEXTAUTH_URL           — https://<your-app>.up.railway.app (or custom domain)
+#   NEXTAUTH_SECRET        — openssl rand -base64 32
+#   ML_SERVICE_URL         — http://ml.railway.internal:8000 if you deploy the
+#                            `ml` service below (private network — no public
+#                            hostname or TLS needed between Railway services
+#                            in the same project); otherwise omit and set
+#                            RP_ML_FALLBACK=heuristic for a quick demo deploy
+#                            with no Python service (dev-grade, not for real use)
+#   ML_INTERNAL_TOKEN      — shared secret; must match the `ml` service exactly
+#   RP_USE_QUEUE           — 1 to route pipeline jobs to the `worker` service
+#                            (leave unset to run the pipeline inline on web)
+#   GEMINI_API_KEY[_2|_3]  — Gemini keys (multi-key failover, optional)
+#   GROQ_API_KEY[_2]       — Groq keys (multi-key failover, optional)
+#   RAZORPAY_MODE          — demo (default) | live
+#   RAZORPAY_WEBHOOK_SECRET — required only when RAZORPAY_MODE=live
 
-# Optional: run the pipeline through the pg-boss worker instead of inline.
+# ── Deploy the ML service as a second Railway service (same repo) ──────────
+# New service → same GitHub repo → Settings:
+#   Builder:         Dockerfile
+#   Dockerfile Path: services/ml/Dockerfile
+#   Root Directory:  / (repo root — the Dockerfile COPYs services/ml/* itself)
+# Variables:
+#   ML_INTERNAL_TOKEN=<same value as the web service>
+# Railway assigns $PORT automatically; the Dockerfile's CMD already binds to it.
+# No public networking needed — web reaches it over the private
+# `<service-name>.railway.internal` hostname on the port Railway assigns.
+
+# ── Deploy the worker as a third Railway service (same repo, optional) ─────
+# New service → same GitHub repo → Settings:
+#   Builder:         Dockerfile
+#   Dockerfile Path: apps/worker/Dockerfile
+#   Root Directory:  / (repo root)
+# Variables:
+#   DATABASE_URL=${{Postgres.DATABASE_URL}}
+#   ML_SERVICE_URL=http://ml.railway.internal:8000
+#   ML_INTERNAL_TOKEN=<same value as web and ml>
 #   RP_USE_QUEUE=1
-
-# Deploy the ML service as a separate Railway service (Python):
-#   build:   cd services/ml && pip install -r requirements.txt
-#   start:   uvicorn src.main:app --host 0.0.0.0 --port $PORT
-#   env:     ML_INTERNAL_TOKEN=<same as web/worker>
-
-# Deploy the worker as a separate Railway service (Node):
-#   build:   npm install && cd packages/database && npx prisma generate
-#   start:   npx tsx apps/worker/index.ts
-#   env:     DATABASE_URL, ML_SERVICE_URL, ML_INTERNAL_TOKEN, RP_USE_QUEUE=1,
-#            GEMINI_API_KEY*, GROQ_API_KEY*
+#   GEMINI_API_KEY* / GROQ_API_KEY* (optional, same as web)
+# This service has no HTTP port — leave networking off; it just needs to
+# stay running (pg-boss long-polls Postgres for jobs).

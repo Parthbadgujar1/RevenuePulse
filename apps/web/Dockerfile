@@ -41,7 +41,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# Prisma 7 generates the client into packages/database/prisma/generated/
+# (not node_modules/.prisma) and Next's standalone trace inlines the
+# @rp/database workspace package into the server bundle directly, so no
+# extra node_modules copy is needed here — just the generated client
+# sources for anything that reads the schema/migrations at runtime.
 COPY --from=builder /app/packages/database/prisma ./packages/database/prisma
 
 EXPOSE 3000

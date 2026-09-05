@@ -96,19 +96,39 @@ npm run demo:500
 
 ## Deploy
 
-Containerized. Three images built from the monorepo root, orchestrated by `docker-compose.yml`:
+Three services, one shared PostgreSQL — no Redis required (the job queue is `pg-boss`, living entirely in Postgres):
 
 - **web** — Next.js `output: 'standalone'` (`apps/web/Dockerfile`)
-- **worker** — pg-boss job consumer (`apps/worker/Dockerfile`; optional — set `RP_USE_QUEUE=1` on the web process to route jobs to it)
+- **worker** — pg-boss job consumer (`apps/worker/Dockerfile`; optional — set `RP_USE_QUEUE=1` on web to route jobs to it, otherwise web runs the pipeline inline)
 - **ml** — FastAPI prediction service (`services/ml/Dockerfile`)
 
-No Redis is required: the job queue (pg-boss) and all persistence live in PostgreSQL. `ML_INTERNAL_TOKEN` must be set identically on the ML service and on any web/worker process that calls it (the service fails closed without it). LLM keys are optional (deterministic fallback otherwise).
+`ML_INTERNAL_TOKEN` must be set identically on the ML service and on every web/worker process that calls it (the service fails closed — 503 — without it). LLM keys are optional; the pipeline falls back to deterministic reasoning if none are set.
+
+### Docker Compose (local / any VM)
 
 ```powershell
 docker compose up -d --build   # db + ml + worker + web on :3000
 ```
 
-For Railway, see `railway.toml` (single-managed-Postgres topology; set `DATABASE_URL`, `NEXTAUTH_SECRET`, `ML_SERVICE_URL`, `ML_INTERNAL_TOKEN`, optional `GEMINI_API_KEY*` / `GROQ_API_KEY*`).
+### Railway
+
+The repo is Railway-ready as-is: [`railway.toml`](railway.toml) at the repo root configures the **web** service (Nixpacks build, Prisma migrate + standalone server on boot, `/api/health` healthcheck), and the ML/worker services deploy from their own committed Dockerfiles.
+
+1. **New Project → Deploy from GitHub repo**, pick this repo. Railway auto-detects `railway.toml` and creates the **web** service from it.
+2. **Add a PostgreSQL plugin** to the project (Railway provisions `DATABASE_URL` automatically).
+3. On the **web** service → *Variables*, set:
+   ```
+   DATABASE_URL=${{Postgres.DATABASE_URL}}
+   NEXTAUTH_URL=https://<your-app>.up.railway.app
+   NEXTAUTH_SECRET=<openssl rand -base64 32>
+   ```
+   Deploy once here for a working app with the pipeline running inline and no ML model — set `RP_ML_FALLBACK=heuristic` to unblock it, or continue to step 4 for the real model.
+4. **Add the `ml` service** (New Service → same repo → Settings: Builder = `Dockerfile`, Dockerfile Path = `services/ml/Dockerfile`, Root Directory = `/`). Set `ML_INTERNAL_TOKEN` to a shared secret. Railway assigns its own `$PORT`; the Dockerfile already binds to it.
+5. Back on **web**, set `ML_SERVICE_URL=http://<ml-service-name>.railway.internal:8000` and the same `ML_INTERNAL_TOKEN` — Railway services in one project reach each other over a private network, no public URL or extra TLS needed.
+6. *(Optional, for scale)* **Add the `worker` service** (Builder = `Dockerfile`, Dockerfile Path = `apps/worker/Dockerfile`, Root Directory = `/`) with `DATABASE_URL`, `ML_SERVICE_URL`, `ML_INTERNAL_TOKEN` and `RP_USE_QUEUE=1` — then set `RP_USE_QUEUE=1` on **web** too so jobs route to it instead of running inline.
+7. *(Optional)* LLM reasoning: set `GEMINI_API_KEY[_2|_3]` and/or `GROQ_API_KEY[_2]` on **web** (and **worker**, if deployed).
+
+Full variable reference, including the worker/ML Dockerfile paths, is documented inline in [`railway.toml`](railway.toml).
 
 ## Key endpoints
 
@@ -117,6 +137,7 @@ For Railway, see `railway.toml` (single-managed-Postgres topology; set `DATABASE
 - `POST /api/ingest` — multipart file import (CSV / XLSX / PDF). `dryRun=true` returns the auto-detected column mapping, failure/captured counts and estimated at-risk amount; `dryRun=false` runs every imported failure through the full pipeline
 - `POST /api/integrations/razorpay/sync` — pull recent payments from the Razorpay REST API using stored keys (key secret AES-256-GCM encrypted at rest)
 - `/dashboard` — KPIs, recovery funnel, money funnel, leakage by category, recent cases
+- `POST /api/settings/policy/simulate` — **policy what-if simulator**: replays the live `DecisionEngine` against the merchant's real, already-scored cases under a candidate policy (never the currently-saved one), with zero writes/executions. Powers the "Simulate impact" button on `/settings`, which shows the projected net-recovery delta, approval/stopping-volume change, and exactly which cases would flip action before a guardrail change is saved.
 - ML service: `POST /predict`, `GET /health`, `GET /model-info` (honest held-out metrics + limitations)
 
 ## Bring your own data

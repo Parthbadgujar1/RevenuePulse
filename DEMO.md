@@ -62,6 +62,15 @@ cohort.)
    enter `OUTCOME_PENDING` and resolve **only** from a real captured payment —
    nothing is simulated.
 
+6. **Preview a policy change before it goes live** — open **Policies**, edit any
+   guardrail (e.g. loosen the cooldown, raise the max retry count) and click
+   **Simulate impact**. The same `DecisionEngine` that gates every live
+   decision replays your last N scored cases under the current policy *and*
+   the candidate one — no case is touched, no action executes — and shows the
+   projected net-recovery delta, how many cases would newly need human
+   approval or get stopped, and exactly which cases flip action. Only click
+   **Save policy** once the preview looks right.
+
 ## Honesty notes
 
 - Demo (simulated) outcomes are drawn from an independent seeded
