@@ -36,7 +36,7 @@ In demo mode (`RAZORPAY_MODE=demo`, the default) unsigned webhooks are accepted 
 
 ## Getting started
 
-Prereqs: Node 20+, PostgreSQL 14+, Python 3.11+.
+Prereqs: Node 22.12+ (pg-boss and Prisma 7 both require it — see `.nvmrc`), PostgreSQL 14+, Python 3.11+.
 
 ```powershell
 # 1. Install deps

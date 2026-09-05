@@ -1,0 +1,8 @@
+# Pins the Nixpacks Node.js version for Railway's "web" service build.
+#
+# pg-boss@12 and Prisma 7 both require Node >=22.12 — package.json's
+# "engines" field states this too, but Nixpacks has been seen defaulting to
+# an older pinned nodejs_18 image regardless, so this file forces it
+# explicitly (belt-and-suspenders with .nvmrc / package.json#engines).
+[phases.setup]
+nixPkgs = ["nodejs_22", "openssl"]

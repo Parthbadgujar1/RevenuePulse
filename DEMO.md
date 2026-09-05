@@ -6,7 +6,7 @@ and then step-by-step exploration of the dashboard.
 
 ## Prerequisites
 
-- Node 20+ and PostgreSQL running locally (`DATABASE_URL` in `.env`, default
+- Node 22.12+ (pg-boss and Prisma 7 both require it) and PostgreSQL running locally (`DATABASE_URL` in `.env`, default
   `postgresql://postgres:password@localhost:5432/revenuepulse?schema=public`).
 - Python 3.10+ for the ML service (optional for the headless demo — the
   pipeline fails loudly without it, and `RP_ML_FALLBACK=heuristic` is available

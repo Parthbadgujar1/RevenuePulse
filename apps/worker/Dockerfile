@@ -2,7 +2,7 @@
 # RevenuePulse Worker (pg-boss job consumer) — build from repo root:
 #   docker build -t revenuepulse-worker -f apps/worker/Dockerfile .
 
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
 ENV NEXT_TELEMETRY_DISABLED=1
