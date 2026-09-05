@@ -2,7 +2,7 @@
 # RevenuePulse Web (Next.js standalone) — build from repo root:
 #   docker build -t revenuepulse-web -f apps/web/Dockerfile .
 
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
 ENV NEXT_TELEMETRY_DISABLED=1

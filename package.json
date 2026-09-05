@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "RevenuePulse - AI Revenue Recovery Platform",
   "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "workspaces": [
     "packages/*",
     "apps/*"
