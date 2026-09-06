@@ -32,6 +32,43 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
 }
 
 /**
+ * Idempotent upsert of the demo merchant + owner account. Shared by:
+ * - ensureDemoOwner() below, the lazy dev-only self-heal called from
+ *   authorize() (skipped entirely in production).
+ * - bootstrapDemoOwner(), an explicit admin action (see
+ *   POST /api/admin/bootstrap-demo) for deliberately seeding the same demo
+ *   login in a production environment that's meant to run as a public demo.
+ */
+async function upsertDemoOwner(): Promise<void> {
+  const merchant = await prisma.merchant.upsert({
+    where: { id: 'demo-merchant' },
+    update: {},
+    create: {
+      id: 'demo-merchant',
+      name: 'Demo Merchant',
+      currency: 'INR',
+      createdAt: new Date(),
+    },
+  });
+  const existing = await prisma.user.findUnique({
+    where: { email: DEMO_OWNER_EMAIL },
+  });
+  if (!existing) {
+    await prisma.user.create({
+      data: {
+        name: 'Demo Owner',
+        email: DEMO_OWNER_EMAIL,
+        passwordHash: await hashPassword(DEMO_OWNER_PASSWORD),
+        role: 'MERCHANT_OWNER',
+        status: 'active',
+        merchantId: merchant.id,
+        createdAt: new Date(),
+      },
+    });
+  }
+}
+
+/**
  * Ensure the demo merchant + owner account exist so local sign-in works
  * without a registration flow. Non-production only; lazily invoked from
  * authorize() so a fresh/reset database self-heals on first login attempt.
@@ -39,36 +76,22 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
 async function ensureDemoOwner(): Promise<void> {
   if (process.env.NODE_ENV === 'production') return;
   try {
-    const merchant = await prisma.merchant.upsert({
-      where: { id: 'demo-merchant' },
-      update: {},
-      create: {
-        id: 'demo-merchant',
-        name: 'Demo Merchant',
-        currency: 'INR',
-        createdAt: new Date(),
-      },
-    });
-    const existing = await prisma.user.findUnique({
-      where: { email: DEMO_OWNER_EMAIL },
-    });
-    if (!existing) {
-      await prisma.user.create({
-        data: {
-          name: 'Demo Owner',
-          email: DEMO_OWNER_EMAIL,
-          passwordHash: await hashPassword(DEMO_OWNER_PASSWORD),
-          role: 'MERCHANT_OWNER',
-          status: 'active',
-          merchantId: merchant.id,
-          createdAt: new Date(),
-        },
-      });
-    }
+    await upsertDemoOwner();
   } catch {
     // Database may be briefly unavailable during startup; authorize() will
     // surface a real error when a genuine login is attempted.
   }
+}
+
+/**
+ * Explicit, production-safe version of the same seed used by an authenticated
+ * admin action (never invoked automatically). Callers MUST gate this behind
+ * a secret — see apps/web/app/api/admin/bootstrap-demo/route.ts.
+ */
+export async function bootstrapDemoOwner(): Promise<{ email: string; merchantId: string }> {
+  await upsertDemoOwner();
+  const merchant = await prisma.merchant.findUniqueOrThrow({ where: { id: 'demo-merchant' } });
+  return { email: DEMO_OWNER_EMAIL, merchantId: merchant.id };
 }
 
 /**
