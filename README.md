@@ -1,5 +1,8 @@
 # RevenuePulse
 
+**🔗 Live demo:** [revenuepulse-production-5bef.up.railway.app](https://revenuepulse-production-5bef.up.railway.app)
+**🔑 Login:** `owner@revenuepulse.dev` / `demo1234` — a real, seeded account on the live deployment; sign in and explore, including running a demo recovery batch from the Demo Lab page.
+
 AI revenue-recovery platform for subscription businesses. RevenuePulse watches payment webhooks (Razorpay), diagnoses why each payment failed against a failure taxonomy, predicts recovery probability with a calibrated ML model, and orchestrates recovery actions — retries, reminders, instrument upgrades, human escalation — under per-merchant policy guardrails. Every action is executed, its outcome verified, and the recovered money measured.
 
 A short deep-dive on the genuine AI agent (ML predicts, LLM reasons, policy gates, executor acts) lives in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
