@@ -12,6 +12,17 @@
 # pipeline inline) — see the two options in the ML_SERVICE_URL note below.
 # Full deploy: add the `worker` and `ml` services described below and set
 # RP_USE_QUEUE=1 on web + worker.
+#
+# NOTE: this file's [build]/[deploy] tables reflect the Nixpacks path and are
+# kept for reference/portability, but the live web service on Railway is
+# currently configured via the dashboard to use the Dockerfile builder
+# (apps/web/Dockerfile) instead — Nixpacks is deprecated on Railway and its
+# auto-detected start command doesn't work for this monorepo layout. If you
+# reconnect this service to GitHub for auto-deploys, check Settings → Build
+# on the dashboard matches: Builder = Dockerfile, Dockerfile Path =
+# apps/web/Dockerfile, and Settings → Networking target port matches whatever
+# $PORT Railway assigns (check the deploy logs after the first build; the
+# Dockerfile's own ENV PORT=3000 default is overridden by Railway at runtime).
 
 [build]
   # Build the Next.js web app from the repo root (npm workspaces).
@@ -29,6 +40,14 @@
   healthcheckTimeout = 120
   restartPolicyType = "ON_FAILURE"
   restartPolicyMaxRetries = 3
+
+# Schema migrations: with the Dockerfile builder, the production image does
+# NOT include the `prisma` CLI (it's a devDependency, and the runner stage
+# only ships the standalone server + generated client) — do NOT add
+# `npx prisma db push` as a pre-deploy command, it will try to download a
+# fresh prisma version at deploy time and fail/time out. Instead, run it
+# manually when the schema changes:
+#   railway run npx prisma db push --schema packages/database/prisma/schema.prisma
 
 # ── Environment variables for the "web" service ─────────────────────────────
 # Set these in the Railway dashboard → web service → Variables.
