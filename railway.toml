@@ -16,7 +16,12 @@
 [build]
   # Build the Next.js web app from the repo root (npm workspaces).
   builder = "nixpacks"
-  buildCommand = "npm install && cd packages/database && npx prisma generate && cd ../../apps/web && npm run build"
+  # output: 'standalone' deliberately excludes .next/static and public/ from
+  # the standalone bundle (they're meant to be copied in separately, same as
+  # apps/web/Dockerfile does for the Docker path) — server.js looks for them
+  # as siblings of itself, so without this copy every /_next/static/* asset
+  # 404s and the deployed app renders unstyled.
+  buildCommand = "npm install && cd packages/database && npx prisma generate && cd ../../apps/web && npm run build && cp -r .next/static .next/standalone/apps/web/.next/static && cp -r public .next/standalone/apps/web/public"
 
 [deploy]
   startCommand = "npx prisma db push && node apps/web/.next/standalone/apps/web/server.js"
