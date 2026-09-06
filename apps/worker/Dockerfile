@@ -19,7 +19,7 @@ COPY packages/agent/package.json packages/agent/
 COPY packages/providers/package.json packages/providers/
 COPY packages/razorpay/package.json packages/razorpay/
 COPY apps/worker/package.json apps/worker/
-COPY jsconfig.json tsconfig.json turbo.json ./
+COPY tsconfig.json turbo.json ./
 RUN npm install
 
 # ── Build / generate Prisma client ─────────────────────────────────────────
@@ -38,7 +38,6 @@ COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/apps ./apps
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/tsconfig.json ./
-COPY --from=builder /app/jsconfig.json ./
 
 # The worker consumes from PostgreSQL via pg-boss. LP worker stays resident.
 CMD ["npx", "tsx", "apps/worker/index.ts"]

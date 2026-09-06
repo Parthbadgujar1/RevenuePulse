@@ -19,7 +19,7 @@ COPY packages/agent/package.json packages/agent/
 COPY packages/providers/package.json packages/providers/
 COPY packages/razorpay/package.json packages/razorpay/
 COPY apps/web/package.json apps/web/
-COPY jsconfig.json tsconfig.json turbo.json ./
+COPY tsconfig.json turbo.json ./
 RUN npm install
 
 # ── Builder (generate Prisma client + Next standalone) ─────────────────────
